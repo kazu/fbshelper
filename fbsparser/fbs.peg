@@ -1,0 +1,106 @@
+package fbsparser
+
+type Parser Peg {
+    Fbs
+}
+
+# read https://google.github.io/flatbuffers/flatbuffers_grammar.html
+
+schema <- include end_of_file /
+          include statment_decl+ end_of_file/
+          statment_decl+ end_of_file
+
+statment_decl <- namespace_decl /
+                 type_decl /
+                 enum_decl /
+                 root_decl /
+                 file_extension_decl /
+                 file_identifier_decl /
+                 attribute_decl /
+                 rpc_decl /
+                 only_comment
+
+
+namespace_decl <- 'namespace' spacing <[A-z0-9_.\-]+> {p.SetNameSpace(text)} ';' spacing
+
+include <- 'include' spacing ident comment ';' spacing
+
+type_decl <- type_label spacing typename spacing metadata* '{' field_decl+ '}' spacing {p.ExtractStruct()}
+
+type_label <- 'table' / 'struct'
+
+typename <- ident {p.SetTypeName(text)}
+
+metadata <- '(' <[^)]*> ')'
+
+
+field_decl <- spacing field_type ':' type metadata* ';' spacing {p.NewExtractField()} /
+              spacing field_type ':' type <[ \t]*> '=' <[ \t]*> scalar metadata* ';' spacing {p.NewExtractFieldWithValue()}
+
+field_type <- ident {p.FieldNaame(text)}
+
+enum_decl <- 'enum' spacing ident spacing metadata* '{' enum_fields '}' spacing /
+             'enum' spacing ident ':' type spacing metadata* '{'  enum_fields '}' spacing /
+             'union'spacing ident metadata* '{'  enum_fields '}' spacing
+
+
+enum_fields <- enum_field / 
+               enum_field ',' enum_fields
+
+enum_field <- ident /
+              ident spacing '=' spacing integer_constant
+
+root_decl <- 'root_type' spacing ident spacing ';' spacing
+
+file_extension_decl <- 'file_extension' <[ \t]*> <[^;]+> ';' spacing 
+
+file_identifier_decl <- 'file_identifier' <[ \t]*> <[^;]+> ';' spacing
+
+attribute_decl <- 'attribute' <[ \t]*> <[^;]+> ';' spacing
+
+rpc_decl <- 'rpc_service' <[ \t]*> ident '{' <[^}]+> '}' spacing
+
+type <- 'bool' spacing {p.SetType("bool")} /
+        'byte' spacing {p.SetType("byte")} /
+        'ubyte' spacing {p.SetType("ubyte")} /
+        'short' spacing {p.SetType("short")} /
+        'ushort' spacing {p.SetType("ushort")} /
+        'int' spacing {p.SetType("int")} /
+        'uint' spacing {p.SetType("uint")} /
+        'float' spacing {p.SetType("float")} /
+        'long' spacing {p.SetType("long")} /
+        'ulong' spacing {p.SetType("ulong")} /
+        'double' spacing {p.SetType("double")} /
+        'int8' spacing {p.SetType("int8")} /
+        'int16' spacing {p.SetType("int16")} /
+        'uint16' spacing {p.SetType("uint16")} /
+        'int32' spacing {p.SetType("int32")} /
+        'uint32' spacing {p.SetType("uint32")} /
+        'int64' spacing {p.SetType("int64")} /
+        'uint64' spacing {p.SetType("uint64")} /
+        'float32' spacing {p.SetType("float32")} /
+        'float64' spacing {p.SetType("float64")} /
+        'string' spacing {p.SetType("string")} /
+        ident spacing {p.SetType(text)} /
+        '[' type ']' spacing {p.SetRepeated(text) }
+
+scalar <- integer_constant / float_constant
+
+integer_constant <- <[0-9]+> / 'true' / 'false'
+
+float_constant <- <[-]*[0-9]+.[0-9]> / float_constant_exp
+
+float_constant_exp <- <[-]*[0-9]+.[0-9]+> <[eE]> <[+-]> <[0-9]+>
+
+ident <- <[a-zA-Z_][a-zA-Z0-9_]*>
+
+# string <- <[A-z0-9_.]+>
+
+
+only_comment <- spacing ';'
+spacing		<- space_comment*
+space_comment <- (space / comment)
+comment <- '//' (!end_of_line .)* end_of_line
+space		<- ' ' / '\t' / end_of_line
+end_of_line	<- '\r\n' / '\n' / '\r'
+end_of_file	<- !.
