@@ -1,0 +1,49 @@
+package {{.PkgName}}
+
+type {{.Name}}Message struct {
+    {{range $i, $v := .Fields}}
+        {{$i}} {{$v}}
+    {{end }}
+    Dirty bool
+    cache *{{.PkgName}}.{{.Name}}
+}
+
+func New{{.Name}}MessageFromFbs(fbs *{{.PkgName}}.{{.Name}}) (m *{{.Name}}Message) {
+    return &{{.Name}}Message{
+         {{range $i, $v := .Fields}}
+            {{$i}}: fbs.{{$i}}(),
+         {{end}}
+         Dirty: false,
+         cache: fbs,   
+    }
+}
+
+func (m *{{.Name}}Message) ApplyUpdated() bool {
+    {{range $i, $v := .Fields}}
+        if m.{{$i}} != m.cache.{{$i}}() {
+             return m.cache.Mutate{{$i}}(m.{{$i}})
+            
+            // if hasnt mutate method, return false 
+            //  return false
+        }
+    {{end}}
+
+    return true
+}
+
+func (m *{{.Name}}Message) ToFbs(check bool) (fbs *{{.PkgName}}.{{.Name}}) {
+    if !check && m.cache != nil {
+        return m.cache
+    }
+    if m.ApplyUpdated() {
+        return m.cache
+    }
+    m.Dirty = true
+    // 作成処理
+    /*
+          fbs = ...   
+          m.cache = fbs
+    */
+
+    return m.cache
+}
