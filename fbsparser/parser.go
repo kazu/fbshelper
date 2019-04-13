@@ -1,16 +1,23 @@
 package fbsparser
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 
 	"github.com/kazu/lonacha/structer"
 )
 
+type StructInfo struct {
+	structer.StructInfo
+	IsMessage map[string]bool
+	IsSlice   map[string]bool
+}
+
 type Fbs struct {
 	NameSpace string
 	typeName  string
-	Structs   []structer.StructInfo
+	Structs   []StructInfo
 	Unions    []Union
 	Enums     []Enum
 
@@ -32,16 +39,34 @@ type Enum struct {
 	Defines map[string]string
 }
 
+func (fbs *Fbs) FinilizeForFbs() {
+	for _, info := range fbs.Structs {
+		for fname, ftype := range info.Fields {
+			// slice of fbs type
+			if ftype[:2] == `[]` && strings.ToUpper(ftype[:3]) == ftype[:3] {
+				info.Fields[fname] = fmt.Sprintf("[]*%sMessage", ftype[2:])
+				continue
+			}
+			if strings.ToUpper(ftype[:1]) == ftype[:1] {
+				info.Fields[fname] = fmt.Sprintf("*%sMessage", ftype)
+			}
+		}
+	}
+}
+
 func (fbs *Fbs) SetNameSpace(s string) {
 	fbs.NameSpace = s
 }
 
 func (fbs *Fbs) ExtractStruct() {
 
-	structInfo := structer.StructInfo{
-		PkgName: fbs.NameSpace,
-		Name:    fbs.typeName,
-	}
+	structInfo := StructInfo{}
+	structInfo.PkgName = fbs.NameSpace
+	structInfo.Name = fbs.typeName
+	structInfo.Fields = map[string]string{}
+	structInfo.IsSlice = map[string]bool{}
+	structInfo.IsMessage = map[string]bool{}
+
 	structInfo.Fields = fbs.Fields
 
 	fbs.Structs = append(fbs.Structs, structInfo)
@@ -98,4 +123,8 @@ func toCamelCase(st string) string {
 		s[i] = string(w)
 	}
 	return strings.Join(s, "")
+}
+
+func ToCamelCase(st string) string {
+	return toCamelCase(st)
 }

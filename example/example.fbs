@@ -2,15 +2,18 @@ namespace example;
 
 union Action { Rez, Collision}
 
+
 struct Vec3 {
-    x:float64;
-    y:float64;
-    z:float64;
+    X:float64;
+    Y:float64;
+    Z:float64;
 }
 
-struct Gps {
-   latitude:float64;
-   longitude:float64; 
+table Rez {
+    id:int64;
+    obj_ids:[int64];
+    objes:[Vec3];
+    name:string;
 }
 
 struct Time {
@@ -18,24 +21,7 @@ struct Time {
     nano:int64;
 }
 
-
-struct MoveState {
-    object_id:int64;
-    gps:Gps;
-    velocity:Vec3;
-}
-
 table Root {
-    move_state:MoveState;
+    current_at:Time;
     action:Action;
-    action_time:Time;
-    time:Time;
-}
-
-table Rez {
-    dummy:bool;
-}
-
-table Collision {
-    move_states:[MoveState];
 }
