@@ -1,6 +1,9 @@
 package fbsparser
 
 import (
+	"strings"
+	"unicode"
+
 	"github.com/kazu/lonacha/structer"
 )
 
@@ -51,7 +54,7 @@ func (fbs *Fbs) SetTypeName(s string) {
 }
 
 func (fbs *Fbs) FieldNaame(s string) {
-	fbs.fname = s
+	fbs.fname = toCamelCase(s)
 }
 func (fbs *Fbs) SetType(s string) {
 	fbs.fvalue = s
@@ -85,4 +88,14 @@ func (fbs *Fbs) NewUnion(s string) {
 	fbs.Unions = append(fbs.Unions, union)
 
 	fbs.Fields = map[string]string{}
+}
+
+func toCamelCase(st string) string {
+	s := strings.Split(st, "_")
+	for i := 0; i < len(s); i++ {
+		w := []rune(strings.ToLower(s[i]))
+		w[0] = unicode.ToUpper(w[0])
+		s[i] = string(w)
+	}
+	return strings.Join(s, "")
 }
