@@ -36,8 +36,8 @@ func TestParserTableFixedField(t *testing.T) {
 
 	assert.Equal(t, len(parser.Fbs.Structs), 1)
 	assert.Equal(t, parser.Fbs.Structs[0].Name, "RegistGameServer")
-	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 5)
-	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 4, parser.Fbs.Structs[0])
-	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 4, parser.Fbs.Unions[0])
+	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 6)
+	assert.Equal(t, len(parser.Fbs.Unions), 1, parser.Fbs.Unions)
+	assert.Equal(t, len(parser.Fbs.Unions[0].Aliases), 2, parser.Fbs.Unions)
 
 }
