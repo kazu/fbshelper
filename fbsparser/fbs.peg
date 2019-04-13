@@ -11,6 +11,7 @@ schema <- include end_of_file /
           statment_decl+ end_of_file
 
 statment_decl <- namespace_decl /
+                 union_decl /
                  type_decl /
                  enum_decl /
                  root_decl /
@@ -40,15 +41,17 @@ field_decl <- spacing field_type ':' type metadata* ';' spacing {p.NewExtractFie
 field_type <- ident {p.FieldNaame(text)}
 
 enum_decl <- 'enum' spacing ident spacing metadata* '{' enum_fields '}' spacing /
-             'enum' spacing ident ':' type spacing metadata* '{'  enum_fields '}' spacing /
-             'union'spacing ident metadata* '{'  enum_fields '}' spacing
-
-
+             'enum' spacing ident ':' type spacing metadata* '{' enum_fields '}' spacing
+             
 enum_fields <- enum_field / 
                enum_field ',' enum_fields
 
-enum_field <- ident /
-              ident spacing '=' spacing integer_constant
+union_decl <- 'union' spacing ident spacing metadata* '{' spacing enum_fields '}' spacing {p.NewUnion(text)}
+
+enum_field <- enum_field_type spacing {p.NewExtractField()} /
+              enum_field_type spacing '=' spacing integer_constant spacing
+
+enum_field_type <- ident {p.FieldNaame(text)}
 
 root_decl <- 'root_type' spacing ident spacing ';' spacing
 

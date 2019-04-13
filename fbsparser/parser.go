@@ -5,13 +5,28 @@ import (
 )
 
 type Fbs struct {
-	NameSpace  string
-	typeName   string
-	Structs    []structer.StructInfo
+	NameSpace string
+	typeName  string
+	Structs   []structer.StructInfo
+	Unions    []Union
+	Enums     []Enum
+
+	// store instantly
 	Fields     map[string]string
 	fname      string
 	fvalue     string
 	isRepeated bool
+}
+
+type Union struct {
+	Name    string
+	Aliases []string
+}
+
+type Enum struct {
+	Name    string
+	Type    string
+	Defines map[string]string
 }
 
 func (fbs *Fbs) SetNameSpace(s string) {
@@ -55,5 +70,19 @@ func (fbs *Fbs) NewExtractFieldWithValue() {
 
 func (fbs *Fbs) SetRepeated(s string) {
 	//	fbs.isRepeated = true
-	fbs.fvalue = "[]" + s
+	fbs.fvalue = "[]" + fbs.fvalue
+}
+
+func (fbs *Fbs) NewUnion(s string) {
+	union := Union{
+		Name:    s,
+		Aliases: []string{},
+	}
+	for key, _ := range fbs.Fields {
+		union.Aliases = append(union.Aliases, key)
+	}
+
+	fbs.Unions = append(fbs.Unions, union)
+
+	fbs.Fields = map[string]string{}
 }

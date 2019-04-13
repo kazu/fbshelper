@@ -17,7 +17,7 @@ func TestParserTableFixedField(t *testing.T) {
 		user_id:long;
 		uuid:[byte];
 	  }
-
+	union Hoge { RegistGameServer }  
 	  
 	`
 
@@ -37,5 +37,6 @@ func TestParserTableFixedField(t *testing.T) {
 	assert.Equal(t, parser.Fbs.Structs[0].Name, "RegistGameServer")
 	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 5)
 	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 4, parser.Fbs.Structs[0])
+	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 4, parser.Fbs.Unions[0])
 
 }
