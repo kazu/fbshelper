@@ -43,10 +43,11 @@ field_type <- ident {p.FieldNaame(text)}
 enum_decl <- 'enum' spacing ident spacing metadata* '{' enum_fields '}' spacing /
              'enum' spacing ident ':' type spacing metadata* '{' enum_fields '}' spacing
              
-enum_fields <- enum_field / 
-               enum_field ',' enum_fields
+enum_fields <- spacing enum_field ',' /
+               spacing enum_field
+               
 
-union_decl <- 'union' spacing ident spacing metadata* '{' spacing enum_fields '}' spacing {p.NewUnion(text)}
+union_decl <- 'union' spacing ident spacing metadata* '{' enum_fields+ '}' spacing {p.NewUnion(text)}
 
 enum_field <- enum_field_type spacing {p.NewExtractField()} /
               enum_field_type spacing '=' spacing integer_constant spacing
@@ -64,6 +65,15 @@ attribute_decl <- 'attribute' <[ \t]*> <[^;]+> ';' spacing
 rpc_decl <- 'rpc_service' <[ \t]*> ident '{' <[^}]+> '}' spacing
 
 type <- 'bool' spacing {p.SetType("bool")} /
+        'int8' spacing {p.SetType("int8")} /
+        'int16' spacing {p.SetType("int16")} /
+        'uint16' spacing {p.SetType("uint16")} /
+        'int32' spacing {p.SetType("int32")} /
+        'uint32' spacing {p.SetType("uint32")} /
+        'int64' spacing {p.SetType("int64")} /
+        'uint64' spacing {p.SetType("uint64")} /
+        'float32' spacing {p.SetType("float32")} /
+        'float64' spacing {p.SetType("float64")} /
         'byte' spacing {p.SetType("byte")} /
         'ubyte' spacing {p.SetType("ubyte")} /
         'short' spacing {p.SetType("short")} /
@@ -74,15 +84,7 @@ type <- 'bool' spacing {p.SetType("bool")} /
         'long' spacing {p.SetType("long")} /
         'ulong' spacing {p.SetType("ulong")} /
         'double' spacing {p.SetType("double")} /
-        'int8' spacing {p.SetType("int8")} /
-        'int16' spacing {p.SetType("int16")} /
-        'uint16' spacing {p.SetType("uint16")} /
-        'int32' spacing {p.SetType("int32")} /
-        'uint32' spacing {p.SetType("uint32")} /
-        'int64' spacing {p.SetType("int64")} /
-        'uint64' spacing {p.SetType("uint64")} /
-        'float32' spacing {p.SetType("float32")} /
-        'float64' spacing {p.SetType("float64")} /
+
         'string' spacing {p.SetType("string")} /
         ident spacing {p.SetType(text)} /
         '[' type ']' spacing {p.SetRepeated(text) }

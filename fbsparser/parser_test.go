@@ -15,9 +15,10 @@ func TestParserTableFixedField(t *testing.T) {
 		object_id:uint;
 		room_id:long;
 		user_id:long;
+		hoge_id:float64;
 		uuid:[byte];
 	  }
-	union Hoge { RegistGameServer }  
+	union Hoge { RegistGameServer, Hoge }  
 	  
 	`
 
