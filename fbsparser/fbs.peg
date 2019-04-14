@@ -84,10 +84,9 @@ type <- 'bool' spacing {p.SetType("bool")} /
         'long' spacing {p.SetType("long")} /
         'ulong' spacing {p.SetType("ulong")} /
         'double' spacing {p.SetType("double")} /
-
-        'string' spacing {p.SetType("string")} /
+        'string' spacing {p.SetRepeated("byte")} /
         ident spacing {p.SetType(text)} /
-        '[' type ']' spacing {p.SetRepeated(text) }
+        '[' type ']' spacing {p.SetRepeated("") }
 
 scalar <- integer_constant / float_constant
 

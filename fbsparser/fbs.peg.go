@@ -592,11 +592,11 @@ func (p *Parser) Execute() {
 		case ruleAction28:
 			p.SetType("double")
 		case ruleAction29:
-			p.SetType("string")
+			p.SetRepeated("byte")
 		case ruleAction30:
 			p.SetType(text)
 		case ruleAction31:
-			p.SetRepeated(text)
+			p.SetRepeated("")
 
 		}
 	}
@@ -3826,7 +3826,7 @@ func (p *Parser) Init() {
 			}
 			return true
 		},
-		/* 64 Action29 <- <{p.SetType("string")}> */
+		/* 64 Action29 <- <{p.SetRepeated("byte")}> */
 		func() bool {
 			{
 				add(ruleAction29, position)
@@ -3840,7 +3840,7 @@ func (p *Parser) Init() {
 			}
 			return true
 		},
-		/* 66 Action31 <- <{p.SetRepeated(text) }> */
+		/* 66 Action31 <- <{p.SetRepeated("") }> */
 		func() bool {
 			{
 				add(ruleAction31, position)

@@ -41,16 +41,22 @@ type Enum struct {
 
 func (fbs *Fbs) FinilizeForFbs() {
 	for _, info := range fbs.Structs {
+		newFields := info.Fields
 		for fname, ftype := range info.Fields {
 			// slice of fbs type
 			if ftype[:2] == `[]` && strings.ToUpper(ftype[:3]) == ftype[:3] {
-				info.Fields[fname] = fmt.Sprintf("[]*%sMessage", ftype[2:])
+				newFields[fname] = fmt.Sprintf("[]*%sMessage", ftype[2:])
+				continue
+			}
+			if ftype[:2] == `[]` {
 				continue
 			}
 			if strings.ToUpper(ftype[:1]) == ftype[:1] {
-				info.Fields[fname] = fmt.Sprintf("*%sMessage", ftype)
+				newFields[fname] = fmt.Sprintf("*%sMessage", ftype)
+				continue
 			}
 		}
+		info.Fields = newFields
 	}
 }
 
@@ -98,7 +104,11 @@ func (fbs *Fbs) NewExtractFieldWithValue() {
 
 func (fbs *Fbs) SetRepeated(s string) {
 	//	fbs.isRepeated = true
-	fbs.fvalue = "[]" + fbs.fvalue
+	if s == "" {
+		fbs.fvalue = "[]" + fbs.fvalue
+	} else {
+		fbs.fvalue = "[]" + s
+	}
 }
 
 func (fbs *Fbs) NewUnion(s string) {

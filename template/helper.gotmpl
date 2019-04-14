@@ -1,31 +1,80 @@
 package {{.PkgName}}
 
+import (
+    "github.com/kazu/fbshelper/fbsparser"
+)
+
 type {{.Name}}Message struct {
-    {{range $i, $v := .Fields}}
-        {{$i}} {{$v}}
-    {{end }}
+
+{{- range $i, $v := .Fields}}
+    {{$i}} {{$v}}
+{{- end }}
+
     Dirty bool
     cache *{{.PkgName}}.{{.Name}}
 }
 
 func New{{.Name}}MessageFromFbs(fbs *{{.PkgName}}.{{.Name}}) (m *{{.Name}}Message) {
-    return &{{.Name}}Message{
-         {{range $i, $v := .Fields}}
-            {{$i}}: fbs.{{$i}}(),
-         {{end}}
-         Dirty: false,
-         cache: fbs,   
-    }
+    m = &{{.Name}}Message{}
+
+    {{- range $i, $v := .Fields}}
+        // set {{$i}}
+        {{- if eq (isSlice $v) false }}
+            m.{{$i}} = fbs.{{$i}}()
+        {{- else }}
+            m.{{$i}} = make({{$v}}, fbs.{{$i}}Length())
+            for i := 0; i < fbs.{{$i}}Length(); i++ {
+                {{- if eq (isMessage $v) true }}
+                fbs.{{$i}}(m.{{$i}}[i], i)
+                {{- else }}
+                fbs.{{$i}}(&m.{{$i}}[i], i) 
+                {{- end }}
+            }
+        {{- end }}
+
+    {{- end}}
+    m.Dirty = false
+    m.cache = fbs
+    return
+
 }
 
 func (m *{{.Name}}Message) ApplyUpdated() bool {
     {{range $i, $v := .Fields}}
-        if m.{{$i}} != m.cache.{{$i}}() {
-             return m.cache.Mutate{{$i}}(m.{{$i}})
-            
-            // if hasnt mutate method, return false 
-            //  return false
-        }
+        {{- if eq (isMessage $v) false }}
+            {{- if eq (isSlice $v) false }}
+                // {{$i}} is not slice, not message
+                if m.{{$i}} != m.cache.{{$i}}() {
+                    if !m.cache.Mutate{{$i}}(m.{{$i}}) {
+                        return false
+                    }
+                }
+            {{- else }}
+                // {{$i}} is not message, slice
+                for i := 0; i < m.cache.{{$i}}Length() ; i++ {
+                    if m.{{$i}}[i] != m.cache.{{$i}}(i) {
+                        return false
+                    }
+                }
+            {{- end}}
+        {{- else }}
+            {{- if eq (isSlice $v) false }}
+                // {{$i}} is message, not slice 
+                if m.{{$i}} != m.cache.{{$i}}() { 
+                    return false
+                }
+            {{- else }}
+                // {{$i}} is message, slice
+                tmps := make({{$v}}, 1)
+                for i := 0; i < m.cache.{{$i}}Length() ; i++ {
+                    tmp := tmps[0]
+                    m.cache.{{$i}}(tmp, i)
+                    if m.{{$i}}[i] != tmp {
+                        return false
+                    }
+                }
+            {{- end }}
+        {{- end }}
     {{end}}
 
     return true
@@ -43,7 +92,90 @@ func (m *{{.Name}}Message) ToFbs(check bool) (fbs *{{.PkgName}}.{{.Name}}) {
     /*
           fbs = ...   
           m.cache = fbs
+    
     */
+    var builder *flatbuffers.Builder
+    var offset flatbuffers.UOffsetT
+    if m.cache != nil {
+        builder = &flatbuffers.Builder{}
+        builder.Bytes = fbs.Table().Bytes
+        builder.Reset()
+    }else{
+        builder = flatbuffers.NewBuilder(0)
+    }
+
+    builder, offset = m.encdoing(builder)
+    m.cache = GetRootAs{{.Name}}(builder.FinishedBytes(), 0)
 
     return m.cache
+}
+/*
+{{range $i, $v := .Fields}}
+     {{- if eq (isSlice $v) true }}
+
+     {{- else }}
+     {{- end }}
+{{end}}
+
+
+    return m.cache
+}
+*/
+func (m *{{.Name}}Message) encoding(builder *flatbuffers.Builder)  (*flatbuffers.Builder, flatbuffers.UOffsetT) {
+
+{{ $StructName := .Name }}
+
+// pre-creation
+{{range $i, $v := .Fields}}
+    {{- if eq (isSlice $v) true }}
+        {{- if eq (isMessage $v) true }}
+            // {{$i}} is slice and message
+            var {{$i}}Ptr  flatbuffers.UOffsetT
+            if len(m.{{$i}}) > 0 {
+                ptrs := make([]flatbuffers.UOffsetT, 0, len(m.{{$i}}))
+                for _, child := range m.{{$i}} {
+                    var offset  flatbuffers.UOffsetT
+                    builder, offset = child.encoding(builder)
+                    ptrs = append(ptrs, offset)
+                }
+
+                {{$StructName}}Start{{$i}}Vector(builder, len(ptrs))
+                for i := len(ptrs) - 1; i >= 0; i-- {
+                    builder.PrependUOffsetT(ptrs[i])
+                }
+                {{$i}}Ptr  = builder.EndVector(len(ptrs))
+            }
+        {{- else }}
+            // {{$i}} is slice and not message
+            var {{$i}}Ptr  flatbuffers.UOffsetT
+            {{$StructName}}Start{{$i}}Vector(builder, len(ptrs))
+            for i := len(ptrs) - 1; i >= 0; i-- {
+                builder.Prepend{{(toCamel $v)}}(m.{{$i}}[i])
+            }
+            {{$i}}Ptr  = builder.EndVector(len(ptrs))
+
+        {{- end}}
+    {{- else }}
+        {{- if eq (isMessage $v) true }}
+            var {{$i}}Ptr  flatbuffers.UOffsetT
+            builder, {{$i}}Ptr = {{$i}}.encoding(builder)
+        {{- end}}
+     {{- end }}
+{{end}}
+
+    {{$StructName}}Start(builder)
+    // store
+{{range $i, $v := .Fields}}
+    {{- if eq (isSlice $v) true }}
+        {{$StructName}}Add{{$i}}(builder, {{$i}}Ptr)  
+    {{- else }}
+        {{- if eq (isMessage $v) true }}
+            {{$StructName}}Add{{$i}}(builder, {{$i}}Ptr)
+        {{- else}}
+            {{$StructName}}Add{{$i}}(builder, m.{{$i}})    
+        {{- end}}
+    {{- end}}
+{{- end}}    
+    offset := {{$StructName}}End(builder)
+    return builder, offset
 }

@@ -2,7 +2,6 @@ namespace example;
 
 union Action { Rez, Collision}
 
-
 struct Vec3 {
     X:float64;
     Y:float64;
@@ -15,6 +14,11 @@ table Rez {
     objes:[Vec3];
     name:string;
 }
+
+table Collision {
+    id:int64;
+}
+
 
 struct Time {
     unix:int64;
