@@ -2,6 +2,7 @@ package {{.PkgName}}
 
 import (
     "github.com/kazu/fbshelper/fbsparser"
+    "bytes"
 )
 
 type {{.Name}}Message struct {
@@ -11,23 +12,34 @@ type {{.Name}}Message struct {
 {{- end }}
 
     Dirty bool
-    cache *{{.PkgName}}.{{.Name}}
+    cache *{{.Name}}
 }
 
-func New{{.Name}}MessageFromFbs(fbs *{{.PkgName}}.{{.Name}}) (m *{{.Name}}Message) {
+func New{{.Name}}MessageFromFbs(fbs *{{.Name}}) (m *{{.Name}}Message) {
     m = &{{.Name}}Message{}
-
+    {{ $IsUnion := .IsUnion}}
+    {{ $StructName := .Name }}
     {{- range $i, $v := .Fields}}
-        // set {{$i}}
+            // set {{$i}}
         {{- if eq (isSlice $v) false }}
+            {{- if eq (isMessage $v) true }}
+                {{- if eq (isUnion $IsUnion $i) true }}
+            {{$i}}unionTable := new(flatbuffers.Table)
+            fbs.{{$i}}({{$i}}unionTable)
+            m.{{$i}} = Union{{$i}}({{$i}}unionTable, fbs.{{$i}}Type())
+                {{- else }}
+            m.{{$i}} = New{{(toBareType $v)}}FromFbs(fbs.{{$i}}(nil))
+                {{- end }}
+            {{- else }}
             m.{{$i}} = fbs.{{$i}}()
+            {{- end }}
         {{- else }}
             m.{{$i}} = make({{$v}}, fbs.{{$i}}Length())
             for i := 0; i < fbs.{{$i}}Length(); i++ {
                 {{- if eq (isMessage $v) true }}
-                fbs.{{$i}}(m.{{$i}}[i], i)
+                fbs.{{$i}}(m.{{$i}}[i].cache, i)
                 {{- else }}
-                fbs.{{$i}}(&m.{{$i}}[i], i) 
+                m.{{$i}}[i] = fbs.{{$i}}(i)
                 {{- end }}
             }
         {{- end }}
@@ -60,7 +72,7 @@ func (m *{{.Name}}Message) ApplyUpdated() bool {
         {{- else }}
             {{- if eq (isSlice $v) false }}
                 // {{$i}} is message, not slice 
-                if m.{{$i}} != m.cache.{{$i}}() { 
+                if !m.{{$i}}.Equal(m.cache.{{$i}}(nil)) {
                     return false
                 }
             {{- else }}
@@ -68,7 +80,7 @@ func (m *{{.Name}}Message) ApplyUpdated() bool {
                 tmps := make({{$v}}, 1)
                 for i := 0; i < m.cache.{{$i}}Length() ; i++ {
                     tmp := tmps[0]
-                    m.cache.{{$i}}(tmp, i)
+                    m.cache.{{$i}}(tmp.cache, i)
                     if m.{{$i}}[i] != tmp {
                         return false
                     }
@@ -80,7 +92,7 @@ func (m *{{.Name}}Message) ApplyUpdated() bool {
     return true
 }
 
-func (m *{{.Name}}Message) ToFbs(check bool) (fbs *{{.PkgName}}.{{.Name}}) {
+func (m *{{.Name}}Message) ToFbs(check bool) (fbs *{{.Name}}) {
     if !check && m.cache != nil {
         return m.cache
     }
@@ -95,7 +107,7 @@ func (m *{{.Name}}Message) ToFbs(check bool) (fbs *{{.PkgName}}.{{.Name}}) {
     
     */
     var builder *flatbuffers.Builder
-    var offset flatbuffers.UOffsetT
+    //var offset flatbuffers.UOffsetT
     if m.cache != nil {
         builder = &flatbuffers.Builder{}
         builder.Bytes = fbs.Table().Bytes
@@ -104,9 +116,15 @@ func (m *{{.Name}}Message) ToFbs(check bool) (fbs *{{.PkgName}}.{{.Name}}) {
         builder = flatbuffers.NewBuilder(0)
     }
 
-    builder, offset = m.encdoing(builder)
+    //builder, offset = m.encoding(builder)
+    builder, _ = m.encoding(builder)
+    
+    {{- if eq .IsTable false }}
+    m.cache = &{{.Name}}{}
+    m.cache.Init(builder.FinishedBytes(), 0)
+    {{- else }}
     m.cache = GetRootAs{{.Name}}(builder.FinishedBytes(), 0)
-
+    {{- end }}
     return m.cache
 }
 /*
@@ -121,10 +139,48 @@ func (m *{{.Name}}Message) ToFbs(check bool) (fbs *{{.PkgName}}.{{.Name}}) {
     return m.cache
 }
 */
+
+func (src *{{.Name}}Message) Equal(dst *{{.Name}}) bool {
+
+    if src.cache == dst {
+        return true
+    }
+
+    if src.cache == nil {
+        return false
+    }
+    isSameData := func(srct flatbuffers.Table, dstt flatbuffers.Table) bool {
+        slen := len(srct.Bytes) - int(srct.Pos)
+        dlen := len(dstt.Bytes) - int(dstt.Pos)
+        if slen != dlen {
+            return false
+        }
+        // FIXME: checking per Fields
+        if bytes.Equal(srct.Bytes[int(srct.Pos):], dstt.Bytes[int(dstt.Pos):] ){
+            return true
+        }
+        return false
+    }
+
+    return isSameData(src.cache.Table(), dst.Table())
+
+}
+
+
 func (m *{{.Name}}Message) encoding(builder *flatbuffers.Builder)  (*flatbuffers.Builder, flatbuffers.UOffsetT) {
 
 {{ $StructName := .Name }}
 
+{{- if eq .IsTable false }}
+
+offset := Create{{.Name}}(builder, 
+    {{- range $i, $v := .Fields}}
+        m.{{$i}}, 
+    {{- end}}
+)
+return builder, offset
+
+{{- else}}
 // pre-creation
 {{range $i, $v := .Fields}}
     {{- if eq (isSlice $v) true }}
@@ -148,17 +204,17 @@ func (m *{{.Name}}Message) encoding(builder *flatbuffers.Builder)  (*flatbuffers
         {{- else }}
             // {{$i}} is slice and not message
             var {{$i}}Ptr  flatbuffers.UOffsetT
-            {{$StructName}}Start{{$i}}Vector(builder, len(ptrs))
-            for i := len(ptrs) - 1; i >= 0; i-- {
+            {{$StructName}}Start{{$i}}Vector(builder, len(m.{{$i}}))
+            for i := len(m.{{$i}}) - 1; i >= 0; i-- {
                 builder.Prepend{{(toCamel $v)}}(m.{{$i}}[i])
             }
-            {{$i}}Ptr  = builder.EndVector(len(ptrs))
+            {{$i}}Ptr  = builder.EndVector(len(m.{{$i}}))
 
         {{- end}}
     {{- else }}
         {{- if eq (isMessage $v) true }}
             var {{$i}}Ptr  flatbuffers.UOffsetT
-            builder, {{$i}}Ptr = {{$i}}.encoding(builder)
+            builder, {{$i}}Ptr = m.{{$i}}.encoding(builder)
         {{- end}}
      {{- end }}
 {{end}}
@@ -178,4 +234,8 @@ func (m *{{.Name}}Message) encoding(builder *flatbuffers.Builder)  (*flatbuffers
 {{- end}}    
     offset := {{$StructName}}End(builder)
     return builder, offset
+
+{{- end }}
+
+
 }

@@ -12,7 +12,7 @@ table Rez {
     id:int64;
     obj_ids:[int64];
     objes:[Vec3];
-    name:string;
+    name:[uint8];
 }
 
 table Collision {
@@ -28,4 +28,5 @@ struct Time {
 table Root {
     current_at:Time;
     action:Action;
+    collision:Collision;
 }

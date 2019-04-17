@@ -1,0 +1,48 @@
+package {{.PkgName}}
+
+import (
+    "github.com/kazu/fbshelper/fbsparser"
+)
+
+{{$Name := .Name }}
+type {{.Name}}Message struct {
+    Type byte
+{{- range $i, $v := .Aliases}}
+    {{$v}} *{{$v}}Message
+{{- end }}
+}
+
+func Union{{.Name}}(union *flatbuffers.Table, utype byte) (m *{{.Name}}Message) {
+
+    m = &{{.Name}}Message{
+        Type: utype,
+    }
+
+    switch(utype) {
+    {{- range $i, $v := .Aliases}}
+    case Action{{$v}}:
+        union{{$v}} := new({{$v}})
+        union{{$v}}.Init(union.Bytes, union.Pos)
+        m.{{$v}} = New{{$v}}MessageFromFbs(union{{$v}})
+    {{- end}}
+    }
+    return
+
+}
+
+// dummy function
+func (m *{{.Name}}Message) Equal(inf ...interface{}) bool {
+    return false
+}
+
+func (m *{{.Name}}Message) encoding(builder *flatbuffers.Builder) (*flatbuffers.Builder, flatbuffers.UOffsetT) {
+
+	switch m.Type {
+    {{- range $i, $v := .Aliases}}
+    case Action{{$v}}:
+        return m.{{$v}}.encoding(builder)
+    {{- end}}    
+	}
+	//MENTION: must not fall down
+	return nil, 0
+}

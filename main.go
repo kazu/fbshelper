@@ -21,6 +21,8 @@ func main() {
 
 	fbsfile := os.Args[1]
 	tmplate := os.Args[2]
+	tmplateunion := filepath.Join(filepath.Dir(os.Args[2]), "union."+
+		filepath.Base(os.Args[2]))
 	outDir := os.Args[3]
 
 	bytes, err := ioutil.ReadFile(fbsfile)
@@ -41,7 +43,7 @@ func main() {
 	parser.Fbs.FinilizeForFbs()
 
 	for _, info := range parser.Fbs.Structs {
-
+		fmt.Printf("info=%+v\n", info)
 		newSrc, err := FromTemplate(info, tmplate)
 		if err == nil {
 			output := filepath.Join(outDir, info.Name+".fbshelper.go")
@@ -50,15 +52,28 @@ func main() {
 			fmt.Fprint(os.Stderr, err.Error()+"\n")
 		}
 	}
+	for _, union := range parser.Fbs.Unions {
+		fmt.Printf("union=%+v\n", union)
+		newSrc, err := FromTemplate(union, tmplateunion)
+		if err == nil {
+			output := filepath.Join(outDir, union.Name+".fbshelper.go")
+			ioutil.WriteFile(output, []byte(newSrc), 0644)
+		} else {
+			fmt.Fprint(os.Stderr, err.Error()+"\n")
+		}
+	}
+
 }
 
-func FromTemplate(info fbsparser.StructInfo, path string) (out string, err error) {
+func FromTemplate(info interface{}, path string) (out string, err error) {
 	tmpStr := structer.LoadFile(path)
 
 	funcMap := template.FuncMap{
-		"isMessage": IsMessage,
-		"isSlice":   IsSlice,
-		"toCamel":   ToCamelCase,
+		"isMessage":  IsMessage,
+		"isSlice":    IsSlice,
+		"toCamel":    ToCamelCase,
+		"isUnion":    Search,
+		"toBareType": ToBareType,
 	}
 
 	t := template.Must(template.New("info").Funcs(funcMap).Parse(tmpStr))
@@ -95,4 +110,26 @@ func ToCamelCase(s string) string {
 		return fbsparser.ToCamelCase(s[2:])
 	}
 	return fbsparser.ToCamelCase(s)
+}
+
+func Search(m map[string]bool, s string) bool {
+	for key, value := range m {
+		if key == s {
+			return value
+		}
+	}
+	return false
+}
+
+func ToBareType(st string) (s string) {
+	s = st
+	if s[:2] == `[]` {
+		s = s[2:]
+	}
+
+	if s[:1] == `*` {
+		s = s[1:]
+	}
+
+	return
 }

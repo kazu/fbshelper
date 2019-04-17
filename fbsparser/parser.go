@@ -10,8 +10,10 @@ import (
 
 type StructInfo struct {
 	structer.StructInfo
+	IsTable   bool
 	IsMessage map[string]bool
 	IsSlice   map[string]bool
+	IsUnion   map[string]bool
 }
 
 type Fbs struct {
@@ -26,9 +28,11 @@ type Fbs struct {
 	fname      string
 	fvalue     string
 	isRepeated bool
+	uName      string
 }
 
 type Union struct {
+	PkgName string
 	Name    string
 	Aliases []string
 }
@@ -39,13 +43,38 @@ type Enum struct {
 	Defines map[string]string
 }
 
+func (fbs *Fbs) isUnion(s string) bool {
+
+	/*for _, union := range fbs.Unions {
+		for _, alias := range union.Aliases {
+			if s == alias {
+				return true
+			}
+		}
+	}*/
+
+	for _, union := range fbs.Unions {
+		if union.Name == s {
+			fmt.Printf("union=%+v \n", fbs.Unions)
+			fmt.Printf("union.Name=%s %s\n", union.Name, s)
+			return true
+		}
+	}
+
+	return false
+}
+
 func (fbs *Fbs) FinilizeForFbs() {
 	for _, info := range fbs.Structs {
 		newFields := info.Fields
 		for fname, ftype := range info.Fields {
+			//info.IsUnion[fname] = false
 			// slice of fbs type
 			if ftype[:2] == `[]` && strings.ToUpper(ftype[:3]) == ftype[:3] {
 				newFields[fname] = fmt.Sprintf("[]*%sMessage", ftype[2:])
+				if fbs.isUnion(ftype[2:]) {
+					info.IsUnion[fname] = true
+				}
 				continue
 			}
 			if ftype[:2] == `[]` {
@@ -53,6 +82,9 @@ func (fbs *Fbs) FinilizeForFbs() {
 			}
 			if strings.ToUpper(ftype[:1]) == ftype[:1] {
 				newFields[fname] = fmt.Sprintf("*%sMessage", ftype)
+				if fbs.isUnion(ftype) {
+					info.IsUnion[fname] = true
+				}
 				continue
 			}
 		}
@@ -64,14 +96,16 @@ func (fbs *Fbs) SetNameSpace(s string) {
 	fbs.NameSpace = s
 }
 
-func (fbs *Fbs) ExtractStruct() {
+func (fbs *Fbs) ExtractStruct(isTable bool) {
 
 	structInfo := StructInfo{}
 	structInfo.PkgName = fbs.NameSpace
 	structInfo.Name = fbs.typeName
+	structInfo.IsTable = isTable
 	structInfo.Fields = map[string]string{}
 	structInfo.IsSlice = map[string]bool{}
 	structInfo.IsMessage = map[string]bool{}
+	structInfo.IsUnion = map[string]bool{}
 
 	structInfo.Fields = fbs.Fields
 
@@ -111,9 +145,14 @@ func (fbs *Fbs) SetRepeated(s string) {
 	}
 }
 
-func (fbs *Fbs) NewUnion(s string) {
+func (fbs *Fbs) UnionName(s string) {
+	fbs.uName = s
+}
+
+func (fbs *Fbs) NewUnion() {
 	union := Union{
-		Name:    s,
+		PkgName: fbs.NameSpace,
+		Name:    fbs.uName,
 		Aliases: []string{},
 	}
 	for key, _ := range fbs.Fields {

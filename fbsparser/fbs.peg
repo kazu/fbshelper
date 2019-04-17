@@ -26,9 +26,11 @@ namespace_decl <- 'namespace' spacing <[A-z0-9_.\-]+> {p.SetNameSpace(text)} ';'
 
 include <- 'include' spacing ident comment ';' spacing
 
-type_decl <- type_label spacing typename spacing metadata* '{' field_decl+ '}' spacing {p.ExtractStruct()}
+type_decl <- struct_decl / table_decl
 
-type_label <- 'table' / 'struct'
+struct_decl <- 'struct' spacing typename spacing metadata* '{' field_decl+ '}' spacing {p.ExtractStruct(false)}
+
+table_decl <- 'table' spacing typename spacing metadata* '{' field_decl+ '}' spacing {p.ExtractStruct(true)}
 
 typename <- ident {p.SetTypeName(text)}
 
@@ -47,7 +49,9 @@ enum_fields <- spacing enum_field ',' /
                spacing enum_field
                
 
-union_decl <- 'union' spacing ident spacing metadata* '{' enum_fields+ '}' spacing {p.NewUnion(text)}
+union_decl <- 'union' spacing union_name spacing metadata* '{' enum_fields+ '}' spacing {p.NewUnion()}
+
+union_name <- ident {p.UnionName(text)}
 
 enum_field <- enum_field_type spacing {p.NewExtractField()} /
               enum_field_type spacing '=' spacing integer_constant spacing
@@ -66,6 +70,7 @@ rpc_decl <- 'rpc_service' <[ \t]*> ident '{' <[^}]+> '}' spacing
 
 type <- 'bool' spacing {p.SetType("bool")} /
         'int8' spacing {p.SetType("int8")} /
+        'uint8' spacing {p.SetType("uint8")} /
         'int16' spacing {p.SetType("int16")} /
         'uint16' spacing {p.SetType("uint16")} /
         'int32' spacing {p.SetType("int32")} /
@@ -74,8 +79,8 @@ type <- 'bool' spacing {p.SetType("bool")} /
         'uint64' spacing {p.SetType("uint64")} /
         'float32' spacing {p.SetType("float32")} /
         'float64' spacing {p.SetType("float64")} /
-        'byte' spacing {p.SetType("byte")} /
-        'ubyte' spacing {p.SetType("ubyte")} /
+        'byte' spacing {p.SetType("uint8")} /
+        'ubyte' spacing {p.SetType("uint8")} /
         'short' spacing {p.SetType("short")} /
         'ushort' spacing {p.SetType("ushort")} /
         'int' spacing {p.SetType("int")} /
