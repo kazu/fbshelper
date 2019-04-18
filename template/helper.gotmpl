@@ -1,8 +1,8 @@
 package {{.PkgName}}
 
 import (
-    "github.com/kazu/fbshelper/fbsparser"
     "bytes"
+    flatbuffers "github.com/google/flatbuffers/go"
 )
 
 type {{.Name}}Message struct {
@@ -52,6 +52,9 @@ func New{{.Name}}MessageFromFbs(fbs *{{.Name}}) (m *{{.Name}}Message) {
 }
 
 func (m *{{.Name}}Message) ApplyUpdated() bool {
+    if m.cache == nil {
+        return false
+    }
     {{range $i, $v := .Fields}}
         {{- if eq (isMessage $v) false }}
             {{- if eq (isSlice $v) false }}
@@ -107,7 +110,7 @@ func (m *{{.Name}}Message) ToFbs(check bool) (fbs *{{.Name}}) {
     
     */
     var builder *flatbuffers.Builder
-    //var offset flatbuffers.UOffsetT
+    var offset flatbuffers.UOffsetT
     if m.cache != nil {
         builder = &flatbuffers.Builder{}
         builder.Bytes = fbs.Table().Bytes
@@ -116,13 +119,16 @@ func (m *{{.Name}}Message) ToFbs(check bool) (fbs *{{.Name}}) {
         builder = flatbuffers.NewBuilder(0)
     }
 
-    //builder, offset = m.encoding(builder)
-    builder, _ = m.encoding(builder)
+    builder, offset = m.encoding(builder)
+    _ = offset
+    //builder, _ = m.encoding(builder)
     
     {{- if eq .IsTable false }}
     m.cache = &{{.Name}}{}
+    //builder.Finish(m.cache)
     m.cache.Init(builder.FinishedBytes(), 0)
     {{- else }}
+    builder.Finish(offset)
     m.cache = GetRootAs{{.Name}}(builder.FinishedBytes(), 0)
     {{- end }}
     return m.cache
