@@ -73,6 +73,7 @@ func FromTemplate(info interface{}, path string) (out string, err error) {
 		"isSlice":    IsSlice,
 		"toCamel":    ToCamelCase,
 		"isUnion":    Search,
+		"search":     Search,
 		"toBareType": ToBareType,
 	}
 

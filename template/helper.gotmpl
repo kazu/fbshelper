@@ -18,6 +18,8 @@ type {{.Name}}Message struct {
 func New{{.Name}}MessageFromFbs(fbs *{{.Name}}) (m *{{.Name}}Message) {
     m = &{{.Name}}Message{}
     {{ $IsUnion := .IsUnion}}
+    {{ $IsFieldStruct := .IsStruct}}
+    
     {{ $StructName := .Name }}
     {{- range $i, $v := .Fields}}
             // set {{$i}}
@@ -177,6 +179,9 @@ func (m *{{.Name}}Message) encoding(builder *flatbuffers.Builder)  (*flatbuffers
 
 {{ $StructName := .Name }}
 
+{{ $IsFieldStruct := .IsStruct}}
+
+
 {{- if eq .IsTable false }}
 
 offset := Create{{.Name}}(builder, 
@@ -219,8 +224,10 @@ return builder, offset
         {{- end}}
     {{- else }}
         {{- if eq (isMessage $v) true }}
-            var {{$i}}Ptr  flatbuffers.UOffsetT
-            builder, {{$i}}Ptr = m.{{$i}}.encoding(builder)
+            {{- if eq (search $IsFieldStruct $i) false }}
+                var {{$i}}Ptr  flatbuffers.UOffsetT
+                builder, {{$i}}Ptr = m.{{$i}}.encoding(builder)
+            {{- end}}
         {{- end}}
      {{- end }}
 {{end}}
@@ -232,6 +239,10 @@ return builder, offset
         {{$StructName}}Add{{$i}}(builder, {{$i}}Ptr)  
     {{- else }}
         {{- if eq (isMessage $v) true }}
+            {{- if eq (search $IsFieldStruct $i) true }}
+            var {{$i}}Ptr  flatbuffers.UOffsetT
+            _, {{$i}}Ptr = m.{{$i}}.encoding(builder)
+            {{- end }}
             {{$StructName}}Add{{$i}}(builder, {{$i}}Ptr)
         {{- else}}
             {{$StructName}}Add{{$i}}(builder, m.{{$i}})    

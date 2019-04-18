@@ -18,6 +18,7 @@ func TestParserTableFixedField(t *testing.T) {
 		hoge_id:float64;
 		uuid:[byte];
 		hogas:[Hogo];
+		Hogg:Hoga;
 		
 	  }
 	struct Hoga {
@@ -38,10 +39,11 @@ func TestParserTableFixedField(t *testing.T) {
 	}
 
 	parser.Execute()
+	parser.Fbs.FinilizeForFbs()
 
 	assert.Equal(t, len(parser.Fbs.Structs), 2, parser.Fbs.Structs)
 	assert.Equal(t, parser.Fbs.Structs[0].Name, "RegistGameServer")
-	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 7)
+	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 8, parser.Fbs.Structs)
 	assert.Equal(t, len(parser.Fbs.Unions), 1, parser.Fbs.Unions)
 	assert.Equal(t, len(parser.Fbs.Unions[0].Aliases), 2, parser.Fbs.Unions)
 
