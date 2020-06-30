@@ -1,18 +1,18 @@
 package info_test
 
 import (
-	"github.com/kazu/fbshelper/example/vfs_schema"
 	"bytes"
 
-	"testing"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/kazu/fbshelper/example/vfs_schema"
+
 	"io"
 	"io/ioutil"
+	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/stretchr/testify/assert"
 	"github.com/kazu/fbshelper/info"
-	
+	"github.com/stretchr/testify/assert"
 )
 
 type File struct {
@@ -61,47 +61,63 @@ func RootFileOption() info.Option {
 	recodOpt := info.Option{
 		Maps: []info.OptionType{
 			info.OptionType{
-				Key: "file_id",
+				Key:  "file_id",
 				Size: 8,
 			},
 			info.OptionType{
-				Key: "offset",
+				Key:  "offset",
 				Size: 8,
 			},
 			info.OptionType{
-				Key: "offset_of_value",
+				Key:  "offset_of_value",
 				Size: 4,
 			},
 			info.OptionType{
-				Key: "value_size",
+				Key:  "value_size",
 				Size: 4,
 			},
 		},
 	}
-
+	_ = recodOpt
+	fileOpt := info.Option{
+		Maps: []info.OptionType{
+			info.OptionType{
+				Key:  "file_id",
+				Size: 8,
+			},
+			info.OptionType{
+				Key:  "name",
+				Size: 0,
+			},
+			info.OptionType{
+				Key:  "index_at",
+				Size: 8,
+			},
+		},
+	}
 
 	return info.Option{
 		Maps: []info.OptionType{
 			info.OptionType{
-				Key: "version",
+				Key:  "version",
 				Size: 4,
 			},
 			info.OptionType{
-				Key: "index_type",
+				Key:  "index_type",
 				Size: 1,
 			},
 			info.OptionType{
-				Key: "index",
+				Key:  "index",
 				Size: -1,
-				Nest: recodOpt,
+				Nest: fileOpt,
 			},
 		},
 	}
 }
 
-
 func Test_FbsFile(t *testing.T) {
 
+	info.ENABLE_LOG_DEBUG = true
 	buf := MakeRootFileFbs(12, "root_file.json", 456)
 
 	assert.NotNil(t, buf)
@@ -109,34 +125,9 @@ func Test_FbsFile(t *testing.T) {
 	f := LoadRootFileFbs(bytes.NewBuffer(buf))
 	assert.NotNil(t, f)
 
+	fbsInfo := info.GetFbsRootInfo(buf, RootFileOption())
+	info.Debugf("info %s\n", spew.Sdump(fbsInfo))
 
-	info := info.GetFbsRootInfo(buf, RootFileOption())
-	spew.Dump(info)
-	assert.Equal(t, info.Table[0], uint64(1))
+	assert.Equal(t, fbsInfo.Table[0], uint64(1))
+	assert.Equal(t, len(buf), int(fbsInfo.Length))
 }
-
-/*
-func Test_StreamFbs(t *testing.T) {
-
-	r := vfs.NewRecord(1000, 1234, 12345)
-
-	buf := r.ToFbs(uint64(12))
-	assert.Equal(t, 88, len(buf))
-
-	r2 := vfs.NewRecord(1001, 2234, 123)
-	buf = append(buf, r2.ToFbs(uint64(15))...)
-	n := flatbuffers.GetUOffsetT(buf[0:4])
-
-	bbuf := bytes.NewBuffer(buf)
-	// bbuf := bytes.NewBuffer(buf[0:GetFbsSize(buf)])
-
-	r3 := vfsindex.RecordFromFbs(bbuf)
-	info := GetFbsRootInfo(buf)
-	spew.Dump(info)
-
-	assert.Equal(t, info.table[0], uint64(1))
-	assert.NotNil(t, r3)
-	//assert.Equal(t, 10, GetFbsSize(buf))
-	assert.Equal(t, uint32(16), uint32(n))
-}
-*/

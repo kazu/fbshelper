@@ -1,16 +1,40 @@
 package info
 
 import (
-	flatbuffers "github.com/google/flatbuffers/go"
-	"sort"
 	"fmt"
+	"log"
+
+	flatbuffers "github.com/google/flatbuffers/go"
+
 	"github.com/davecgh/go-spew/spew"
+)
+
+type FieldType byte
+
+var ENABLE_LOG_DEBUG bool = true
+
+func Debugf(f string, args ...interface{}) {
+	if !ENABLE_LOG_DEBUG {
+		return
+	}
+	log.Printf(fmt.Sprintf("D: %s", f), args...)
+
+}
+
+const (
+	FIELD_ONE FieldType = iota
+	FIELD_TWO
+	FIELD_FOUR
+	FIELD_EIGHT
+	FIELD_STRING
+	FIELD_NEST
 )
 
 type Fbs struct {
 	Top     uint32
 	VOffset uint32
 	VPos    uint32
+	Length  uint32
 
 	SOffset uint32
 	SPos    uint32
@@ -20,10 +44,11 @@ type Fbs struct {
 	VTable  []uint16
 	Table   []uint64
 	Nest    map[int]uint32
+	Childs  map[int]*Fbs
 }
 
 type OptionType struct {
-	Key string
+	Key  string
 	Size int
 	Nest Option
 }
@@ -32,9 +57,33 @@ type Option struct {
 	Maps []OptionType
 }
 
+func GetFieldType(otype OptionType) FieldType {
+	switch otype.Size {
+	case 1:
+		return FIELD_ONE
+	case 2:
+		return FIELD_TWO
+	case 4:
+		return FIELD_FOUR
+	case 8:
+		return FIELD_EIGHT
+	default:
+		if len(otype.Nest.Maps) > 0 {
+			return FIELD_NEST
+		}
+	}
+	return FIELD_STRING
+}
 
 func GetFbsRootInfo(buf []byte, opt Option) *Fbs {
 	return GetFbsInfo(buf, uint32(flatbuffers.GetUOffsetT(buf)), opt)
+}
+
+func MaxLen(x, y uint32) uint32 {
+	if y > x {
+		return y
+	}
+	return x
 }
 
 func GetFbsInfo(buf []byte, top uint32, opt Option) *Fbs {
@@ -42,6 +91,7 @@ func GetFbsInfo(buf []byte, top uint32, opt Option) *Fbs {
 	info := &Fbs{Nest: make(map[int]uint32)}
 
 	info.Top = top
+	info.Length = top
 	info.VOffset = uint32(flatbuffers.GetUOffsetT(buf[info.Top:]))
 	info.VPos = info.Top - info.VOffset
 	fieldStart := 4
@@ -62,64 +112,61 @@ func GetFbsInfo(buf []byte, top uint32, opt Option) *Fbs {
 		info.VTable = append(info.VTable, uint16(flatbuffers.GetVOffsetT(buf[cur:])))
 	}
 
-	sort.Slice(info.VTable, func(i, j int) bool { return info.VTable[i] < info.VTable[j] })
-
 	info.Table = make([]uint64, 0, info.TLen)
 	for idx, _ := range info.VTable {
 
-		diff := info.TLen - info.VTable[idx]
-
-		if idx < len(info.VTable)-1 {
-			diff = info.VTable[idx+1] - info.VTable[idx]
-		}
-
 		pos := info.Top + uint32(info.VTable[idx])
 
-		switch diff {
-		case uint16(1):
+		//size := opt.Maps[idx]
+
+		switch GetFieldType(opt.Maps[idx]) {
+		case FIELD_ONE:
 			info.Table = append(info.Table, uint64(flatbuffers.GetByte(buf[pos:])))
-			fmt.Printf("Table[%d] buf[%d:]=%+v\n", idx, pos, buf[pos:pos+1])
-		case uint16(2):
+			info.Length = MaxLen(info.Length, pos+1)
+			Debugf("Table[%d] buf[%d:]=%+v\n", idx, pos, buf[pos:pos+1])
+		case FIELD_TWO:
 			info.Table = append(info.Table, uint64(flatbuffers.GetVOffsetT(buf[pos:])))
-			fmt.Printf("Table[%d] buf[%d:]=%+v\n", idx, pos, buf[pos:pos+2])
-		case uint16(4):
+			info.Length = MaxLen(info.Length, pos+2)
+			Debugf("Table[%d] buf[%d:]=%+v\n", idx, pos, buf[pos:pos+2])
+		case FIELD_FOUR:
 			//info.Table = append(info.Table, uint64(flatbuffers.GetUint32(buf[info.Top+info.VTable[idx]:])))
-			info.Table = append(info.Table, uint64(flatbuffers.GetUint32(buf[pos:])))
-			fmt.Printf("Table[%d] buf[%d:]=%+v\n", idx, pos, buf[pos:pos+4])
-		case uint16(8):
+			info.Table = append(info.Table, uint64(flatbuffers.GetInt32(buf[pos:])))
+			info.Length = MaxLen(info.Length, pos+4)
+			Debugf("Table[%d] buf[%d:]=%+v\n", idx, pos, buf[pos:pos+4])
+		case FIELD_EIGHT:
 			info.Table = append(info.Table, uint64(flatbuffers.GetUint64(buf[pos:])))
-			fmt.Printf("Table[%d] buf[%d:]=%+v\n", idx, pos, buf[pos:pos+8])
-			//info.Table = append(info.Table, uint64(flatbuffers.GetUint64(buf[info.Top+info.VTable[idx]:])))
-		//case uint16(12):
+			info.Length = MaxLen(info.Length, pos+8)
+			Debugf("Table[%d] buf[%d:]=%+v\n", idx, pos, buf[pos:pos+8])
+		case FIELD_NEST:
+			val := uint32(flatbuffers.GetUint32(buf[pos:]) + pos)
+			info.Nest[idx] = val
+			info.Table = append(info.Table, 0)
+		case FIELD_STRING:
+			sLen := flatbuffers.GetUint32(buf[pos:])
+			start := pos + sLen + flatbuffers.SizeUOffsetT
+			info.Table = append(info.Table, uint64(sLen))
+			info.Length = MaxLen(info.Length, start+sLen)
+			Debugf("Table[%d] buf[%d:%d]='%s'\n", idx, start, start+sLen, buf[start:start+sLen])
 
 		default:
-			fmt.Printf("unknow data: buf[%d:%d]=%+v\n", pos, pos+uint32(diff), buf[pos:pos+uint32(diff)])
-			//info.Table = append(info.Table, uint64(flatbuffers.GetUint32(buf[pos:])+info.Top))
-			if uint32(diff) == flatbuffers.GetUint32(buf[pos:])+4 {
-				fmt.Printf("string data: buf[%d:%d]=%s\n", pos+4, pos+4+uint32(diff), string(buf[pos+4:pos+uint32(diff)]))
-			}
-
-			if diff == uint16(5) {
-				val := uint32(flatbuffers.GetUint32(buf[pos:]) + pos)
-				info.Nest[idx] = val
-				info.Table = append(info.Table, 0)
-			} else {
-				info.Table = append(info.Table, uint64(flatbuffers.GetUint32(buf[pos:])+info.Top))
-			}
+			Debugf("unknow data: buf[%d:]=%+v\n", pos, buf[pos:])
+			info.Table = append(info.Table, uint64(flatbuffers.GetUint32(buf[pos:])+info.Top))
 		}
 	}
 
-	sort.Slice(info.VTable, func(i, j int) bool { return i > j })
-	sort.Slice(info.Table, func(i, j int) bool { return i > j })
+	Debugf("dump VTable[%d:]\t= %+v\n", info.VPos, buf[info.VPos:info.VPos+uint32(info.VLen)])
+	Debugf("dump Table[%d:]\t= %+v\n", info.Top, buf[info.Top:info.Top+uint32(info.TLen)])
 
-	fmt.Printf("dump VTable\t= %+v\n", buf[info.VPos:info.VPos+uint32(info.VLen)])
-	fmt.Printf("dump Table\t= %+v\n", buf[info.Top:info.Top+uint32(info.TLen)])
-
-	for _, pos := range info.Nest {
-		fmt.Printf("---Nested--%d---\n", pos)
-		ninfo := GetFbsInfo(buf, pos, opt)
-
-		spew.Dump(ninfo)
+	for i, pos := range info.Nest {
+		Debugf("---Nested--%d---\n", pos)
+		ninfo := GetFbsInfo(buf, pos, opt.Maps[i].Nest)
+		Debugf("nested info %s\n", spew.Sdump(ninfo))
+		info.Length = MaxLen(info.Length, ninfo.Length)
+		Debugf("---Nested----\n")
+		if info.Childs == nil {
+			info.Childs = make(map[int]*Fbs)
+		}
+		info.Childs[i] = ninfo
 	}
 
 	return info
