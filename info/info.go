@@ -11,7 +11,7 @@ import (
 
 type FieldType byte
 
-var ENABLE_LOG_DEBUG bool = true
+var ENABLE_LOG_DEBUG bool = false
 
 func Debugf(f string, args ...interface{}) {
 	if !ENABLE_LOG_DEBUG {
