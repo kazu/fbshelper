@@ -1,0 +1,74 @@
+namespace vfs_schema;
+
+
+union Index {
+    IndexNum,
+    IndexString,
+    File,
+    InvertedMapNum,
+    InvertedMapString
+}
+/*
+table Index {
+    size:int;
+    maps:[InvertedMap];
+}
+*/
+
+table IndexNum {
+    size:int;
+    maps:[InvertedMapNum];
+}
+
+table IndexString {
+    size:int;
+    maps:[InvertedMapString];
+}
+
+
+table InvertedMapNum {
+    key:int64;
+    value:Record;
+}
+
+table InvertedMapString {
+    key:string;
+    value:Record;
+}
+
+table File {
+    id:uint64; // file inode number
+    name:string;
+    index_at:int64;
+}
+
+
+struct Record {
+    file_id:uint64;
+    offset:int64;
+    size:int64;
+    offset_of_value:int;
+    value_size:int;
+}
+
+table Root {
+    version:int;
+    index:Index;
+}
+
+table Files {
+    files:[File];
+}
+
+table Symbols {
+    symbols:[Symbol];
+}
+
+table Symbol {
+    key:[string];
+}
+
+file_identifier "VIDX";
+file_extension "ext";
+
+root_type Root;
