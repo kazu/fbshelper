@@ -27,6 +27,7 @@ const (
 	FIELD_EIGHT
 	FIELD_STRING
 	FIELD_NEST
+	FIELD_VECTOR
 )
 
 type Fbs struct {
@@ -44,12 +45,15 @@ type Fbs struct {
 	Table   []uint64
 	Nest    map[int]uint32
 	Childs  map[int]*Fbs
+
+	Vector map[int]bool // ?
 }
 
 type OptionType struct {
-	Key  string
-	Size int
-	Nest Option
+	Key      string
+	Size     int
+	IsVector bool
+	Nest     Option
 }
 
 type Option struct {
@@ -67,6 +71,9 @@ func GetFieldType(otype OptionType) FieldType {
 	case 8:
 		return FIELD_EIGHT
 	default:
+		if otype.IsVector {
+			return FIELD_VECTOR
+		}
 		if len(otype.Nest.Maps) > 0 {
 			return FIELD_NEST
 		}
@@ -146,12 +153,33 @@ func (info *Fbs) FetchTable(buf []byte, opt Option) error {
 			info.Length = MaxLen(info.Length, pos+4)
 		case FIELD_EIGHT:
 			info.Length = MaxLen(info.Length, pos+8)
+		case FIELD_VECTOR:
+			vLenOff := flatbuffers.GetUint32(buf[pos:])
+			vLen := flatbuffers.GetUint32(buf[pos+vLenOff:])
+			start := pos + vLenOff + flatbuffers.SizeUOffsetT
+
+			// get last value of vector
+			ptrLast := start + (vLen-1)*4
+			vBuf := buf[start : start+64]
+			_ = vBuf
+
+			last := ptrLast + flatbuffers.GetUint32(buf[ptrLast:])
+			info.Nest[idx] = last
+
 		case FIELD_NEST:
 			val := uint32(flatbuffers.GetUint32(buf[pos:]) + pos)
 			info.Nest[idx] = val
 		case FIELD_STRING:
-			sLen := flatbuffers.GetUint32(buf[pos:])
-			start := pos + sLen + flatbuffers.SizeUOffsetT
+			//sLen := flatbuffers.GetUint32(buf[pos:])
+			sLenOff := flatbuffers.GetUint32(buf[pos:])
+			sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
+			//align := (sLen + 1) % flatbuffers.SizeUOffsetT
+
+			//align++
+
+			start := pos + sLenOff + flatbuffers.SizeUOffsetT
+			//align := uint32(stringAlign(int(sLen) + 1))
+
 			info.Table = append(info.Table, uint64(sLen))
 			info.Length = MaxLen(info.Length, start+sLen)
 
@@ -177,6 +205,13 @@ func (info *Fbs) FetchTable(buf []byte, opt Option) error {
 
 	return nil
 
+}
+
+func stringAlign(size int) int {
+
+	alignSize := (^0 + size) + 1
+	alignSize &= (flatbuffers.SizeUOffsetT - 1)
+	return alignSize
 }
 
 func (info *Fbs) FetchAll(buf []byte, opt Option) error {
@@ -208,13 +243,29 @@ func (info *Fbs) FetchAll(buf []byte, opt Option) error {
 			info.Table = append(info.Table, uint64(flatbuffers.GetUint64(buf[pos:])))
 			info.Length = MaxLen(info.Length, pos+8)
 			Debugf("Table[%d] buf[%d:]=%+v\n", idx, pos, buf[pos:pos+8])
+		case FIELD_VECTOR:
+			vLenOff := flatbuffers.GetUint32(buf[pos:])
+			vLen := flatbuffers.GetUint32(buf[pos+vLenOff:])
+			start := pos + vLenOff + flatbuffers.SizeUOffsetT
+
+			ptrLast := start + (vLen-1)*4
+			last := ptrLast + flatbuffers.GetUint32(buf[ptrLast:])
+			info.Nest[idx] = last
+
 		case FIELD_NEST:
 			val := uint32(flatbuffers.GetUint32(buf[pos:]) + pos)
 			info.Nest[idx] = val
 			info.Table = append(info.Table, 0)
 		case FIELD_STRING:
-			sLen := flatbuffers.GetUint32(buf[pos:])
-			start := pos + sLen + flatbuffers.SizeUOffsetT
+			bb := buf[pos:]
+			_ = bb
+			sLenOff := flatbuffers.GetUint32(buf[pos:])
+			sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
+
+			start := pos + sLenOff + flatbuffers.SizeUOffsetT
+			//align := (sLen + 1) % flatbuffers.SizeUOffsetT
+			//align++
+
 			info.Table = append(info.Table, uint64(sLen))
 			info.Length = MaxLen(info.Length, start+sLen)
 			Debugf("Table[%d] buf[%d:%d]='%s'\n", idx, start, start+sLen, buf[start:start+sLen])
