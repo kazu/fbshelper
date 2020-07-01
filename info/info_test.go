@@ -115,7 +115,7 @@ func RootFileOption() info.Option {
 	}
 }
 
-func Test_FbsFile(t *testing.T) {
+func Test_GetFbsRootInfo(t *testing.T) {
 
 	info.ENABLE_LOG_DEBUG = true
 	buf := MakeRootFileFbs(12, "root_file.json", 456)
@@ -128,6 +128,9 @@ func Test_FbsFile(t *testing.T) {
 	fbsInfo := info.GetFbsRootInfo(buf, RootFileOption())
 	info.Debugf("info %s\n", spew.Sdump(fbsInfo))
 
-	assert.Equal(t, fbsInfo.Table[0], uint64(1))
 	assert.Equal(t, len(buf), int(fbsInfo.Length))
+
+	fbsInfo.FetchAll(buf, RootFileOption())
+	assert.Equal(t, fbsInfo.Table[0], uint64(1))
+
 }

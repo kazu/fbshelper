@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	flatbuffers "github.com/google/flatbuffers/go"
-
 	"github.com/davecgh/go-spew/spew"
+	flatbuffers "github.com/google/flatbuffers/go"
 )
 
 type FieldType byte
@@ -79,6 +78,18 @@ func GetFbsRootInfo(buf []byte, opt Option) *Fbs {
 	return GetFbsInfo(buf, uint32(flatbuffers.GetUOffsetT(buf)), opt)
 }
 
+func GetFbsInfo(buf []byte, top uint32, opt Option) *Fbs {
+
+	info := &Fbs{Nest: make(map[int]uint32)}
+	info.Top = top
+	info.Length = top
+
+	info.FetchVtable(buf, opt)
+	info.FetchTable(buf, opt)
+
+	return info
+}
+
 func MaxLen(x, y uint32) uint32 {
 	if y > x {
 		return y
@@ -86,12 +97,12 @@ func MaxLen(x, y uint32) uint32 {
 	return x
 }
 
-func GetFbsInfo(buf []byte, top uint32, opt Option) *Fbs {
+func (info *Fbs) FetchVtable(buf []byte, opt Option) error {
 
-	info := &Fbs{Nest: make(map[int]uint32)}
+	if len(info.VTable) > 0 {
+		return nil
+	}
 
-	info.Top = top
-	info.Length = top
 	info.VOffset = uint32(flatbuffers.GetUOffsetT(buf[info.Top:]))
 	info.VPos = info.Top - info.VOffset
 	fieldStart := 4
@@ -112,12 +123,72 @@ func GetFbsInfo(buf []byte, top uint32, opt Option) *Fbs {
 		info.VTable = append(info.VTable, uint16(flatbuffers.GetVOffsetT(buf[cur:])))
 	}
 
+	return nil
+}
+
+func (info *Fbs) FetchTable(buf []byte, opt Option) error {
+
+	if len(info.Table) > 0 {
+		return nil
+	}
+
 	info.Table = make([]uint64, 0, info.TLen)
 	for idx, _ := range info.VTable {
 
 		pos := info.Top + uint32(info.VTable[idx])
 
-		//size := opt.Maps[idx]
+		switch GetFieldType(opt.Maps[idx]) {
+		case FIELD_ONE:
+			info.Length = MaxLen(info.Length, pos+1)
+		case FIELD_TWO:
+			info.Length = MaxLen(info.Length, pos+2)
+		case FIELD_FOUR:
+			info.Length = MaxLen(info.Length, pos+4)
+		case FIELD_EIGHT:
+			info.Length = MaxLen(info.Length, pos+8)
+		case FIELD_NEST:
+			val := uint32(flatbuffers.GetUint32(buf[pos:]) + pos)
+			info.Nest[idx] = val
+		case FIELD_STRING:
+			sLen := flatbuffers.GetUint32(buf[pos:])
+			start := pos + sLen + flatbuffers.SizeUOffsetT
+			info.Table = append(info.Table, uint64(sLen))
+			info.Length = MaxLen(info.Length, start+sLen)
+
+		default:
+			log.Printf("W: unknow data: buf[%d:]=%+v\n", pos, buf[pos:])
+		}
+	}
+
+	for i, pos := range info.Nest {
+		ninfo := &Fbs{Nest: make(map[int]uint32)}
+		ninfo.Top = pos
+		ninfo.Length = info.Length
+
+		ninfo.FetchVtable(buf, opt.Maps[i].Nest)
+		ninfo.FetchTable(buf, opt.Maps[i].Nest)
+
+		info.Length = MaxLen(info.Length, ninfo.Length)
+		if info.Childs == nil {
+			info.Childs = make(map[int]*Fbs)
+		}
+		info.Childs[i] = ninfo
+	}
+
+	return nil
+
+}
+
+func (info *Fbs) FetchAll(buf []byte, opt Option) error {
+
+	if len(info.Table) > 0 {
+		return nil
+	}
+
+	info.Table = make([]uint64, 0, info.TLen)
+	for idx, _ := range info.VTable {
+
+		pos := info.Top + uint32(info.VTable[idx])
 
 		switch GetFieldType(opt.Maps[idx]) {
 		case FIELD_ONE:
@@ -157,17 +228,25 @@ func GetFbsInfo(buf []byte, top uint32, opt Option) *Fbs {
 	Debugf("dump VTable[%d:]\t= %+v\n", info.VPos, buf[info.VPos:info.VPos+uint32(info.VLen)])
 	Debugf("dump Table[%d:]\t= %+v\n", info.Top, buf[info.Top:info.Top+uint32(info.TLen)])
 
+	info.Childs = make(map[int]*Fbs)
 	for i, pos := range info.Nest {
+		ninfo := &Fbs{Nest: make(map[int]uint32)}
+		ninfo.Top = pos
+		ninfo.Length = info.Length
+
+		ninfo.FetchVtable(buf, opt.Maps[i].Nest)
+		ninfo.FetchAll(buf, opt.Maps[i].Nest)
 		Debugf("---Nested--%d---\n", pos)
-		ninfo := GetFbsInfo(buf, pos, opt.Maps[i].Nest)
 		Debugf("nested info %s\n", spew.Sdump(ninfo))
-		info.Length = MaxLen(info.Length, ninfo.Length)
 		Debugf("---Nested----\n")
+
+		info.Length = MaxLen(info.Length, ninfo.Length)
 		if info.Childs == nil {
 			info.Childs = make(map[int]*Fbs)
 		}
 		info.Childs[i] = ninfo
+
 	}
 
-	return info
+	return nil
 }
