@@ -46,6 +46,16 @@ func (n *Node) vtable() {
 	}
 }
 
+func FbsString(node *Node) []byte {
+	buf := node.Bytes
+	pos := uint32(node.Pos + int(node.VTable[0]))
+	sLenOff := flatbuffers.GetUint32(buf[pos:])
+	sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
+	start := pos + sLenOff + flatbuffers.SizeUOffsetT
+
+	return buf[start : start+sLen]
+}
+
 // must be generated
 
 type FbsRoot struct {
@@ -116,4 +126,109 @@ func (node *FbsFile) IndexAt() int64 {
 	pos := node.Pos + int(node.VTable[2])
 
 	return flatbuffers.GetInt64(node.Bytes[pos:])
+}
+
+type FbsIndexString struct {
+	*Node
+}
+
+func (node FbsIndexString) Size() int32 {
+	if node.VTable[0] == 0 {
+		return int32(0)
+	}
+	pos := node.Pos + int(node.VTable[0])
+	return int32(flatbuffers.GetInt32(node.Bytes[pos:]))
+}
+
+/*
+func (node FbsIndexString) Maps() {
+	if node.VTable[1] == 0 {
+		//FIXME
+		return
+	}
+	buf := node.Bytes
+	pos := uint32(node.Pos + int(node.VTable[1]))
+	sLenOff := flatbuffers.GetUint32(buf[pos:])
+	_ = sLenOff
+	// FIXME
+}
+*/
+
+// 追加
+type FbsIndexStringMaps struct {
+	*Node
+	VPos   uint32
+	VLen   uint32
+	VStart uint32
+}
+
+// 現状の変更箇所
+func (node FbsIndexString) Maps() FbsIndexStringMaps { //  Name="maps" Type=[]InvertedMapString
+	if node.VTable[1] == 0 {
+		return FbsIndexStringMaps{}
+	}
+	buf := node.Bytes
+
+	vPos := uint32(node.Pos + int(node.VTable[1]))
+	vLenOff := flatbuffers.GetUint32(buf[vPos:])
+	vLen := flatbuffers.GetUint32(buf[vPos+vLenOff:])
+	start := vPos + vLenOff + flatbuffers.SizeUOffsetT
+
+	//return FbsIndexStringMaps{Node: base.NewNode(node.Base, int(flatbuffers.GetUint32(node.Bytes[pos:]))+pos)}
+	//return FbsIndexStringMaps{Node: NewNode(node.Base, node.Pos)}
+	return FbsIndexStringMaps{
+		Node:   NewNode(node.Base, node.Pos),
+		VPos:   vPos,
+		VLen:   vLen,
+		VStart: start,
+	}
+
+}
+
+type FbsInvertedMapString struct {
+	*Node
+}
+
+// ここからは全部追加
+func (node FbsIndexStringMaps) At(i int) FbsInvertedMapString {
+	if i > int(node.VLen) || i < 0 {
+		return FbsInvertedMapString{}
+	}
+
+	buf := node.Bytes
+	ptr := node.VStart + uint32(i-1)*4
+	return FbsInvertedMapString{Node: NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:])))}
+}
+
+func (node FbsIndexStringMaps) First() FbsInvertedMapString {
+	return node.At(0)
+}
+
+func (node FbsIndexStringMaps) Last() FbsInvertedMapString {
+	return node.At(int(node.VLen))
+}
+
+func (node FbsIndexStringMaps) Select(fn func(m FbsInvertedMapString) bool) []FbsInvertedMapString {
+
+	result := make([]FbsInvertedMapString, 0, int(node.VLen))
+	for i := 0; i < int(node.VLen); i++ {
+		if m := node.At(i); fn(m) {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
+func (node FbsIndexStringMaps) Find(fn func(m FbsInvertedMapString) bool) FbsInvertedMapString {
+
+	for i := 0; i < int(node.VLen); i++ {
+		if m := node.At(i); fn(m) {
+			return m
+		}
+	}
+	return FbsInvertedMapString{}
+}
+
+func (node FbsIndexStringMaps) All() []FbsInvertedMapString {
+	return node.Select(func(FbsInvertedMapString) bool { return true })
 }

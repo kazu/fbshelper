@@ -277,4 +277,15 @@ func Test_QueryFbs(t *testing.T) {
 	idx := root.Index()
 	assert.Equal(t, uint64(12), idx.File().Id())
 	assert.Equal(t, "root_test.json", string(idx.File().Name()))
+
+	buf2 := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+		})
+	})
+
+	root = query.OpenByBuf(buf2)
+
+	assert.Equal(t, int32(234), root.Index().IndexString().Size())
+	assert.Equal(t, 2, root.Index().IndexString().Maps().Count())
 }
