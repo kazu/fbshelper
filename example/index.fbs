@@ -8,12 +8,6 @@ union Index {
     InvertedMapNum,
     InvertedMapString
 }
-/*
-table Index {
-    size:int;
-    maps:[InvertedMap];
-}
-*/
 
 table IndexNum {
     size:int;

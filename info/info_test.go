@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/kazu/fbshelper/example/vfs_schema"
+	vfs_schema "github.com/kazu/fbshelper/example/vfs_schema"
 
 	"io"
 	"io/ioutil"
@@ -14,6 +14,8 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/kazu/fbshelper/info"
 	"github.com/stretchr/testify/assert"
+
+	query "github.com/kazu/fbshelper/query"
 )
 
 type File struct {
@@ -267,4 +269,12 @@ func Test_GetFbsRootInfo_RootIndexString(t *testing.T) {
 
 	assert.Equal(t, len(buf), int64Align(int(fbsInfo.Length)))
 
+}
+
+func Test_QueryFbs(t *testing.T) {
+	buf := MakeRootFileFbs(12, "root_test.json", 456)
+	root := query.OpenByBuf(buf)
+	idx := root.Index()
+	assert.Equal(t, uint64(12), idx.File().Id())
+	assert.Equal(t, "root_test.json", string(idx.File().Name()))
 }

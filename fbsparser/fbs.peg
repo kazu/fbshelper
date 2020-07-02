@@ -40,7 +40,7 @@ metadata <- '(' <[^)]*> ')'
 field_decl <- spacing field_type ':' type metadata* ';' spacing {p.NewExtractField()} /
               spacing field_type ':' type <[ \t]*> '=' <[ \t]*> scalar metadata* ';' spacing {p.NewExtractFieldWithValue()}
 
-field_type <- ident {p.FieldNaame(text)}
+field_type <- ident {p.FieldName(text)}
 
 enum_decl <- 'enum' spacing ident spacing metadata* '{' enum_fields '}' spacing /
              'enum' spacing ident ':' type spacing metadata* '{' enum_fields '}' spacing
@@ -56,7 +56,7 @@ union_name <- ident {p.UnionName(text)}
 enum_field <- enum_field_type spacing {p.NewExtractField()} /
               enum_field_type spacing '=' spacing integer_constant spacing
 
-enum_field_type <- ident {p.FieldNaame(text)}
+enum_field_type <- ident {p.EnumName(text)}
 
 root_decl <- 'root_type' spacing <[A-z0-9_.\-]+> {p.SetRootType(text)} ';' spacing
 
@@ -83,8 +83,8 @@ type <- 'bool' spacing {p.SetType("bool")} /
         'ubyte' spacing {p.SetType("uint8")} /
         'short' spacing {p.SetType("short")} /
         'ushort' spacing {p.SetType("ushort")} /
-        'int' spacing {p.SetType("int")} /
-        'uint' spacing {p.SetType("uint")} /
+        'int' spacing {p.SetType("int32")} /
+        'uint' spacing {p.SetType("uint32")} /
         'float' spacing {p.SetType("float")} /
         'long' spacing {p.SetType("long")} /
         'ulong' spacing {p.SetType("ulong")} /

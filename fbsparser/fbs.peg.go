@@ -558,7 +558,7 @@ func (p *Parser) Execute() {
 		case ruleAction5:
 			p.NewExtractFieldWithValue()
 		case ruleAction6:
-			p.FieldNaame(text)
+			p.FieldName(text)
 		case ruleAction7:
 			p.NewUnion()
 		case ruleAction8:
@@ -566,7 +566,7 @@ func (p *Parser) Execute() {
 		case ruleAction9:
 			p.NewExtractField()
 		case ruleAction10:
-			p.FieldNaame(text)
+			p.EnumName(text)
 		case ruleAction11:
 			p.SetRootType(text)
 		case ruleAction12:
@@ -600,9 +600,9 @@ func (p *Parser) Execute() {
 		case ruleAction26:
 			p.SetType("ushort")
 		case ruleAction27:
-			p.SetType("int")
+			p.SetType("int32")
 		case ruleAction28:
-			p.SetType("uint")
+			p.SetType("uint32")
 		case ruleAction29:
 			p.SetType("float")
 		case ruleAction30:
@@ -3879,7 +3879,7 @@ func (p *Parser) Init() {
 			}
 			return true
 		},
-		/* 43 Action6 <- <{p.FieldNaame(text)}> */
+		/* 43 Action6 <- <{p.FieldName(text)}> */
 		func() bool {
 			{
 				add(ruleAction6, position)
@@ -3907,7 +3907,7 @@ func (p *Parser) Init() {
 			}
 			return true
 		},
-		/* 47 Action10 <- <{p.FieldNaame(text)}> */
+		/* 47 Action10 <- <{p.EnumName(text)}> */
 		func() bool {
 			{
 				add(ruleAction10, position)
@@ -4026,14 +4026,14 @@ func (p *Parser) Init() {
 			}
 			return true
 		},
-		/* 64 Action27 <- <{p.SetType("int")}> */
+		/* 64 Action27 <- <{p.SetType("int32")}> */
 		func() bool {
 			{
 				add(ruleAction27, position)
 			}
 			return true
 		},
-		/* 65 Action28 <- <{p.SetType("uint")}> */
+		/* 65 Action28 <- <{p.SetType("uint32")}> */
 		func() bool {
 			{
 				add(ruleAction28, position)

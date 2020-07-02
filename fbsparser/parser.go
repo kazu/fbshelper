@@ -92,7 +92,7 @@ func (fbs *Fbs) SearchNotTableMessage() {
 }
 
 func (fbs *Fbs) FinilizeForFbs() {
-	for _, info := range fbs.Structs {
+	for i, info := range fbs.Structs {
 		//newFields := info.Fields
 		newFields := []structer.FieldInfo{}
 		for _, fInfo := range info.Fields {
@@ -100,25 +100,32 @@ func (fbs *Fbs) FinilizeForFbs() {
 			ftype := fInfo.Type
 
 			if ftype[:2] == `[]` && strings.ToUpper(ftype[:3]) == ftype[:3] {
-				newFields = append(newFields, structer.FieldInfo{Name: fname, Type: fmt.Sprintf("[]*%sMessage", ftype[2:])})
+				//newFields = append(newFields, structer.FieldInfo{Name: fname, Type: fmt.Sprintf("[]*%sMessage", ftype[2:])})
+				newFields = append(newFields, structer.FieldInfo{Name: fname, Type: fmt.Sprintf("[]%s", ftype[2:])})
 				if fbs.isUnion(ftype[2:]) {
 					info.IsUnion[fname] = true
+					//unionIdx = append(unionIdx, idx)
 				}
 				continue
 			}
 			if ftype[:2] == `[]` {
+				newFields = append(newFields, fInfo)
 				continue
 			}
 			if strings.ToUpper(ftype[:1]) == ftype[:1] {
-				newFields = append(newFields, structer.FieldInfo{Name: fname, Type: fmt.Sprintf("*%sMessage", ftype)})
-
 				if fbs.isUnion(ftype) {
 					info.IsUnion[fname] = true
+					newFields = append(newFields, structer.FieldInfo{Name: fname + "Type", Type: "byte"})
 				}
+				//newFields = append(newFields, structer.FieldInfo{Name: fname, Type: fmt.Sprintf("*%sMessage", ftype)})
+				newFields = append(newFields, structer.FieldInfo{Name: fname, Type: fmt.Sprintf("%s", ftype)})
 				continue
+			} else {
+				newFields = append(newFields, fInfo)
 			}
 		}
-		info.Fields = newFields
+		fbs.Structs[i].Fields = newFields
+
 	}
 	fbs.SearchNotTableMessage()
 }
@@ -154,9 +161,13 @@ func (fbs *Fbs) SetTypeName(s string) {
 	fbs.typeName = s
 }
 
-func (fbs *Fbs) FieldNaame(s string) {
+func (fbs *Fbs) FieldName(s string) {
 	fbs.fname = toCamelCase(s)
 }
+func (fbs *Fbs) EnumName(s string) {
+	fbs.fname = s
+}
+
 func (fbs *Fbs) SetType(s string) {
 	fbs.fvalue = s
 }

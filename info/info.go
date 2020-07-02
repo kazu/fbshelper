@@ -122,6 +122,7 @@ func (info *Fbs) FetchVtable(buf []byte, opt Option) error {
 	} else {
 		info.SOffset = 0
 	}
+
 	info.VLen = uint16(flatbuffers.GetVOffsetT(buf[info.VPos:]))
 	info.TLen = uint16(flatbuffers.GetVOffsetT(buf[info.VPos+2:]))
 

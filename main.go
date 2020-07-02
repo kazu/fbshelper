@@ -12,6 +12,8 @@ import (
 	"github.com/kazu/loncha/structer"
 )
 
+var RootName string = "_root"
+
 func main() {
 
 	if len(os.Args) < 3 {
@@ -42,8 +44,9 @@ func main() {
 	parser.Execute()
 	parser.Fbs.FinilizeForFbs()
 
+	RootName = parser.Fbs.RootType
+
 	for _, info := range parser.Fbs.Structs {
-		fmt.Printf("info=%+v\n", info)
 		newSrc, err := FromTemplate(info, tmplate)
 		if err == nil {
 			output := filepath.Join(outDir, info.Name+".fbshelper.go")
@@ -53,7 +56,6 @@ func main() {
 		}
 	}
 	for _, union := range parser.Fbs.Unions {
-		fmt.Printf("union=%+v\n", union)
 		newSrc, err := FromTemplate(union, tmplateunion)
 		if err == nil {
 			output := filepath.Join(outDir, union.Name+".fbshelper.go")
@@ -75,6 +77,7 @@ func FromTemplate(info interface{}, path string) (out string, err error) {
 		"isUnion":    Search,
 		"search":     Search,
 		"toBareType": ToBareType,
+		"isRoot":     IsRoot,
 	}
 
 	t := template.Must(template.New("info").Funcs(funcMap).Parse(tmpStr))
@@ -104,6 +107,10 @@ func IsSlice(s string) bool {
 		return true
 	}
 	return false
+}
+
+func IsRoot(s string) bool {
+	return s == RootName
 }
 
 func ToCamelCase(s string) string {

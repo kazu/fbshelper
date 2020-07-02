@@ -18,7 +18,7 @@ func TestParserTableFixedField(t *testing.T) {
 		hoge_id:float64;
 		uuid:[byte];
 		hogas:[Hogo];
-		Hogg:Hoga;
+		Hogg:Hoge;
 		
 	  }
 
@@ -27,8 +27,12 @@ func TestParserTableFixedField(t *testing.T) {
 		mope:int64;
 
 
+	}
+	
+	union Hoge { 
+		RegistGameServer, 
+		Hoga 
 	}  
-	union Hoge { RegistGameServer, Hoga }  
 	 
 	root_type Hoga;
 

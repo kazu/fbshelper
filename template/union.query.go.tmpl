@@ -1,0 +1,18 @@
+{{- $ := . }}
+{{- $Name := $.Name}}
+package {{.PkgName}}
+
+import (
+	//flatbuffers "github.com/google/flatbuffers/go"
+    base "github.com/kazu/fbshelper/query/base"
+)
+
+type Fbs{{.Name}} struct {
+    *base.Node
+}
+{{- range $i, $v := .Aliases}}
+func(node Fbs{{$Name}}) {{$v}}() Fbs{{$v}} {
+
+    return Fbs{{$v}}{Node: node.Node}
+}
+{{- end }}

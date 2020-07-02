@@ -1,0 +1,82 @@
+{{- $ := . }}
+{{- $SName := $.Name}}
+package {{$.PkgName}}
+
+import (
+    flatbuffers "github.com/google/flatbuffers/go"
+    base "github.com/kazu/fbshelper/query/base"
+)
+
+type Fbs{{$.Name}} struct {
+	*base.Node
+}
+
+{{ $IsUnion := $.IsUnion}}
+
+{{- range $i, $v := .Fields}}
+    {{- if eq (isUnion $IsUnion $v.Name) true }}
+type FbsRoot{{$.Name}}{{$v.Name}} struct {
+    *base.Node
+}
+    {{- end }}
+{{- end }}
+
+{{- if eq (isRoot $SName) true }}
+func OpenByBuf(buf []byte) Fbs{{$.Name}} {
+	return FbsRoot{
+		Node: base.NewNode(&base.Base{Bytes: buf}, int(flatbuffers.GetUOffsetT(buf))),
+	}
+}
+{{- end }}
+
+{{- range $i, $v := .Fields}}
+    {{- if eq (isUnion $IsUnion $v.Type) true }}
+func (node Fbs{{$SName}}) {{$v.Name}}() Fbs{{$v.Type}} {
+    {{- else if eq $v.Type "[]byte" }}
+func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
+    {{- else if eq (isSlice $v.Type) true }}
+func (node Fbs{{$SName}}) {{$v.Name}}() {
+    {{- else if eq (isMessage $v.Type) true }}
+func (node Fbs{{$SName}}) {{$v.Name}}() Fbs{{$v.Type}} {
+    {{- else }}
+func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
+    {{- end }}
+	        if node.VTable[{{$i}}] == 0 {
+                    {{- if eq $v.Type "[]byte" }}
+                return nil
+                    {{- else if eq (isSlice $v.Type) true }}
+                //FIXME
+                return 
+                    {{- else if eq (isMessage $v.Type) true }}
+                return Fbs{{$v.Type}}{}        
+                    {{- else }}    
+		        return {{$v.Type}}(0)
+                    {{- end }}
+	        }
+    {{- if eq $v.Type "[]byte" }}
+            buf := node.Bytes
+	        pos := uint32(node.Pos + int(node.VTable[{{$i}}]))
+	        sLenOff := flatbuffers.GetUint32(buf[pos:])
+	        sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
+	        start := pos + sLenOff + flatbuffers.SizeUOffsetT
+
+            return buf[start:start+sLen]
+
+    {{- else if eq (isUnion $IsUnion $v.Type) true }}
+            pos := node.Pos + int(node.VTable[{{$i}}])
+            return Fbs{{$v.Type}}{Node: base.NewNode(node.Base, int(flatbuffers.GetUint32(node.Bytes[pos:]))+pos)}
+    {{- else if eq (isSlice $v.Type) true }}
+            buf := node.Bytes
+	        pos := uint32(node.Pos + int(node.VTable[{{$i}}]))
+            sLenOff := flatbuffers.GetUint32(buf[pos:])
+            _ = sLenOff
+            // FIXME
+    {{- else if eq (isMessage $v.Type) true }}
+            pos := node.Pos + int(node.VTable[{{$i}}])
+            return Fbs{{$v.Type}}{Node: base.NewNode(node.Base, int(flatbuffers.GetUint32(node.Bytes[pos:]))+pos)}
+    {{- else }}
+            pos := node.Pos + int(node.VTable[{{$i}}])
+            return {{$v.Type}}(flatbuffers.Get{{(toCamel $v.Type)}}(node.Bytes[pos:]))              
+    {{- end }}
+}
+{{- end }}
