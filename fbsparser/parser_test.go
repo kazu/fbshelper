@@ -21,11 +21,18 @@ func TestParserTableFixedField(t *testing.T) {
 		Hogg:Hoga;
 		
 	  }
+
+
 	struct Hoga {
 		mope:int64;
+
+
 	}  
 	union Hoge { RegistGameServer, Hoga }  
-	  
+	 
+	root_type Hoga;
+
+
 	`
 
 	parser := &fbsparser.Parser{Buffer: data}
@@ -46,5 +53,6 @@ func TestParserTableFixedField(t *testing.T) {
 	assert.Equal(t, len(parser.Fbs.Structs[0].Fields), 8, parser.Fbs.Structs)
 	assert.Equal(t, len(parser.Fbs.Unions), 1, parser.Fbs.Unions)
 	assert.Equal(t, len(parser.Fbs.Unions[0].Aliases), 2, parser.Fbs.Unions)
+	assert.Equal(t, "Hoga", parser.Fbs.RootType)
 
 }

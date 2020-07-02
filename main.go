@@ -9,7 +9,7 @@ import (
 	"text/template"
 
 	"github.com/kazu/fbshelper/fbsparser"
-	"github.com/kazu/lonacha/structer"
+	"github.com/kazu/loncha/structer"
 )
 
 func main() {

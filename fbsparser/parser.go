@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/kazu/lonacha/structer"
+	"github.com/kazu/loncha/structer"
 )
 
 type StructInfo struct {
@@ -20,12 +20,13 @@ type StructInfo struct {
 type Fbs struct {
 	NameSpace string
 	typeName  string
+	RootType  string
 	Structs   []StructInfo
 	Unions    []Union
 	Enums     []Enum
 
 	// store instantly
-	Fields     map[string]string
+	Fields     []structer.FieldInfo
 	fname      string
 	fvalue     string
 	isRepeated bool
@@ -67,7 +68,9 @@ func (fbs *Fbs) isUnion(s string) bool {
 
 func (fbs *Fbs) SearchNotTableMessage() {
 	for _, info := range fbs.Structs {
-		for fname, oftype := range info.Fields {
+		for _, fInfo := range info.Fields {
+			fname := fInfo.Name
+			oftype := fInfo.Type
 			ftype := oftype
 			if ftype[:2] == `[]` {
 				ftype = ftype[2:]
@@ -90,13 +93,14 @@ func (fbs *Fbs) SearchNotTableMessage() {
 
 func (fbs *Fbs) FinilizeForFbs() {
 	for _, info := range fbs.Structs {
-		newFields := info.Fields
-		for fname, ftype := range info.Fields {
-			//info.IsUnion[fname] = false
-			// slice of fbs type
+		//newFields := info.Fields
+		newFields := []structer.FieldInfo{}
+		for _, fInfo := range info.Fields {
+			fname := fInfo.Name
+			ftype := fInfo.Type
 
 			if ftype[:2] == `[]` && strings.ToUpper(ftype[:3]) == ftype[:3] {
-				newFields[fname] = fmt.Sprintf("[]*%sMessage", ftype[2:])
+				newFields = append(newFields, structer.FieldInfo{Name: fname, Type: fmt.Sprintf("[]*%sMessage", ftype[2:])})
 				if fbs.isUnion(ftype[2:]) {
 					info.IsUnion[fname] = true
 				}
@@ -106,7 +110,8 @@ func (fbs *Fbs) FinilizeForFbs() {
 				continue
 			}
 			if strings.ToUpper(ftype[:1]) == ftype[:1] {
-				newFields[fname] = fmt.Sprintf("*%sMessage", ftype)
+				newFields = append(newFields, structer.FieldInfo{Name: fname, Type: fmt.Sprintf("*%sMessage", ftype)})
+
 				if fbs.isUnion(ftype) {
 					info.IsUnion[fname] = true
 				}
@@ -122,13 +127,17 @@ func (fbs *Fbs) SetNameSpace(s string) {
 	fbs.NameSpace = s
 }
 
+func (fbs *Fbs) SetRootType(s string) {
+	fbs.RootType = s
+}
+
 func (fbs *Fbs) ExtractStruct(isTable bool) {
 
 	structInfo := StructInfo{}
 	structInfo.PkgName = fbs.NameSpace
 	structInfo.Name = fbs.typeName
 	structInfo.IsTable = isTable
-	structInfo.Fields = map[string]string{}
+	structInfo.Fields = []structer.FieldInfo{}
 	structInfo.IsSlice = map[string]bool{}
 	structInfo.IsMessage = map[string]bool{}
 	structInfo.IsUnion = map[string]bool{}
@@ -138,7 +147,7 @@ func (fbs *Fbs) ExtractStruct(isTable bool) {
 
 	fbs.Structs = append(fbs.Structs, structInfo)
 
-	fbs.Fields = map[string]string{}
+	fbs.Fields = []structer.FieldInfo{}
 }
 
 func (fbs *Fbs) SetTypeName(s string) {
@@ -154,13 +163,13 @@ func (fbs *Fbs) SetType(s string) {
 
 func (fbs *Fbs) NewExtractField() {
 	if fbs.Fields == nil {
-		fbs.Fields = map[string]string{}
+		fbs.Fields = []structer.FieldInfo{}
 	}
-	fbs.Fields[fbs.fname] = fbs.fvalue
+	fbs.Fields = append(fbs.Fields, structer.FieldInfo{Name: fbs.fname, Type: fbs.fvalue})
 }
 
 func (fbs *Fbs) NewExtractFieldWithValue() {
-	fbs.Fields[fbs.fname] = fbs.fvalue
+	fbs.Fields = append(fbs.Fields, structer.FieldInfo{Name: fbs.fname, Type: fbs.fvalue})
 }
 
 func (fbs *Fbs) SetRepeated(s string) {
@@ -182,13 +191,13 @@ func (fbs *Fbs) NewUnion() {
 		Name:    fbs.uName,
 		Aliases: []string{},
 	}
-	for key, _ := range fbs.Fields {
-		union.Aliases = append(union.Aliases, key)
+	for _, f := range fbs.Fields {
+		union.Aliases = append(union.Aliases, f.Name)
 	}
 
 	fbs.Unions = append(fbs.Unions, union)
 
-	fbs.Fields = map[string]string{}
+	fbs.Fields = []structer.FieldInfo{}
 }
 
 func toCamelCase(st string) string {

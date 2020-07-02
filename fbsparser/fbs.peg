@@ -58,7 +58,7 @@ enum_field <- enum_field_type spacing {p.NewExtractField()} /
 
 enum_field_type <- ident {p.FieldNaame(text)}
 
-root_decl <- 'root_type' spacing ident spacing ';' spacing
+root_decl <- 'root_type' spacing <[A-z0-9_.\-]+> {p.SetRootType(text)} ';' spacing
 
 file_extension_decl <- 'file_extension' <[ \t]*> <[^;]+> ';' spacing 
 
