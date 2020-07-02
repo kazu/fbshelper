@@ -57,8 +57,6 @@ func (fbs *Fbs) isUnion(s string) bool {
 
 	for _, union := range fbs.Unions {
 		if union.Name == s {
-			fmt.Printf("union=%+v \n", fbs.Unions)
-			fmt.Printf("union.Name=%s %s\n", union.Name, s)
 			return true
 		}
 	}
