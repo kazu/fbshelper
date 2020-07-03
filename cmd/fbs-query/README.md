@@ -2,7 +2,7 @@
 
 generate routine easy accessing flatbuffers data.
 
-genarate source code 
+generate source code
 ```console
 $ cat index.fbs
 namespace vfs_schema;
