@@ -15,7 +15,7 @@ import (
 	"github.com/kazu/fbshelper/info"
 	"github.com/stretchr/testify/assert"
 
-	query "github.com/kazu/fbshelper/query"
+	query "github.com/kazu/fbshelper/example/query"
 )
 
 type File struct {
