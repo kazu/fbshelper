@@ -14,6 +14,7 @@ import (
 )
 
 var RootName string = "_root"
+var NameisStruct map[string]bool = map[string]bool{}
 
 func main() {
 
@@ -46,6 +47,12 @@ func main() {
 	parser.Fbs.FinilizeForFbs()
 
 	RootName = parser.Fbs.RootType
+
+	for _, info := range parser.Fbs.Structs {
+		if !info.IsTable {
+			NameisStruct[info.Name] = true
+		}
+	}
 
 	for _, info := range parser.Fbs.Structs {
 		newSrc, err := FromTemplate(info, tmplate)
@@ -89,6 +96,8 @@ func FromTemplate(info interface{}, tmpStr string) (out string, err error) {
 		"search":     Search,
 		"toBareType": ToBareType,
 		"isRoot":     IsRoot,
+		"add":        Add,
+		"isStruct":   IsStruct,
 	}
 
 	t := template.Must(template.New("info").Funcs(funcMap).Parse(tmpStr))
@@ -96,6 +105,13 @@ func FromTemplate(info interface{}, tmpStr string) (out string, err error) {
 	err = t.Execute(s, info)
 	out = s.String()
 	return
+}
+func Add(i, j int) int {
+	return i + j
+}
+
+func IsStruct(s string) bool {
+	return NameisStruct[s]
 }
 
 func IsMessage(s string) bool {

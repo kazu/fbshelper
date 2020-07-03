@@ -26,9 +26,18 @@ func TestParserTableFixedField(t *testing.T) {
 	struct Hoga {
 		mope:int64;
 
-
 	}
-	
+
+	struct StTest {
+		hoge:uint64;
+		ngg:Nga;
+	}
+
+
+	struct Nga {
+		hoge:uint64;
+	}
+
 	union Hoge { 
 		RegistGameServer, 
 		Hoga 

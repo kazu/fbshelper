@@ -7,6 +7,29 @@ import (
     base "github.com/kazu/fbshelper/query/base"
 )
 
+
+
+{{- $Type := "byte" }}
+
+{{- if le (len .Aliases) 8 -}}
+{{- else if le (len .Aliases) 16 -}}
+    {{- $Type = "uint16" }}
+{{- else if le (len .Aliases) 32 -}}
+    {{- $Type = "uint32" }}
+{{- else -}}
+    {{- $Type = "uint64" }}
+{{- end }}
+
+type Enum{{.Name}} {{$Type}}
+
+const ( 
+    {{$Name}}NONE                   Enum{{$Name}}   =  0
+{{- range $i, $v := .Aliases}}
+    {{$Name}}{{$v}}                 Enum{{$Name}}   = {{(add $i 1)}}
+{{- end }}
+)
+
+
 type Fbs{{.Name}} struct {
     *base.Node
 }
@@ -16,3 +39,16 @@ func(node Fbs{{$Name}}) {{$v}}() Fbs{{$v}} {
     return Fbs{{$v}}{Node: node.Node}
 }
 {{- end }}
+
+func(node Fbs{{$Name}}) Info(i int) base.Info {
+    switch i-1 {
+{{- range $i, $v := .Aliases}}
+    case {{$i}}:
+        return node.{{$v}}().Info()
+{{- end}}
+    }
+
+    return base.Info{}
+}
+
+

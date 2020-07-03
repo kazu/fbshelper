@@ -11,6 +11,18 @@ import (
     base "github.com/kazu/fbshelper/query/base"
 )
 
+type EnumIndex byte
+
+const ( 
+    IndexNONE                   EnumIndex   =  0
+    IndexIndexNum                 EnumIndex   = 1
+    IndexIndexString                 EnumIndex   = 2
+    IndexFile                 EnumIndex   = 3
+    IndexInvertedMapNum                 EnumIndex   = 4
+    IndexInvertedMapString                 EnumIndex   = 5
+)
+
+
 type FbsIndex struct {
     *base.Node
 }
@@ -34,3 +46,22 @@ func(node FbsIndex) InvertedMapString() FbsInvertedMapString {
 
     return FbsInvertedMapString{Node: node.Node}
 }
+
+func(node FbsIndex) Info(i int) base.Info {
+    switch i-1 {
+    case 0:
+        return node.IndexNum().Info()
+    case 1:
+        return node.IndexString().Info()
+    case 2:
+        return node.File().Info()
+    case 3:
+        return node.InvertedMapNum().Info()
+    case 4:
+        return node.InvertedMapString().Info()
+    }
+
+    return base.Info{}
+}
+
+

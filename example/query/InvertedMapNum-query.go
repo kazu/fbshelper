@@ -11,22 +11,62 @@ import (
     base "github.com/kazu/fbshelper/query/base"
 )
 
+const (
+    DUMMY_InvertedMapNum = flatbuffers.VtableMetadataFields
+)
+
 type FbsInvertedMapNum struct {
 	*base.Node
 }
 
 
+func (node FbsInvertedMapNum) Info() base.Info {
+
+    info := base.Info{Pos: node.Pos, Size: -1}
+    for i := 0; i < len(node.VTable); i++ {
+        vInfo := node.ValueInfo(i)
+        if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+            info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+        }
+    }
+    return info    
+}
+
+func (node FbsInvertedMapNum) ValueInfo(i int) base.ValueInfo {
+
+    switch i {
+    case 0:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = base.SizeOfint64
+    case 1:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = node.Value().Info().Size
+     }
+     return node.ValueInfos[i]
+}
+
+
+
+
+
 func (node FbsInvertedMapNum) Key() int64 {
-	        if node.VTable[0] == 0 {    
-		        return int64(0)
-	        }
-            pos := node.Pos + int(node.VTable[0])
-            return int64(flatbuffers.GetInt64(node.Bytes[pos:]))
+    if node.VTable[0] == 0 {
+        return int64(0)
+    }
+    return int64(flatbuffers.GetInt64(node.ValueNormal(0)))
 }
-func (node FbsInvertedMapNum) Value() FbsRecord {
-	        if node.VTable[1] == 0 {
-                return FbsRecord{}
-	        }
-            pos := node.Pos + int(node.VTable[1])
-            return FbsRecord{Node: base.NewNode(node.Base, int(flatbuffers.GetUint32(node.Bytes[pos:]))+pos)}
+
+
+func (node FbsInvertedMapNum) Value() FbsRecord {    
+   if node.VTable[1] == 0 {
+        return FbsRecord{}  
+    }
+    return FbsRecord{Node: node.ValueStruct(1)}
+
 }
+
+

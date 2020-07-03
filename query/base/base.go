@@ -4,6 +4,21 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
+const (
+	SizeOfbool        = 1
+	SizeOfSizeOfint8  = 1
+	SizeOfSizeOfint16 = 2
+	SizeOfuint16      = 2
+	SizeOfint32       = 4
+	SizeOfuint32      = 4
+	SizeOfint64       = 8
+	SizeOfuint64      = 8
+	SizeOffloat32     = 4
+	SizeOffloat64     = 8
+	SizeOfuint8       = 1
+	SizeOfbyte        = 1
+)
+
 type Base struct {
 	Bytes []byte
 	Diffs []Diff
@@ -20,14 +35,35 @@ type Root struct {
 
 type Node struct {
 	*Base
-	Pos    int
-	VTable []uint16
-	TLen   uint16
+	Pos        int
+	Size       int
+	VTable     []uint16
+	TLen       uint16
+	ValueInfos []ValueInfo
 }
 
+type NodeList struct {
+	*Node
+	ValueInfo
+}
+
+type ValueInfo struct {
+	Pos  int
+	Size int
+	VLen uint32
+}
+
+type Info ValueInfo
+
 func NewNode(b *Base, pos int) *Node {
-	node := &Node{Base: b, Pos: pos}
-	node.vtable()
+	return NewNode2(b, pos, false)
+}
+
+func NewNode2(b *Base, pos int, noVTable bool) *Node {
+	node := &Node{Base: b, Pos: pos, Size: -1}
+	if !noVTable {
+		node.vtable()
+	}
 	return node
 }
 
@@ -44,6 +80,7 @@ func (n *Node) vtable() {
 	for cur := vPos + 4; cur < vPos+uint32(vLen); cur += 2 {
 		n.VTable = append(n.VTable, uint16(flatbuffers.GetVOffsetT(buf[cur:])))
 	}
+	n.ValueInfos = make([]ValueInfo, len(n.VTable))
 }
 
 func FbsString(node *Node) []byte {
@@ -54,4 +91,122 @@ func FbsString(node *Node) []byte {
 	start := pos + sLenOff + flatbuffers.SizeUOffsetT
 
 	return buf[start : start+sLen]
+}
+
+func FbsStringInfo(node *Node) Info {
+
+	buf := node.Bytes
+	pos := uint32(node.Pos + int(node.VTable[0]))
+	sLenOff := flatbuffers.GetUint32(buf[pos:])
+	sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
+	start := pos + sLenOff + flatbuffers.SizeUOffsetT
+
+	return Info{Pos: int(start), Size: int(sLen)}
+}
+
+func (info ValueInfo) IsNotReady() bool {
+	return info.Pos < 1
+
+}
+
+func (node *Node) ValueInfoPos(vIdx int) ValueInfo {
+	if node.VTable[vIdx] == 0 {
+		node.ValueInfos[vIdx].Pos = -1
+		node.ValueInfos[vIdx].Size = -1
+		return node.ValueInfos[vIdx]
+	}
+	node.ValueInfos[vIdx].Pos = node.Pos + int(node.VTable[vIdx])
+	return node.ValueInfos[vIdx]
+}
+
+func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
+	if node.VTable[vIdx] == 0 {
+		node.ValueInfos[vIdx].Pos = -1
+		node.ValueInfos[vIdx].Size = -1
+		return node.ValueInfos[vIdx]
+	}
+	buf := node.Bytes
+	pos := uint32(node.Pos + int(node.VTable[vIdx]))
+	sLenOff := flatbuffers.GetUint32(buf[pos:])
+	sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
+	start := pos + sLenOff + flatbuffers.SizeUOffsetT
+
+	node.ValueInfos[vIdx].Pos = int(start)
+	node.ValueInfos[vIdx].Size = int(sLen)
+	return node.ValueInfos[vIdx]
+}
+
+func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
+	if node.VTable[vIdx] == 0 {
+		node.ValueInfos[vIdx].Pos = -1
+		node.ValueInfos[vIdx].Size = -1
+		return node.ValueInfos[vIdx]
+	}
+
+	pos := node.Pos + int(node.VTable[vIdx])
+	start := int(flatbuffers.GetUint32(node.Bytes[pos:])) + pos
+	node.ValueInfos[vIdx].Pos = start
+
+	return node.ValueInfos[vIdx]
+}
+
+func (node *Node) ValueInfoPosList(vIdx int) ValueInfo {
+	if node.VTable[vIdx] == 0 {
+		node.ValueInfos[vIdx].Pos = -1
+		node.ValueInfos[vIdx].Size = -1
+		return node.ValueInfos[vIdx]
+	}
+	buf := node.Bytes
+	vPos := uint32(node.Pos + int(node.VTable[vIdx]))
+	vLenOff := flatbuffers.GetUint32(buf[vPos:])
+	vLen := flatbuffers.GetUint32(buf[vPos+vLenOff:])
+	start := vPos + vLenOff + flatbuffers.SizeUOffsetT
+
+	node.ValueInfos[vIdx].Pos = int(start)
+	node.ValueInfos[vIdx].VLen = vLen
+
+	return node.ValueInfos[vIdx]
+
+}
+
+func (node *Node) ValueNormal(vIdx int) []byte {
+	if node.ValueInfos[vIdx].Pos < 1 {
+		node.ValueInfoPos(vIdx)
+	}
+	return node.Bytes[node.ValueInfos[vIdx].Pos:]
+}
+
+func (node *Node) ValueBytes(vIdx int) []byte {
+	if node.ValueInfos[vIdx].Pos < 1 {
+		node.ValueInfoPosBytes(vIdx)
+	}
+	valInfo := node.ValueInfos[vIdx]
+	return node.Bytes[valInfo.Pos : valInfo.Pos+valInfo.Size]
+
+}
+
+func (node *Node) ValueTable(vIdx int) *Node {
+	if node.ValueInfos[vIdx].Pos < 1 {
+		node.ValueInfoPosTable(vIdx)
+	}
+
+	return NewNode(node.Base, node.ValueInfos[vIdx].Pos)
+}
+
+func (node *Node) ValueStruct(vIdx int) *Node {
+	if node.ValueInfos[vIdx].Pos < 1 {
+		node.ValueInfoPos(vIdx)
+	}
+
+	return NewNode2(node.Base, node.ValueInfos[vIdx].Pos, true)
+}
+
+func (node *Node) ValueList(vIdx int) NodeList {
+
+	if node.ValueInfos[vIdx].Pos < 1 {
+		node.ValueInfoPosList(vIdx)
+	}
+
+	return NodeList{Node: NewNode(node.Base, node.Pos),
+		ValueInfo: node.ValueInfos[vIdx]}
 }

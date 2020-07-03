@@ -1,10 +1,15 @@
 {{- $ := . }}
 {{- $SName := $.Name}}
+{{- $IsTable := $.IsTable }}
 package {{$.PkgName}}
 
 import (
     flatbuffers "github.com/google/flatbuffers/go"
     base "github.com/kazu/fbshelper/query/base"
+)
+
+const (
+    DUMMY_{{$SName}} = flatbuffers.VtableMetadataFields
 )
 
 type Fbs{{$.Name}} struct {
@@ -21,10 +26,7 @@ type FbsRoot{{$.Name}}{{$v.Name}} struct {
     {{- else if eq $v.Type "[]byte" }}
     {{- else if eq (isSlice $v.Type) true }}
 type Fbs{{$.Name}}{{$v.Name}} struct {
-    *base.Node
-    VPos   uint32
-	VLen   uint32
-	VStart uint32
+    *base.NodeList
 }
     {{- end }}
 {{- end }}
@@ -35,67 +37,158 @@ func OpenByBuf(buf []byte) Fbs{{$.Name}} {
 		Node: base.NewNode(&base.Base{Bytes: buf}, int(flatbuffers.GetUOffsetT(buf))),
 	}
 }
+func (node Fbs{{$.Name}}) Len() int {
+    info := node.Info()
+    size := info.Pos + info.Size
+
+    return size + (8 - (size % 8)) 
+}
+
+
 {{- end }}
 
-{{- range $i, $v := .Fields}}
-    {{- if eq (isUnion $IsUnion $v.Type) true }}
-func (node Fbs{{$SName}}) {{$v.Name}}() Fbs{{$v.Type}} {
-    {{- else if eq $v.Type "[]byte" }}
-func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
-    {{- else if eq (isSlice $v.Type) true }}
-//func (node Fbs{{$SName}}) {{$v.Name}}() {
-func (node Fbs{{$SName}}) {{$v.Name}}() Fbs{{$.Name}}{{$v.Name}} {
-    {{- else if eq (isMessage $v.Type) true }}
-func (node Fbs{{$SName}}) {{$v.Name}}() Fbs{{$v.Type}} {
-    {{- else }}
-func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
-    {{- end }}
-	        if node.VTable[{{$i}}] == 0 {
-                    {{- if eq $v.Type "[]byte" }}
-                return nil
-                    {{- else if eq (isSlice $v.Type) true }}
-                return Fbs{{$.Name}}{{$v.Name}}{}
-                    {{- else if eq (isMessage $v.Type) true }}
-                return Fbs{{$v.Type}}{}        
-                    {{- else }}    
-		        return {{$v.Type}}(0)
-                    {{- end }}
-	        }
-    {{- if eq $v.Type "[]byte" }}
-            buf := node.Bytes
-	        pos := uint32(node.Pos + int(node.VTable[{{$i}}]))
-	        sLenOff := flatbuffers.GetUint32(buf[pos:])
-	        sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
-	        start := pos + sLenOff + flatbuffers.SizeUOffsetT
+{{- if eq $IsTable false }}
+func (node Fbs{{$SName}}) Info() base.Info {
+    info := base.Info{Pos: node.Pos, Size: -1}
+    size := 0
+    {{- range $i, $v := .Fields}}
+        size += base.SizeOf{{$v.Type}}
+    {{- end}}
+    info.Size = size
 
-            return buf[start:start+sLen]
+    return info
+
+}
+{{- else }}
+func (node Fbs{{$SName}}) Info() base.Info {
+
+    info := base.Info{Pos: node.Pos, Size: -1}
+    for i := 0; i < len(node.VTable); i++ {
+        vInfo := node.ValueInfo(i)
+        if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+            info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+        }
+    }
+    return info    
+}
+
+{{- end }}
+
+func (node Fbs{{$SName}}) ValueInfo(i int) base.ValueInfo {
+
+    switch i {
+{{- range $i, $v := .Fields}}
+    case {{$i}}:
+    {{- if eq (isStruct $v.Type) true }}
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = node.{{$v.Name}}().Info().Size     
 
     {{- else if eq (isUnion $IsUnion $v.Type) true }}
-            pos := node.Pos + int(node.VTable[{{$i}}])
-            return Fbs{{$v.Type}}{Node: base.NewNode(node.Base, int(flatbuffers.GetUint32(node.Bytes[pos:]))+pos)}
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPosTable(i)
+        }
+        node.ValueInfos[i].Size = node.{{$v.Name}}().Info(i-1).Size
+    {{- else if eq $v.Type "[]byte" }}
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPosBytes(i)
+        }
     {{- else if eq (isSlice $v.Type) true }}
-            buf := node.Bytes
-            vPos := uint32(node.Pos + int(node.VTable[{{$i}}]))
-            vLenOff := flatbuffers.GetUint32(buf[vPos:])
-            vLen := flatbuffers.GetUint32(buf[vPos+vLenOff:])
-            start := vPos + vLenOff + flatbuffers.SizeUOffsetT
+         if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPosList(i)
+        }
+        node.ValueInfos[i].Size = node.{{$v.Name}}().Info().Size
+    {{- else if eq (isMessage $v.Type) true }}
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPosTable(i)
+        }
+        node.ValueInfos[i].Size = node.{{$v.Name}}().Info().Size       
+    {{- else }}
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = base.SizeOf{{$v.Type}}
+    {{- end  }}
+ {{- end }}
+     }
+     return node.ValueInfos[i]
+}
 
-            return Fbs{{$.Name}}{{$v.Name}}{
-                Node: base.NewNode(node.Base, node.Pos),
-                VPos:   vPos,
-		        VLen:   vLen,
-		        VStart: start,
-            }
+
+
+
+{{ range $i, $v := .Fields}}
+
+    {{- if eq $IsTable false }}
+func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
+    buf := node.Bytes
+    pos := node.Pos
+        {{- range $ii, $vv := $.Fields}}
+            {{- if lt $ii $i }}
+                pos += base.SizeOf{{$vv.Type}}
+            {{- end }}
+        {{- end }}
+    return {{$v.Type}}(flatbuffers.Get{{(toCamel $v.Type)}}(buf[pos:]))
+}
+    {{- else if eq (isUnion $IsUnion $v.Type) true }}
+
+func (node Fbs{{$SName}}) {{$v.Name}}() Fbs{{$v.Type}} {
+    if node.VTable[{{$i}}] == 0 {
+        return Fbs{{$v.Type}}{}  
+    }
+    return Fbs{{$v.Type}}{Node: node.ValueTable({{$i}})}
+}
+
+
+    {{- else if eq $v.Type "[]byte" }}
+func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
+    if node.VTable[{{$i}}] == 0 {
+        return nil
+    }
+    return node.ValueBytes({{$i}})
+}
+
+    {{- else if eq (isSlice $v.Type) true }}
+func (node Fbs{{$SName}}) {{$v.Name}}() Fbs{{$.Name}}{{$v.Name}} {
+    if node.VTable[{{$i}}] == 0 {
+        return Fbs{{$.Name}}{{$v.Name}}{}
+    }
+    nodelist :=  node.ValueList({{$i}})
+    return Fbs{{$.Name}}{{$v.Name}}{
+                NodeList: &nodelist,
+    }
+}
+
+    {{- else if eq (isStruct $v.Type) true}}
+func (node Fbs{{$SName}}) {{$v.Name}}() Fbs{{$v.Type}} {    
+   if node.VTable[{{$i}}] == 0 {
+        return Fbs{{$v.Type}}{}  
+    }
+    return Fbs{{$v.Type}}{Node: node.ValueStruct({{$i}})}
+
+}
 
     {{- else if eq (isMessage $v.Type) true }}
-            pos := node.Pos + int(node.VTable[{{$i}}])
-            return Fbs{{$v.Type}}{Node: base.NewNode(node.Base, int(flatbuffers.GetUint32(node.Bytes[pos:]))+pos)}
-    {{- else }}
-            pos := node.Pos + int(node.VTable[{{$i}}])
-            return {{$v.Type}}(flatbuffers.Get{{(toCamel $v.Type)}}(node.Bytes[pos:]))              
-    {{- end }}
+func (node Fbs{{$SName}}) {{$v.Name}}() Fbs{{$v.Type}} {
+    if node.VTable[{{$i}}] == 0 {
+        return Fbs{{$v.Type}}{}  
+    }
+    return Fbs{{$v.Type}}{Node: node.ValueTable({{$i}})}
 }
-{{- end }}
+
+    {{- else }}
+func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
+    if node.VTable[{{$i}}] == 0 {
+        return {{$v.Type}}(0)
+    }
+    return {{$v.Type}}(flatbuffers.Get{{(toCamel $v.Type)}}(node.ValueNormal({{$i}})))
+}
+
+    {{- end}}
+
+{{ end}}
+
 
 {{- range $i, $v := .Fields}}
     {{- if eq $v.Type "[]byte" }}
@@ -111,17 +204,17 @@ type Fbs{{ (toBareType $SingleName) }}s {{$SingleName}}
 
 
 func (node Fbs{{$.Name}}{{$v.Name}}) At(i int) Fbs{{ $SingleName }} {
-    if i > int(node.VLen) || i < 0 {
+    if i > int(node.ValueInfo.VLen) || i < 0 {
 		return Fbs{{ $SingleName }}{}
 	}
 
 	buf := node.Bytes
-	ptr := node.VStart + uint32(i-1)*4
-{{- if eq $SingleName "bytes"}}
+	ptr := uint32(node.ValueInfo.Pos + (i-1)*4)
+    {{- if eq $SingleName "bytes"}}
     return Fbs{{$SingleName}}(base.FbsString(base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:])))))
-{{- else }}
+    {{- else }}
 	return Fbs{{$SingleName}}{Node: base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:])))}
-{{- end }}
+    {{- end }}
 }
 
 
@@ -131,13 +224,13 @@ func (node Fbs{{$.Name}}{{$v.Name}}) First() Fbs{{ $SingleName }} {
 
 
 func (node Fbs{{$.Name}}{{$v.Name}}) Last() Fbs{{ $SingleName }} {
-	return node.At(int(node.VLen))
+	return node.At(int(node.ValueInfo.VLen))
 }
 
 func (node Fbs{{$.Name}}{{$v.Name}}) Select(fn func(m Fbs{{ $SingleName }}) bool) []Fbs{{ $SingleName }} {
 
-	result := make([]Fbs{{ $SingleName }}, 0, int(node.VLen))
-	for i := 0; i < int(node.VLen); i++ {
+	result := make([]Fbs{{ $SingleName }}, 0, int(node.ValueInfo.VLen))
+	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			result = append(result, m)
 		}
@@ -147,7 +240,7 @@ func (node Fbs{{$.Name}}{{$v.Name}}) Select(fn func(m Fbs{{ $SingleName }}) bool
 
 func (node Fbs{{$.Name}}{{$v.Name}}) Find(fn func(m Fbs{{ $SingleName }}) bool) Fbs{{ $SingleName }}{
 
-	for i := 0; i < int(node.VLen); i++ {
+	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			return m
 		}
@@ -160,8 +253,30 @@ func (node Fbs{{$.Name}}{{$v.Name}}) All() []Fbs{{ $SingleName }} {
 }
 
 func (node Fbs{{$.Name}}{{$v.Name}}) Count() int {
-	return int(node.VLen)
+	return int(node.ValueInfo.VLen)
 }
+
+func (node Fbs{{$.Name}}{{$v.Name}}) Info() base.Info {
+
+    info := base.Info{Pos: node.ValueInfo.Pos, Size: -1}
+    
+    {{- if eq $SingleName "bytes"}}
+    buf := node.Bytes
+	ptr := uint32(node.ValueInfo.Pos + (int(node.ValueInfo.VLen)-1)*4)
+
+    vInfo := base.FbsStringInfo(base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:]))))
+    {{- else }}
+    vInfo := node.Last().Info()
+    {{- end }}
+
+
+
+    if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+        info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+    }
+    return info
+}
+
 
 
     {{- end}}

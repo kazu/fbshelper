@@ -11,6 +11,10 @@ import (
     base "github.com/kazu/fbshelper/query/base"
 )
 
+const (
+    DUMMY_Root = flatbuffers.VtableMetadataFields
+)
+
 type FbsRoot struct {
 	*base.Node
 }
@@ -24,24 +28,72 @@ func OpenByBuf(buf []byte) FbsRoot {
 		Node: base.NewNode(&base.Base{Bytes: buf}, int(flatbuffers.GetUOffsetT(buf))),
 	}
 }
+func (node FbsRoot) Len() int {
+    info := node.Info()
+    size := info.Pos + info.Size
+
+    return size + (8 - (size % 8)) 
+}
+func (node FbsRoot) Info() base.Info {
+
+    info := base.Info{Pos: node.Pos, Size: -1}
+    for i := 0; i < len(node.VTable); i++ {
+        vInfo := node.ValueInfo(i)
+        if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+            info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+        }
+    }
+    return info    
+}
+
+func (node FbsRoot) ValueInfo(i int) base.ValueInfo {
+
+    switch i {
+    case 0:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = base.SizeOfint32
+    case 1:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = base.SizeOfbyte
+    case 2:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPosTable(i)
+        }
+        node.ValueInfos[i].Size = node.Index().Info(i-1).Size
+     }
+     return node.ValueInfos[i]
+}
+
+
+
+
+
 func (node FbsRoot) Version() int32 {
-	        if node.VTable[0] == 0 {    
-		        return int32(0)
-	        }
-            pos := node.Pos + int(node.VTable[0])
-            return int32(flatbuffers.GetInt32(node.Bytes[pos:]))
+    if node.VTable[0] == 0 {
+        return int32(0)
+    }
+    return int32(flatbuffers.GetInt32(node.ValueNormal(0)))
 }
+
+
 func (node FbsRoot) IndexType() byte {
-	        if node.VTable[1] == 0 {    
-		        return byte(0)
-	        }
-            pos := node.Pos + int(node.VTable[1])
-            return byte(flatbuffers.GetByte(node.Bytes[pos:]))
+    if node.VTable[1] == 0 {
+        return byte(0)
+    }
+    return byte(flatbuffers.GetByte(node.ValueNormal(1)))
 }
+
+
+
 func (node FbsRoot) Index() FbsIndex {
-	        if node.VTable[2] == 0 {
-                return FbsIndex{}
-	        }
-            pos := node.Pos + int(node.VTable[2])
-            return FbsIndex{Node: base.NewNode(node.Base, int(flatbuffers.GetUint32(node.Bytes[pos:]))+pos)}
+    if node.VTable[2] == 0 {
+        return FbsIndex{}  
+    }
+    return FbsIndex{Node: node.ValueTable(2)}
 }
+
+

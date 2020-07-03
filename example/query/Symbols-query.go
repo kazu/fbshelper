@@ -11,46 +11,68 @@ import (
     base "github.com/kazu/fbshelper/query/base"
 )
 
+const (
+    DUMMY_Symbols = flatbuffers.VtableMetadataFields
+)
+
 type FbsSymbols struct {
 	*base.Node
 }
 
 
 type FbsSymbolsSymbols struct {
-    *base.Node
-    VPos   uint32
-	VLen   uint32
-	VStart uint32
+    *base.NodeList
 }
-//func (node FbsSymbols) Symbols() {
-func (node FbsSymbols) Symbols() FbsSymbolsSymbols {
-	        if node.VTable[0] == 0 {
-                return FbsSymbolsSymbols{}
-	        }
-            buf := node.Bytes
-            vPos := uint32(node.Pos + int(node.VTable[0]))
-            vLenOff := flatbuffers.GetUint32(buf[vPos:])
-            vLen := flatbuffers.GetUint32(buf[vPos+vLenOff:])
-            start := vPos + vLenOff + flatbuffers.SizeUOffsetT
+func (node FbsSymbols) Info() base.Info {
 
-            return FbsSymbolsSymbols{
-                Node: base.NewNode(node.Base, node.Pos),
-                VPos:   vPos,
-		        VLen:   vLen,
-		        VStart: start,
-            }
+    info := base.Info{Pos: node.Pos, Size: -1}
+    for i := 0; i < len(node.VTable); i++ {
+        vInfo := node.ValueInfo(i)
+        if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+            info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+        }
+    }
+    return info    
 }
+
+func (node FbsSymbols) ValueInfo(i int) base.ValueInfo {
+
+    switch i {
+    case 0:
+         if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPosList(i)
+        }
+        node.ValueInfos[i].Size = node.Symbols().Info().Size
+     }
+     return node.ValueInfos[i]
+}
+
+
+
+
+
+func (node FbsSymbols) Symbols() FbsSymbolsSymbols {
+    if node.VTable[0] == 0 {
+        return FbsSymbolsSymbols{}
+    }
+    nodelist :=  node.ValueList(0)
+    return FbsSymbolsSymbols{
+                NodeList: &nodelist,
+    }
+}
+
+
 
 
 
 
 func (node FbsSymbolsSymbols) At(i int) FbsSymbol {
-    if i > int(node.VLen) || i < 0 {
+    if i > int(node.ValueInfo.VLen) || i < 0 {
 		return FbsSymbol{}
 	}
 
 	buf := node.Bytes
-	ptr := node.VStart + uint32(i-1)*4
+	ptr := uint32(node.ValueInfo.Pos + (i-1)*4)
 	return FbsSymbol{Node: base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:])))}
 }
 
@@ -61,13 +83,13 @@ func (node FbsSymbolsSymbols) First() FbsSymbol {
 
 
 func (node FbsSymbolsSymbols) Last() FbsSymbol {
-	return node.At(int(node.VLen))
+	return node.At(int(node.ValueInfo.VLen))
 }
 
 func (node FbsSymbolsSymbols) Select(fn func(m FbsSymbol) bool) []FbsSymbol {
 
-	result := make([]FbsSymbol, 0, int(node.VLen))
-	for i := 0; i < int(node.VLen); i++ {
+	result := make([]FbsSymbol, 0, int(node.ValueInfo.VLen))
+	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			result = append(result, m)
 		}
@@ -77,7 +99,7 @@ func (node FbsSymbolsSymbols) Select(fn func(m FbsSymbol) bool) []FbsSymbol {
 
 func (node FbsSymbolsSymbols) Find(fn func(m FbsSymbol) bool) FbsSymbol{
 
-	for i := 0; i < int(node.VLen); i++ {
+	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			return m
 		}
@@ -90,5 +112,18 @@ func (node FbsSymbolsSymbols) All() []FbsSymbol {
 }
 
 func (node FbsSymbolsSymbols) Count() int {
-	return int(node.VLen)
+	return int(node.ValueInfo.VLen)
+}
+
+func (node FbsSymbolsSymbols) Info() base.Info {
+
+    info := base.Info{Pos: node.ValueInfo.Pos, Size: -1}
+    vInfo := node.Last().Info()
+
+
+
+    if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+        info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+    }
+    return info
 }

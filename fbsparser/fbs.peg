@@ -81,14 +81,14 @@ type <- 'bool' spacing {p.SetType("bool")} /
         'float64' spacing {p.SetType("float64")} /
         'byte' spacing {p.SetType("uint8")} /
         'ubyte' spacing {p.SetType("uint8")} /
-        'short' spacing {p.SetType("short")} /
-        'ushort' spacing {p.SetType("ushort")} /
+        'short' spacing {p.SetType("int16")} /
+        'ushort' spacing {p.SetType("uint16")} /
         'int' spacing {p.SetType("int32")} /
         'uint' spacing {p.SetType("uint32")} /
         'float' spacing {p.SetType("float")} /
-        'long' spacing {p.SetType("long")} /
-        'ulong' spacing {p.SetType("ulong")} /
-        'double' spacing {p.SetType("double")} /
+        'long' spacing {p.SetType("int64")} /
+        'ulong' spacing {p.SetType("uint64")} /
+        'double' spacing {p.SetType("float64")} /
         'string' spacing {p.SetRepeated("byte")} /
         ident spacing {p.SetType(text)} /
         '[' type ']' spacing {p.SetRepeated("") }

@@ -11,34 +11,73 @@ import (
     base "github.com/kazu/fbshelper/query/base"
 )
 
+const (
+    DUMMY_File = flatbuffers.VtableMetadataFields
+)
+
 type FbsFile struct {
 	*base.Node
 }
 
 
-func (node FbsFile) Id() uint64 {
-	        if node.VTable[0] == 0 {    
-		        return uint64(0)
-	        }
-            pos := node.Pos + int(node.VTable[0])
-            return uint64(flatbuffers.GetUint64(node.Bytes[pos:]))
-}
-func (node FbsFile) Name() []byte {
-	        if node.VTable[1] == 0 {
-                return nil
-	        }
-            buf := node.Bytes
-	        pos := uint32(node.Pos + int(node.VTable[1]))
-	        sLenOff := flatbuffers.GetUint32(buf[pos:])
-	        sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
-	        start := pos + sLenOff + flatbuffers.SizeUOffsetT
+func (node FbsFile) Info() base.Info {
 
-            return buf[start:start+sLen]
+    info := base.Info{Pos: node.Pos, Size: -1}
+    for i := 0; i < len(node.VTable); i++ {
+        vInfo := node.ValueInfo(i)
+        if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+            info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+        }
+    }
+    return info    
 }
+
+func (node FbsFile) ValueInfo(i int) base.ValueInfo {
+
+    switch i {
+    case 0:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = base.SizeOfuint64
+    case 1:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPosBytes(i)
+        }
+    case 2:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = base.SizeOfint64
+     }
+     return node.ValueInfos[i]
+}
+
+
+
+
+
+func (node FbsFile) Id() uint64 {
+    if node.VTable[0] == 0 {
+        return uint64(0)
+    }
+    return uint64(flatbuffers.GetUint64(node.ValueNormal(0)))
+}
+
+
+func (node FbsFile) Name() []byte {
+    if node.VTable[1] == 0 {
+        return nil
+    }
+    return node.ValueBytes(1)
+}
+
+
 func (node FbsFile) IndexAt() int64 {
-	        if node.VTable[2] == 0 {    
-		        return int64(0)
-	        }
-            pos := node.Pos + int(node.VTable[2])
-            return int64(flatbuffers.GetInt64(node.Bytes[pos:]))
+    if node.VTable[2] == 0 {
+        return int64(0)
+    }
+    return int64(flatbuffers.GetInt64(node.ValueNormal(2)))
 }
+
+

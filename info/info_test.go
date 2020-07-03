@@ -86,6 +86,27 @@ func MakeRootIndexString(fn func(b *flatbuffers.Builder) flatbuffers.UOffsetT) [
 
 }
 
+func MakeRootRecord(key uint64) []byte {
+
+	b := flatbuffers.NewBuilder(0)
+
+	vfs_schema.InvertedMapNumStart(b)
+	vfs_schema.InvertedMapNumAddKey(b, int64(key))
+	vfs_schema.InvertedMapNumAddValue(b, vfs_schema.CreateRecord(b, 1, 2, 3, 0, 0))
+	iMapNum := vfs_schema.InvertedMapNumEnd(b)
+
+	vfs_schema.RootStart(b)
+	vfs_schema.RootAddVersion(b, 1)
+	vfs_schema.RootAddIndexType(b, vfs_schema.IndexInvertedMapNum)
+	vfs_schema.RootAddIndex(b, iMapNum)
+	b.Finish(vfs_schema.RootEnd(b))
+	//vfs_schema.IndexNumStart(b)
+	//vfs_schema.IndexIndexNum
+
+	return b.FinishedBytes()
+
+}
+
 func LoadRootFileFbs(rio io.Reader) *File {
 
 	raws, e := ioutil.ReadAll(rio)
@@ -285,7 +306,25 @@ func Test_QueryFbs(t *testing.T) {
 	})
 
 	root = query.OpenByBuf(buf2)
+	assert.Equal(t, len(buf2), root.Len())
+	z := root.Index().IndexString().Maps().Last()
+
+	assert.Equal(t, uint64(1), z.Value().FileId())
+	assert.Equal(t, int64(2), z.Value().Offset())
 
 	assert.Equal(t, int32(234), root.Index().IndexString().Size())
 	assert.Equal(t, 2, root.Index().IndexString().Maps().Count())
+}
+
+func TestSizaaae(t *testing.T) {
+	buf := MakeRootRecord(512)
+
+	root := query.OpenByBuf(buf)
+	z := root.Index().InvertedMapNum()
+
+	record := z.Value()
+	assert.Equal(t, int64(2), record.Offset())
+	assert.Equal(t, uint64(1), record.FileId())
+	assert.Equal(t, len(buf), root.Len())
+	assert.Equal(t, len(buf), z.Info().Pos+z.Info().Size)
 }

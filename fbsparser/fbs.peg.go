@@ -596,9 +596,9 @@ func (p *Parser) Execute() {
 		case ruleAction24:
 			p.SetType("uint8")
 		case ruleAction25:
-			p.SetType("short")
+			p.SetType("int16")
 		case ruleAction26:
-			p.SetType("ushort")
+			p.SetType("uint16")
 		case ruleAction27:
 			p.SetType("int32")
 		case ruleAction28:
@@ -606,11 +606,11 @@ func (p *Parser) Execute() {
 		case ruleAction29:
 			p.SetType("float")
 		case ruleAction30:
-			p.SetType("long")
+			p.SetType("int64")
 		case ruleAction31:
-			p.SetType("ulong")
+			p.SetType("uint64")
 		case ruleAction32:
-			p.SetType("double")
+			p.SetType("float64")
 		case ruleAction33:
 			p.SetRepeated("byte")
 		case ruleAction34:
@@ -4012,14 +4012,14 @@ func (p *Parser) Init() {
 			}
 			return true
 		},
-		/* 62 Action25 <- <{p.SetType("short")}> */
+		/* 62 Action25 <- <{p.SetType("int16")}> */
 		func() bool {
 			{
 				add(ruleAction25, position)
 			}
 			return true
 		},
-		/* 63 Action26 <- <{p.SetType("ushort")}> */
+		/* 63 Action26 <- <{p.SetType("uint16")}> */
 		func() bool {
 			{
 				add(ruleAction26, position)
@@ -4047,21 +4047,21 @@ func (p *Parser) Init() {
 			}
 			return true
 		},
-		/* 67 Action30 <- <{p.SetType("long")}> */
+		/* 67 Action30 <- <{p.SetType("int64")}> */
 		func() bool {
 			{
 				add(ruleAction30, position)
 			}
 			return true
 		},
-		/* 68 Action31 <- <{p.SetType("ulong")}> */
+		/* 68 Action31 <- <{p.SetType("uint64")}> */
 		func() bool {
 			{
 				add(ruleAction31, position)
 			}
 			return true
 		},
-		/* 69 Action32 <- <{p.SetType("double")}> */
+		/* 69 Action32 <- <{p.SetType("float64")}> */
 		func() bool {
 			{
 				add(ruleAction32, position)

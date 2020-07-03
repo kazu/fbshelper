@@ -11,53 +11,81 @@ import (
     base "github.com/kazu/fbshelper/query/base"
 )
 
+const (
+    DUMMY_IndexNum = flatbuffers.VtableMetadataFields
+)
+
 type FbsIndexNum struct {
 	*base.Node
 }
 
 
 type FbsIndexNumMaps struct {
-    *base.Node
-    VPos   uint32
-	VLen   uint32
-	VStart uint32
+    *base.NodeList
 }
-func (node FbsIndexNum) Size() int32 {
-	        if node.VTable[0] == 0 {    
-		        return int32(0)
-	        }
-            pos := node.Pos + int(node.VTable[0])
-            return int32(flatbuffers.GetInt32(node.Bytes[pos:]))
-}
-//func (node FbsIndexNum) Maps() {
-func (node FbsIndexNum) Maps() FbsIndexNumMaps {
-	        if node.VTable[1] == 0 {
-                return FbsIndexNumMaps{}
-	        }
-            buf := node.Bytes
-            vPos := uint32(node.Pos + int(node.VTable[1]))
-            vLenOff := flatbuffers.GetUint32(buf[vPos:])
-            vLen := flatbuffers.GetUint32(buf[vPos+vLenOff:])
-            start := vPos + vLenOff + flatbuffers.SizeUOffsetT
+func (node FbsIndexNum) Info() base.Info {
 
-            return FbsIndexNumMaps{
-                Node: base.NewNode(node.Base, node.Pos),
-                VPos:   vPos,
-		        VLen:   vLen,
-		        VStart: start,
-            }
+    info := base.Info{Pos: node.Pos, Size: -1}
+    for i := 0; i < len(node.VTable); i++ {
+        vInfo := node.ValueInfo(i)
+        if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+            info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+        }
+    }
+    return info    
 }
+
+func (node FbsIndexNum) ValueInfo(i int) base.ValueInfo {
+
+    switch i {
+    case 0:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = base.SizeOfint32
+    case 1:
+         if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPosList(i)
+        }
+        node.ValueInfos[i].Size = node.Maps().Info().Size
+     }
+     return node.ValueInfos[i]
+}
+
+
+
+
+
+func (node FbsIndexNum) Size() int32 {
+    if node.VTable[0] == 0 {
+        return int32(0)
+    }
+    return int32(flatbuffers.GetInt32(node.ValueNormal(0)))
+}
+
+
+func (node FbsIndexNum) Maps() FbsIndexNumMaps {
+    if node.VTable[1] == 0 {
+        return FbsIndexNumMaps{}
+    }
+    nodelist :=  node.ValueList(1)
+    return FbsIndexNumMaps{
+                NodeList: &nodelist,
+    }
+}
+
+
 
 
 
 
 func (node FbsIndexNumMaps) At(i int) FbsInvertedMapNum {
-    if i > int(node.VLen) || i < 0 {
+    if i > int(node.ValueInfo.VLen) || i < 0 {
 		return FbsInvertedMapNum{}
 	}
 
 	buf := node.Bytes
-	ptr := node.VStart + uint32(i-1)*4
+	ptr := uint32(node.ValueInfo.Pos + (i-1)*4)
 	return FbsInvertedMapNum{Node: base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:])))}
 }
 
@@ -68,13 +96,13 @@ func (node FbsIndexNumMaps) First() FbsInvertedMapNum {
 
 
 func (node FbsIndexNumMaps) Last() FbsInvertedMapNum {
-	return node.At(int(node.VLen))
+	return node.At(int(node.ValueInfo.VLen))
 }
 
 func (node FbsIndexNumMaps) Select(fn func(m FbsInvertedMapNum) bool) []FbsInvertedMapNum {
 
-	result := make([]FbsInvertedMapNum, 0, int(node.VLen))
-	for i := 0; i < int(node.VLen); i++ {
+	result := make([]FbsInvertedMapNum, 0, int(node.ValueInfo.VLen))
+	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			result = append(result, m)
 		}
@@ -84,7 +112,7 @@ func (node FbsIndexNumMaps) Select(fn func(m FbsInvertedMapNum) bool) []FbsInver
 
 func (node FbsIndexNumMaps) Find(fn func(m FbsInvertedMapNum) bool) FbsInvertedMapNum{
 
-	for i := 0; i < int(node.VLen); i++ {
+	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			return m
 		}
@@ -97,5 +125,18 @@ func (node FbsIndexNumMaps) All() []FbsInvertedMapNum {
 }
 
 func (node FbsIndexNumMaps) Count() int {
-	return int(node.VLen)
+	return int(node.ValueInfo.VLen)
+}
+
+func (node FbsIndexNumMaps) Info() base.Info {
+
+    info := base.Info{Pos: node.ValueInfo.Pos, Size: -1}
+    vInfo := node.Last().Info()
+
+
+
+    if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+        info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+    }
+    return info
 }

@@ -11,27 +11,61 @@ import (
     base "github.com/kazu/fbshelper/query/base"
 )
 
+const (
+    DUMMY_InvertedMapString = flatbuffers.VtableMetadataFields
+)
+
 type FbsInvertedMapString struct {
 	*base.Node
 }
 
 
-func (node FbsInvertedMapString) Key() []byte {
-	        if node.VTable[0] == 0 {
-                return nil
-	        }
-            buf := node.Bytes
-	        pos := uint32(node.Pos + int(node.VTable[0]))
-	        sLenOff := flatbuffers.GetUint32(buf[pos:])
-	        sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
-	        start := pos + sLenOff + flatbuffers.SizeUOffsetT
+func (node FbsInvertedMapString) Info() base.Info {
 
-            return buf[start:start+sLen]
+    info := base.Info{Pos: node.Pos, Size: -1}
+    for i := 0; i < len(node.VTable); i++ {
+        vInfo := node.ValueInfo(i)
+        if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+            info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+        }
+    }
+    return info    
 }
-func (node FbsInvertedMapString) Value() FbsRecord {
-	        if node.VTable[1] == 0 {
-                return FbsRecord{}
-	        }
-            pos := node.Pos + int(node.VTable[1])
-            return FbsRecord{Node: base.NewNode(node.Base, int(flatbuffers.GetUint32(node.Bytes[pos:]))+pos)}
+
+func (node FbsInvertedMapString) ValueInfo(i int) base.ValueInfo {
+
+    switch i {
+    case 0:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPosBytes(i)
+        }
+    case 1:
+        if node.ValueInfos[i].IsNotReady() {
+            node.ValueInfoPos(i)
+        }
+        node.ValueInfos[i].Size = node.Value().Info().Size
+     }
+     return node.ValueInfos[i]
 }
+
+
+
+
+
+func (node FbsInvertedMapString) Key() []byte {
+    if node.VTable[0] == 0 {
+        return nil
+    }
+    return node.ValueBytes(0)
+}
+
+
+func (node FbsInvertedMapString) Value() FbsRecord {    
+   if node.VTable[1] == 0 {
+        return FbsRecord{}  
+    }
+    return FbsRecord{Node: node.ValueStruct(1)}
+
+}
+
+
