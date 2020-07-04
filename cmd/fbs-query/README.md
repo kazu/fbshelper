@@ -36,6 +36,10 @@ $ fbs-query index.fbs tmp/
 you read flatbuffers data in flac's generated code
 
 ```go
+import (
+    query "./tmp"
+)
+
 // buf is []byte
 
 vRoot := vfs_schema.GetRootAsRoot(buf, 0)
