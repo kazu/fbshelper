@@ -1,7 +1,6 @@
 package base_test
 
 import (
-	"reflect"
 	"testing"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -51,19 +50,28 @@ func TestBase(t *testing.T) {
 }
 
 func TestUnmarshal(t *testing.T) {
-	buf := MakeRootFileFbs(14, "root_test6.json", 755)
 
-	file := File{}
+	tests := []struct {
+		TestName string
+		ID       uint64
+		Name     []byte
+		IndexAt  int64
+	}{
+		{"first", 14, []byte("root_test1.json"), 755},
+		{"second", 12, []byte("root_test6.json"), 238},
+		{"third", 6789, []byte("root_test6 .json"), 6789},
+	}
+	for _, tt := range tests {
+		t.Run(tt.TestName, func(t *testing.T) {
+			buf := MakeRootFileFbs(tt.ID, string(tt.Name), tt.IndexAt)
+			file := File{}
+			fq := query.OpenByBuf(buf).Index().File()
+			e := fq.Unmarshal(&file)
 
-	assert.NotNil(t, buf)
-	assert.Equal(t, reflect.Struct, reflect.ValueOf(&file).Elem().Kind())
-
-	fq := query.OpenByBuf(buf).Index().File()
-	e := fq.Unmarshal(&file)
-
-	assert.NoError(t, e)
-	assert.Equal(t, uint64(14), file.ID)
-	assert.Equal(t, []byte("root_test6.json"), file.Name)
-	assert.Equal(t, int64(755), file.IndexAt)
-
+			assert.NoError(t, e)
+			assert.Equal(t, tt.ID, file.ID)
+			assert.Equal(t, tt.Name, file.Name)
+			assert.Equal(t, tt.IndexAt, file.IndexAt)
+		})
+	}
 }
