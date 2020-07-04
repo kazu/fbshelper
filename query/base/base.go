@@ -4,6 +4,8 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/kazu/loncha"
+
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
@@ -78,6 +80,17 @@ func NewNode2(b *Base, pos int, noVTable bool) *Node {
 		node.vtable()
 	}
 	return node
+}
+
+func (b *Base) R(int off) []byte {
+
+	n, e := loncha.IndexOf(b.Diffs, func(i int) bool {
+		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].Bytes))
+	})
+	if e == nil || n >= 0 {
+		return b.Diffs[i].Bytes[(off - b.Diffs[i].Offset):]
+	}
+	return b.Bytes[off:]
 }
 
 func (n *Node) vtable() {

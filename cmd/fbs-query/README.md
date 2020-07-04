@@ -2,7 +2,9 @@
 
 generate routine easy accessing flatbuffers data.
 
-generate source code
+## usage sample
+
+### generate source code
 ```console
 $ cat index.fbs
 namespace vfs_schema;
@@ -33,7 +35,7 @@ $ fbs-query index.fbs tmp/
 ```
 
 
-you read flatbuffers data in flac's generated code
+### read flatbuffers data in flac's generated code
 
 ```go
 import (
@@ -55,7 +57,7 @@ fbsFile.IndexAt()
 ```
 
 
-read via fbs-query's generated code
+### read via fbs-query's generated code
 
 ```go
 q := query.OpenByBuf(buf)
@@ -66,7 +68,7 @@ q.Index().File().IndexAt()
 
 ```
 
-read vector data 
+### read vector data 
 
 ```go
 fbs := query.OpenByBuf(buf)
@@ -83,7 +85,7 @@ fbs.Next().Files().First()
 
 ```
 
-unmarshal 
+### unmarshal 
 
 ```go
 
@@ -97,3 +99,10 @@ fbs := query.OpenByBuf(buf)
 fbs.Files().First().Unmarshal(&f)
 
 ```
+
+
+## TODO
+
+- [ ] support writing
+- [ ] marshal
+- [ ] unmarshal nested Table/Struct
