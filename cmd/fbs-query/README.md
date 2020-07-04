@@ -71,7 +71,7 @@ q.Index().File().IndexAt()
 ### read vector data 
 
 ```go
-fbs := query.OpenByBuf(buf)
+fbs := query.Open(ioReader)
 fbs.Files().First()
 fbs.Files().Last()
 fbs.Files().Len()
@@ -80,7 +80,7 @@ fbs.Files().All()
 fbs.Files().Select(func(m query.FbsFile) bool {
     return m.Id() == 10
 })
-
+// for streaming data
 fbs.Next().Files().First()
 
 ```
