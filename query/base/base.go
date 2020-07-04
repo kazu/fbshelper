@@ -2,6 +2,7 @@ package base
 
 import (
 	"errors"
+	"io"
 	"reflect"
 
 	"github.com/kazu/loncha"
@@ -28,6 +29,7 @@ var (
 	ERR_MUST_POINTER error = errors.New("parameter must be pointer")
 	ERR_INVALID_TYPE error = errors.New("parameter invalid type(must be struct or map[string]interface)")
 	ERR_NOT_FOUND    error = errors.New("data is not found")
+	ERR_READ_BUFFER  error = errors.New("cannot read least data")
 )
 
 var (
@@ -35,6 +37,7 @@ var (
 )
 
 type Base struct {
+	r     io.Reader
 	bytes []byte
 	Diffs []Diff
 }
@@ -86,6 +89,15 @@ func NewBase(buf []byte) *Base {
 	return &Base{bytes: buf}
 }
 
+func NewBaseByIO(rio io.Reader, cap int) *Base {
+	b := &Base{r: rio, bytes: make([]byte, 0, cap)}
+	return b
+}
+
+func (b *Base) HasIoReader() bool {
+	return b.r != nil
+}
+
 func (b *Base) R(off int) []byte {
 
 	n, e := loncha.IndexOf(b.Diffs, func(i int) bool {
@@ -94,7 +106,25 @@ func (b *Base) R(off int) []byte {
 	if e == nil && n >= 0 {
 		return b.Diffs[n].bytes[(off - b.Diffs[n].Offset):]
 	}
+	if off+32 >= len(b.bytes) {
+		b.expandBuf(off - len(b.bytes) + 32)
+	}
+
 	return b.bytes[off:]
+}
+
+func (b *Base) expandBuf(plus int) error {
+	if !b.HasIoReader() {
+		return nil
+	}
+	l := len(b.bytes)
+	b.bytes = b.bytes[:l+plus]
+	n, err := io.ReadAtLeast(b.r, b.bytes[l:], plus)
+	if n < plus || err != nil {
+		b.bytes = b.bytes[:l+n]
+		return ERR_READ_BUFFER
+	}
+	return nil
 }
 
 func (b *Base) LenBuf() int {

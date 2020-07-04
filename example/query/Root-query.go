@@ -10,6 +10,7 @@ import (
     flatbuffers "github.com/google/flatbuffers/go"
     base "github.com/kazu/fbshelper/query/base"
     "reflect"
+    "io"
 )
 
 const (
@@ -38,6 +39,15 @@ type FbsRoot struct {
 type FbsRootRootIndex struct {
     *base.Node
 }
+func Open(r io.Reader, cap int) FbsRoot {
+    b := base.NewBaseByIO(r, 512)
+    
+    return FbsRoot{
+		Node: base.NewNode(b, int(flatbuffers.GetUOffsetT( b.R(0) ))),
+	}
+}
+
+
 func OpenByBuf(buf []byte) FbsRoot {
 	return FbsRoot{
 		Node: base.NewNode(base.NewBase(buf), int(flatbuffers.GetUOffsetT(buf))),
