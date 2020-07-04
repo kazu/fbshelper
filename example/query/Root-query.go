@@ -40,7 +40,7 @@ type FbsRootRootIndex struct {
 }
 func OpenByBuf(buf []byte) FbsRoot {
 	return FbsRoot{
-		Node: base.NewNode(&base.Base{Bytes: buf}, int(flatbuffers.GetUOffsetT(buf))),
+		Node: base.NewNode(base.NewBase(buf), int(flatbuffers.GetUOffsetT(buf))),
 	}
 }
 
@@ -53,20 +53,19 @@ func (node FbsRoot) Len() int {
 
 func (node FbsRoot) Next() FbsRoot {
     start := node.Len()
-    buf := node.Bytes
 
-    if len(buf) + 4 < start {
+    if node.LenBuf() + 4 < start {
         return node
     }
 
     return FbsRoot{
-		Node: base.NewNode(node.Base, start + int(flatbuffers.GetUOffsetT(buf[start:]))),
+		Node: base.NewNode(node.Base, start + int(flatbuffers.GetUOffsetT( node.R(start)  ))),
 	}
 }
 
 func (node FbsRoot) HasNext() bool {
 
-    return len(node.Bytes) + 4 < node.Len()
+    return node.LenBuf() + 4 < node.Len()
 }
 func (node FbsRoot) Info() base.Info {
 

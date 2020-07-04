@@ -113,9 +113,8 @@ func (node FbsSymbolKey) At(i int) Fbsbytes {
 		return Fbsbytes{}
 	}
 
-	buf := node.Bytes
-	ptr := uint32(node.ValueInfo.Pos + (i-1)*4)
-    return Fbsbytes(base.FbsString(base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:])))))
+	ptr := int(node.ValueInfo.Pos) + (i-1)*4
+    return Fbsbytes(base.FbsString(base.NewNode(node.Base, ptr+ int(flatbuffers.GetUint32( node.R(ptr) )))))
 }
 
 
@@ -160,10 +159,9 @@ func (node FbsSymbolKey) Count() int {
 func (node FbsSymbolKey) Info() base.Info {
 
     info := base.Info{Pos: node.ValueInfo.Pos, Size: -1}
-    buf := node.Bytes
-	ptr := uint32(node.ValueInfo.Pos + (int(node.ValueInfo.VLen)-1)*4)
+	ptr := int(node.ValueInfo.Pos) + (int(node.ValueInfo.VLen)-1)*4
 
-    vInfo := base.FbsStringInfo(base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:]))))
+    vInfo := base.FbsStringInfo(base.NewNode(node.Base, ptr+   int(flatbuffers.GetUint32( node.R(ptr) ))))
 
 
 

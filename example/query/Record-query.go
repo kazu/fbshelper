@@ -136,47 +136,42 @@ func (node FbsRecord) Unmarshal(v interface{}) error {
 
 
 func (node FbsRecord) FileId() uint64 {
-    buf := node.Bytes
     pos := node.Pos
-    return uint64(flatbuffers.GetUint64(buf[pos:]))
+    return uint64(flatbuffers.GetUint64( node.R(pos) ))
 }
 
 
 func (node FbsRecord) Offset() int64 {
-    buf := node.Bytes
     pos := node.Pos
                 pos += base.SizeOfuint64
-    return int64(flatbuffers.GetInt64(buf[pos:]))
+    return int64(flatbuffers.GetInt64( node.R(pos) ))
 }
 
 
 func (node FbsRecord) Size() int64 {
-    buf := node.Bytes
     pos := node.Pos
                 pos += base.SizeOfuint64
                 pos += base.SizeOfint64
-    return int64(flatbuffers.GetInt64(buf[pos:]))
+    return int64(flatbuffers.GetInt64( node.R(pos) ))
 }
 
 
 func (node FbsRecord) OffsetOfValue() int32 {
-    buf := node.Bytes
     pos := node.Pos
                 pos += base.SizeOfuint64
                 pos += base.SizeOfint64
                 pos += base.SizeOfint64
-    return int32(flatbuffers.GetInt32(buf[pos:]))
+    return int32(flatbuffers.GetInt32( node.R(pos) ))
 }
 
 
 func (node FbsRecord) ValueSize() int32 {
-    buf := node.Bytes
     pos := node.Pos
                 pos += base.SizeOfuint64
                 pos += base.SizeOfint64
                 pos += base.SizeOfint64
                 pos += base.SizeOfint32
-    return int32(flatbuffers.GetInt32(buf[pos:]))
+    return int32(flatbuffers.GetInt32( node.R(pos) ))
 }
 
 

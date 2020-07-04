@@ -53,7 +53,7 @@ type Fbs{{$.Name}}{{$v.Name}} struct {
 {{- if eq (isRoot $SName) true }}
 func OpenByBuf(buf []byte) Fbs{{$.Name}} {
 	return FbsRoot{
-		Node: base.NewNode(&base.Base{Bytes: buf}, int(flatbuffers.GetUOffsetT(buf))),
+		Node: base.NewNode(base.NewBase(buf), int(flatbuffers.GetUOffsetT(buf))),
 	}
 }
 
@@ -66,20 +66,19 @@ func (node Fbs{{$.Name}}) Len() int {
 
 func (node Fbs{{$.Name}}) Next() Fbs{{$.Name}} {
     start := node.Len()
-    buf := node.Bytes
 
-    if len(buf) + 4 < start {
+    if node.LenBuf() + 4 < start {
         return node
     }
 
     return FbsRoot{
-		Node: base.NewNode(node.Base, start + int(flatbuffers.GetUOffsetT(buf[start:]))),
+		Node: base.NewNode(node.Base, start + int(flatbuffers.GetUOffsetT( node.R(start)  ))),
 	}
 }
 
 func (node Fbs{{$.Name}}) HasNext() bool {
 
-    return len(node.Bytes) + 4 < node.Len()
+    return node.LenBuf() + 4 < node.Len()
 }
 
 {{- end }}
@@ -199,14 +198,13 @@ func (node Fbs{{$SName}}) Unmarshal(v interface{}) error {
 
     {{- if eq $IsTable false }}
 func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
-    buf := node.Bytes
     pos := node.Pos
         {{- range $ii, $vv := $.Fields}}
             {{- if lt $ii $i }}
                 pos += base.SizeOf{{$vv.Type}}
             {{- end }}
         {{- end }}
-    return {{$v.Type}}(flatbuffers.Get{{(toCamel $v.Type)}}(buf[pos:]))
+    return {{$v.Type}}(flatbuffers.Get{{(toCamel $v.Type)}}( node.R(pos) ))
 }
     {{- else if eq (isUnion $IsUnion $v.Type) true }}
 
@@ -289,12 +287,11 @@ func (node Fbs{{$.Name}}{{$v.Name}}) At(i int) Fbs{{ $SingleName }} {
 		return Fbs{{ $SingleName }}{}
 	}
 
-	buf := node.Bytes
-	ptr := uint32(node.ValueInfo.Pos + (i-1)*4)
+	ptr := int(node.ValueInfo.Pos) + (i-1)*4
     {{- if eq $SingleName "bytes"}}
-    return Fbs{{$SingleName}}(base.FbsString(base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:])))))
+    return Fbs{{$SingleName}}(base.FbsString(base.NewNode(node.Base, ptr+ int(flatbuffers.GetUint32( node.R(ptr) )))))
     {{- else }}
-	return Fbs{{$SingleName}}{Node: base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:])))}
+	return Fbs{{$SingleName}}{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
     {{- end }}
 }
 
@@ -342,10 +339,9 @@ func (node Fbs{{$.Name}}{{$v.Name}}) Info() base.Info {
     info := base.Info{Pos: node.ValueInfo.Pos, Size: -1}
     
     {{- if eq $SingleName "bytes"}}
-    buf := node.Bytes
-	ptr := uint32(node.ValueInfo.Pos + (int(node.ValueInfo.VLen)-1)*4)
+	ptr := int(node.ValueInfo.Pos) + (int(node.ValueInfo.VLen)-1)*4
 
-    vInfo := base.FbsStringInfo(base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:]))))
+    vInfo := base.FbsStringInfo(base.NewNode(node.Base, ptr+   int(flatbuffers.GetUint32( node.R(ptr) ))))
     {{- else }}
     vInfo := node.Last().Info()
     {{- end }}

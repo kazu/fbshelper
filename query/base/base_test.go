@@ -51,7 +51,7 @@ func TestBase(t *testing.T) {
 }
 
 func TestUnmarshal(t *testing.T) {
-	buf := MakeRootFileFbs(14, "root_test2.json", 755)
+	buf := MakeRootFileFbs(14, "root_test6.json", 755)
 
 	file := File{}
 
@@ -63,7 +63,7 @@ func TestUnmarshal(t *testing.T) {
 
 	assert.NoError(t, e)
 	assert.Equal(t, uint64(14), file.ID)
-	assert.Equal(t, []byte("root_test2.json"), file.Name)
+	assert.Equal(t, []byte("root_test6.json"), file.Name)
 	assert.Equal(t, int64(755), file.IndexAt)
 
 }

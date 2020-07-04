@@ -83,6 +83,11 @@ func NewNode2(b *Base, pos int, noVTable bool) *Node {
 	return node
 }
 
+func NewBase(buf []byte) *Base {
+	//return &base.Base{bytes: buf}
+	return &Base{Bytes: buf}
+}
+
 func (b *Base) R(off int) []byte {
 
 	n, e := loncha.IndexOf(b.Diffs, func(i int) bool {
@@ -93,6 +98,19 @@ func (b *Base) R(off int) []byte {
 	}
 	//return b.bytes[off:]
 	return b.Bytes[off:]
+}
+
+func (b *Base) LenBuf() int {
+
+	if len(b.Diffs) < 1 {
+		//return len(b.bytes)
+		return len(b.Bytes)
+	}
+	if len(b.Bytes) < b.Diffs[len(b.Diffs)-1].Offset+len(b.Diffs[len(b.Diffs)-1].bytes) {
+		return b.Diffs[len(b.Diffs)-1].Offset + len(b.Diffs[len(b.Diffs)-1].bytes)
+	}
+	return len(b.Bytes)
+
 }
 
 func (n *Node) vtable() {

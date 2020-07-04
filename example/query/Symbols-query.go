@@ -110,9 +110,8 @@ func (node FbsSymbolsSymbols) At(i int) FbsSymbol {
 		return FbsSymbol{}
 	}
 
-	buf := node.Bytes
-	ptr := uint32(node.ValueInfo.Pos + (i-1)*4)
-	return FbsSymbol{Node: base.NewNode(node.Base, int(ptr+flatbuffers.GetUint32(buf[ptr:])))}
+	ptr := int(node.ValueInfo.Pos) + (i-1)*4
+	return FbsSymbol{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
 }
 
 
