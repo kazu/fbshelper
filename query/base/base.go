@@ -35,13 +35,14 @@ var (
 )
 
 type Base struct {
+	//bytes []byte
 	Bytes []byte
 	Diffs []Diff
 }
 
 type Diff struct {
 	Offset int
-	Bytes  []byte
+	bytes  []byte
 }
 
 type Root struct {
@@ -82,14 +83,15 @@ func NewNode2(b *Base, pos int, noVTable bool) *Node {
 	return node
 }
 
-func (b *Base) R(int off) []byte {
+func (b *Base) R(off int) []byte {
 
 	n, e := loncha.IndexOf(b.Diffs, func(i int) bool {
-		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].Bytes))
+		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
 	})
-	if e == nil || n >= 0 {
-		return b.Diffs[i].Bytes[(off - b.Diffs[i].Offset):]
+	if e == nil && n >= 0 {
+		return b.Diffs[n].bytes[(off - b.Diffs[n].Offset):]
 	}
+	//return b.bytes[off:]
 	return b.Bytes[off:]
 }
 
@@ -97,37 +99,34 @@ func (n *Node) vtable() {
 	if len(n.VTable) > 0 {
 		return
 	}
-	buf := n.Bytes
-	vOffset := uint32(flatbuffers.GetUOffsetT(buf[n.Pos:]))
-	vPos := uint32(n.Pos) - vOffset
-	vLen := uint16(flatbuffers.GetVOffsetT(buf[vPos:]))
-	n.TLen = uint16(flatbuffers.GetVOffsetT(buf[vPos+2:]))
+	vOffset := int(flatbuffers.GetUOffsetT(n.R(n.Pos)))
+	vPos := int(n.Pos) - vOffset
+	vLen := int(flatbuffers.GetVOffsetT(n.R(vPos)))
+	n.TLen = uint16(flatbuffers.GetVOffsetT(n.R(vPos + 2)))
 
-	for cur := vPos + 4; cur < vPos+uint32(vLen); cur += 2 {
-		n.VTable = append(n.VTable, uint16(flatbuffers.GetVOffsetT(buf[cur:])))
+	for cur := vPos + 4; cur < vPos+vLen; cur += 2 {
+		n.VTable = append(n.VTable, uint16(flatbuffers.GetVOffsetT(n.R(cur))))
 	}
 	n.ValueInfos = make([]ValueInfo, len(n.VTable))
 }
 
 func FbsString(node *Node) []byte {
-	buf := node.Bytes
-	pos := uint32(node.Pos + int(node.VTable[0]))
-	sLenOff := flatbuffers.GetUint32(buf[pos:])
-	sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
+	pos := node.Pos + int(node.VTable[0])
+	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
+	sLen := int(flatbuffers.GetUint32(node.R(pos + sLenOff)))
 	start := pos + sLenOff + flatbuffers.SizeUOffsetT
 
-	return buf[start : start+sLen]
+	return node.R(start)[:sLen]
 }
 
 func FbsStringInfo(node *Node) Info {
 
-	buf := node.Bytes
-	pos := uint32(node.Pos + int(node.VTable[0]))
-	sLenOff := flatbuffers.GetUint32(buf[pos:])
-	sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
+	pos := node.Pos + int(node.VTable[0])
+	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
+	sLen := flatbuffers.GetUint32(node.R(pos + sLenOff))
 	start := pos + sLenOff + flatbuffers.SizeUOffsetT
 
-	return Info{Pos: int(start), Size: int(sLen)}
+	return Info{Pos: start, Size: int(sLen)}
 }
 
 func (info ValueInfo) IsNotReady() bool {
@@ -151,13 +150,13 @@ func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
 		node.ValueInfos[vIdx].Size = -1
 		return node.ValueInfos[vIdx]
 	}
-	buf := node.Bytes
-	pos := uint32(node.Pos + int(node.VTable[vIdx]))
-	sLenOff := flatbuffers.GetUint32(buf[pos:])
-	sLen := flatbuffers.GetUint32(buf[pos+sLenOff:])
+	pos := node.Pos + int(node.VTable[vIdx])
+	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
+	sLen := flatbuffers.GetUint32(node.R(pos + sLenOff))
+
 	start := pos + sLenOff + flatbuffers.SizeUOffsetT
 
-	node.ValueInfos[vIdx].Pos = int(start)
+	node.ValueInfos[vIdx].Pos = start
 	node.ValueInfos[vIdx].Size = int(sLen)
 	return node.ValueInfos[vIdx]
 }
@@ -170,7 +169,8 @@ func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
 	}
 
 	pos := node.Pos + int(node.VTable[vIdx])
-	start := int(flatbuffers.GetUint32(node.Bytes[pos:])) + pos
+	start := int(flatbuffers.GetUint32(node.R(pos))) + pos
+
 	node.ValueInfos[vIdx].Pos = start
 
 	return node.ValueInfos[vIdx]
@@ -182,10 +182,9 @@ func (node *Node) ValueInfoPosList(vIdx int) ValueInfo {
 		node.ValueInfos[vIdx].Size = -1
 		return node.ValueInfos[vIdx]
 	}
-	buf := node.Bytes
-	vPos := uint32(node.Pos + int(node.VTable[vIdx]))
-	vLenOff := flatbuffers.GetUint32(buf[vPos:])
-	vLen := flatbuffers.GetUint32(buf[vPos+vLenOff:])
+	vPos := node.Pos + int(node.VTable[vIdx])
+	vLenOff := int(flatbuffers.GetUint32(node.R(vPos)))
+	vLen := flatbuffers.GetUint32(node.R(vPos + vLenOff))
 	start := vPos + vLenOff + flatbuffers.SizeUOffsetT
 
 	node.ValueInfos[vIdx].Pos = int(start)
@@ -199,7 +198,7 @@ func (node *Node) ValueNormal(vIdx int) []byte {
 	if node.ValueInfos[vIdx].Pos < 1 {
 		node.ValueInfoPos(vIdx)
 	}
-	return node.Bytes[node.ValueInfos[vIdx].Pos:]
+	return node.R(node.ValueInfos[vIdx].Pos)
 }
 
 func (node *Node) ValueBytes(vIdx int) []byte {
@@ -207,7 +206,8 @@ func (node *Node) ValueBytes(vIdx int) []byte {
 		node.ValueInfoPosBytes(vIdx)
 	}
 	valInfo := node.ValueInfos[vIdx]
-	return node.Bytes[valInfo.Pos : valInfo.Pos+valInfo.Size]
+
+	return node.R(valInfo.Pos)[:valInfo.Size]
 
 }
 
