@@ -15,6 +15,13 @@ const (
     DUMMY_Root = flatbuffers.VtableMetadataFields
 )
 
+const (
+        Root_Version =     0
+        Root_IndexType =     1
+        Root_Index =     2
+)
+
+
 type FbsRoot struct {
 	*base.Node
 }
@@ -68,6 +75,20 @@ func (node FbsRoot) ValueInfo(i int) base.ValueInfo {
      return node.ValueInfos[i]
 }
 
+func (node FbsRoot) FieldAt(i int) interface{} {
+
+    switch i {
+    case 0:
+        return node.Version()
+    case 1:
+        return node.IndexType()
+    case 2:
+        return node.Index()
+     }
+     return nil
+}
+
+
 
 
 
@@ -97,3 +118,8 @@ func (node FbsRoot) Index() FbsIndex {
 }
 
 
+
+
+func (node FbsRoot) CountOfField() int {
+    return 3
+}

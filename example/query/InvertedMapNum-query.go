@@ -15,6 +15,12 @@ const (
     DUMMY_InvertedMapNum = flatbuffers.VtableMetadataFields
 )
 
+const (
+        InvertedMapNum_Key =     0
+        InvertedMapNum_Value =     1
+)
+
+
 type FbsInvertedMapNum struct {
 	*base.Node
 }
@@ -49,6 +55,18 @@ func (node FbsInvertedMapNum) ValueInfo(i int) base.ValueInfo {
      return node.ValueInfos[i]
 }
 
+func (node FbsInvertedMapNum) FieldAt(i int) interface{} {
+
+    switch i {
+    case 0:
+        return node.Key()
+    case 1:
+        return node.Value()
+     }
+     return nil
+}
+
+
 
 
 
@@ -70,3 +88,8 @@ func (node FbsInvertedMapNum) Value() FbsRecord {
 }
 
 
+
+
+func (node FbsInvertedMapNum) CountOfField() int {
+    return 2
+}

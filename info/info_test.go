@@ -323,6 +323,8 @@ func TestSizaaae(t *testing.T) {
 	z := root.Index().InvertedMapNum()
 
 	record := z.Value()
+	val := z.FieldAt(0)
+	assert.NotNil(t, val)
 	assert.Equal(t, int64(2), record.Offset())
 	assert.Equal(t, uint64(1), record.FileId())
 	assert.Equal(t, len(buf), root.Len())

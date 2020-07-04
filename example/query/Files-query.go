@@ -15,6 +15,11 @@ const (
     DUMMY_Files = flatbuffers.VtableMetadataFields
 )
 
+const (
+        Files_Files =     0
+)
+
+
 type FbsFiles struct {
 	*base.Node
 }
@@ -47,6 +52,16 @@ func (node FbsFiles) ValueInfo(i int) base.ValueInfo {
      return node.ValueInfos[i]
 }
 
+func (node FbsFiles) FieldAt(i int) interface{} {
+
+    switch i {
+    case 0:
+        return node.Files()
+     }
+     return nil
+}
+
+
 
 
 
@@ -62,6 +77,11 @@ func (node FbsFiles) Files() FbsFilesFiles {
 }
 
 
+
+
+func (node FbsFiles) CountOfField() int {
+    return 1
+}
 
 
 

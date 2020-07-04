@@ -15,6 +15,12 @@ const (
     DUMMY_IndexString = flatbuffers.VtableMetadataFields
 )
 
+const (
+        IndexString_Size =     0
+        IndexString_Maps =     1
+)
+
+
 type FbsIndexString struct {
 	*base.Node
 }
@@ -52,6 +58,18 @@ func (node FbsIndexString) ValueInfo(i int) base.ValueInfo {
      return node.ValueInfos[i]
 }
 
+func (node FbsIndexString) FieldAt(i int) interface{} {
+
+    switch i {
+    case 0:
+        return node.Size()
+    case 1:
+        return node.Maps()
+     }
+     return nil
+}
+
+
 
 
 
@@ -75,6 +93,11 @@ func (node FbsIndexString) Maps() FbsIndexStringMaps {
 }
 
 
+
+
+func (node FbsIndexString) CountOfField() int {
+    return 2
+}
 
 
 

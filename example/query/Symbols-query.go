@@ -15,6 +15,11 @@ const (
     DUMMY_Symbols = flatbuffers.VtableMetadataFields
 )
 
+const (
+        Symbols_Symbols =     0
+)
+
+
 type FbsSymbols struct {
 	*base.Node
 }
@@ -47,6 +52,16 @@ func (node FbsSymbols) ValueInfo(i int) base.ValueInfo {
      return node.ValueInfos[i]
 }
 
+func (node FbsSymbols) FieldAt(i int) interface{} {
+
+    switch i {
+    case 0:
+        return node.Symbols()
+     }
+     return nil
+}
+
+
 
 
 
@@ -62,6 +77,11 @@ func (node FbsSymbols) Symbols() FbsSymbolsSymbols {
 }
 
 
+
+
+func (node FbsSymbols) CountOfField() int {
+    return 1
+}
 
 
 

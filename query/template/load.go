@@ -15,6 +15,14 @@ const (
     DUMMY_{{$SName}} = flatbuffers.VtableMetadataFields
 )
 
+const (
+
+    {{- range $i, $v := .Fields}}
+        {{$SName}}_{{$v.Name}} =     {{$i}}
+    {{- end}}
+)
+
+
 type Fbs{{$.Name}} struct {
 	*base.Node
 }
@@ -118,6 +126,18 @@ func (node Fbs{{$SName}}) ValueInfo(i int) base.ValueInfo {
      return node.ValueInfos[i]
 }
 
+func (node Fbs{{$SName}}) FieldAt(i int) interface{} {
+
+    switch i {
+{{- range $i, $v := .Fields}}
+    case {{$i}}:
+        return node.{{$v.Name}}()
+ {{- end }}
+     }
+     return nil
+}
+
+
 
 
 
@@ -192,6 +212,10 @@ func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
 
 {{ end}}
 
+
+func (node Fbs{{$.Name}}) CountOfField() int {
+    return {{len $.Fields}}
+}
 
 {{- range $i, $v := .Fields}}
     {{- if eq $v.Type "[]byte" }}

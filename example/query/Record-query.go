@@ -15,6 +15,15 @@ const (
     DUMMY_Record = flatbuffers.VtableMetadataFields
 )
 
+const (
+        Record_FileId =     0
+        Record_Offset =     1
+        Record_Size =     2
+        Record_OffsetOfValue =     3
+        Record_ValueSize =     4
+)
+
+
 type FbsRecord struct {
 	*base.Node
 }
@@ -66,6 +75,24 @@ func (node FbsRecord) ValueInfo(i int) base.ValueInfo {
      return node.ValueInfos[i]
 }
 
+func (node FbsRecord) FieldAt(i int) interface{} {
+
+    switch i {
+    case 0:
+        return node.FileId()
+    case 1:
+        return node.Offset()
+    case 2:
+        return node.Size()
+    case 3:
+        return node.OffsetOfValue()
+    case 4:
+        return node.ValueSize()
+     }
+     return nil
+}
+
+
 
 
 
@@ -115,3 +142,8 @@ func (node FbsRecord) ValueSize() int32 {
 }
 
 
+
+
+func (node FbsRecord) CountOfField() int {
+    return 5
+}
