@@ -75,6 +75,6 @@ fbs.Files().Select(func(m query.FbsFile) bool {
     return m.Id() == 10
 })
 
-fbs.Next().iles().First()
+fbs.Next().Files().First()
 
 ```

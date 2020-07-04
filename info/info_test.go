@@ -335,5 +335,6 @@ func TestSizaaae(t *testing.T) {
 	root2 := root.Next()
 
 	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key())
+	assert.False(t, root2.HasNext())
 
 }

@@ -35,6 +35,7 @@ func OpenByBuf(buf []byte) FbsRoot {
 		Node: base.NewNode(&base.Base{Bytes: buf}, int(flatbuffers.GetUOffsetT(buf))),
 	}
 }
+
 func (node FbsRoot) Len() int {
     info := node.Info()
     size := info.Pos + info.Size
@@ -45,9 +46,19 @@ func (node FbsRoot) Len() int {
 func (node FbsRoot) Next() FbsRoot {
     start := node.Len()
     buf := node.Bytes
+
+    if len(buf) + 4 < start {
+        return node
+    }
+
     return FbsRoot{
 		Node: base.NewNode(node.Base, start + int(flatbuffers.GetUOffsetT(buf[start:]))),
 	}
+}
+
+func (node FbsRoot) HasNext() bool {
+
+    return len(node.Bytes) + 4 < node.Len()
 }
 func (node FbsRoot) Info() base.Info {
 
