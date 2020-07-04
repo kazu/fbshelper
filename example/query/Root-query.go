@@ -41,6 +41,14 @@ func (node FbsRoot) Len() int {
 
     return size + (8 - (size % 8)) 
 }
+
+func (node FbsRoot) Next() FbsRoot {
+    start := node.Len()
+    buf := node.Bytes
+    return FbsRoot{
+		Node: base.NewNode(node.Base, start + int(flatbuffers.GetUOffsetT(buf[start:]))),
+	}
+}
 func (node FbsRoot) Info() base.Info {
 
     info := base.Info{Pos: node.Pos, Size: -1}

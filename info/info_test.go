@@ -318,15 +318,22 @@ func Test_QueryFbs(t *testing.T) {
 
 func TestSizaaae(t *testing.T) {
 	buf := MakeRootRecord(512)
+	buf2 := append(buf, MakeRootRecord(513)...)
 
-	root := query.OpenByBuf(buf)
+	root := query.OpenByBuf(buf2)
 	z := root.Index().InvertedMapNum()
 
 	record := z.Value()
 	val := z.FieldAt(0)
 	assert.NotNil(t, val)
+	assert.Equal(t, int64(512), root.Index().InvertedMapNum().Key())
 	assert.Equal(t, int64(2), record.Offset())
 	assert.Equal(t, uint64(1), record.FileId())
 	assert.Equal(t, len(buf), root.Len())
 	assert.Equal(t, len(buf), z.Info().Pos+z.Info().Size)
+
+	root2 := root.Next()
+
+	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key())
+
 }

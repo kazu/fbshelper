@@ -65,13 +65,16 @@ q.Index().File().IndexAt()
 read vector data 
 
 ```go
-query.OpenByBuf(buf).Files().First()
-query.OpenByBuf(buf).Files().Last()
-query.OpenByBuf(buf).Files().Len()
-query.OpenByBuf(buf).Files().At(1)
-query.OpenByBuf(buf).Files().All()
-query.OpenByBuf(buf).Files().Select(func(m query.FbsFile) bool {
+fbs := query.OpenByBuf(buf)
+fbs.Files().First()
+fbs.Files().Last()
+fbs.Files().Len()
+fbs.Files().At(1)
+fbs.Files().All()
+fbs.Files().Select(func(m query.FbsFile) bool {
     return m.Id() == 10
 })
+
+fbs.Next().iles().First()
 
 ```
