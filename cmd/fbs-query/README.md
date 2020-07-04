@@ -78,3 +78,18 @@ fbs.Files().Select(func(m query.FbsFile) bool {
 fbs.Next().Files().First()
 
 ```
+
+unmarshal 
+
+```go
+
+f := struct{
+    ID      uint64 `fbs:"Id"`
+	Name    []byte `fbs:"Name"`
+	IndexAt int64  `fbs:"IndexAt"`
+}{}
+
+fbs := query.OpenByBuf(buf)
+fbs.Files().First().Unmarshal(&f)
+
+```
