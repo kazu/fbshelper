@@ -35,8 +35,7 @@ var (
 )
 
 type Base struct {
-	//bytes []byte
-	Bytes []byte
+	bytes []byte
 	Diffs []Diff
 }
 
@@ -84,8 +83,7 @@ func NewNode2(b *Base, pos int, noVTable bool) *Node {
 }
 
 func NewBase(buf []byte) *Base {
-	//return &base.Base{bytes: buf}
-	return &Base{Bytes: buf}
+	return &Base{bytes: buf}
 }
 
 func (b *Base) R(off int) []byte {
@@ -96,20 +94,18 @@ func (b *Base) R(off int) []byte {
 	if e == nil && n >= 0 {
 		return b.Diffs[n].bytes[(off - b.Diffs[n].Offset):]
 	}
-	//return b.bytes[off:]
-	return b.Bytes[off:]
+	return b.bytes[off:]
 }
 
 func (b *Base) LenBuf() int {
 
 	if len(b.Diffs) < 1 {
-		//return len(b.bytes)
-		return len(b.Bytes)
+		return len(b.bytes)
 	}
-	if len(b.Bytes) < b.Diffs[len(b.Diffs)-1].Offset+len(b.Diffs[len(b.Diffs)-1].bytes) {
+	if len(b.bytes) < b.Diffs[len(b.Diffs)-1].Offset+len(b.Diffs[len(b.Diffs)-1].bytes) {
 		return b.Diffs[len(b.Diffs)-1].Offset + len(b.Diffs[len(b.Diffs)-1].bytes)
 	}
-	return len(b.Bytes)
+	return len(b.bytes)
 
 }
 
