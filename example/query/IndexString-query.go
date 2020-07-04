@@ -9,6 +9,7 @@ package vfs_schema
 import (
     flatbuffers "github.com/google/flatbuffers/go"
     base "github.com/kazu/fbshelper/query/base"
+    "reflect"
 )
 
 const (
@@ -19,6 +20,12 @@ const (
         IndexString_Size =     0
         IndexString_Maps =     1
 )
+
+var IndexString_FieldEnum = map[string]int{
+        "Size": IndexString_Size,
+        "Maps": IndexString_Maps,
+}
+
 
 
 type FbsIndexString struct {
@@ -70,6 +77,22 @@ func (node FbsIndexString) FieldAt(i int) interface{} {
 }
 
 
+// Unmarsla parse flatbuffers data and store the result
+// in the value point to by v, if v is ni or not pointer,
+// Unmarshal returns an ERR_MUST_POINTER, ERR_INVALID_TYPE
+func (node FbsIndexString) Unmarshal(v interface{}) error {
+
+    return node.Node.Unmarshal(v, func(s string, rv reflect.Value) error {
+        
+        switch IndexString_FieldEnum[s] {
+        case IndexString_Size:
+            //return node.Size()
+            rv.Set(reflect.ValueOf(  node.Size() ))
+        }
+        return nil
+    })
+
+}
 
 
 

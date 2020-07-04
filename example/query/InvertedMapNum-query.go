@@ -9,6 +9,7 @@ package vfs_schema
 import (
     flatbuffers "github.com/google/flatbuffers/go"
     base "github.com/kazu/fbshelper/query/base"
+    "reflect"
 )
 
 const (
@@ -19,6 +20,12 @@ const (
         InvertedMapNum_Key =     0
         InvertedMapNum_Value =     1
 )
+
+var InvertedMapNum_FieldEnum = map[string]int{
+        "Key": InvertedMapNum_Key,
+        "Value": InvertedMapNum_Value,
+}
+
 
 
 type FbsInvertedMapNum struct {
@@ -67,6 +74,22 @@ func (node FbsInvertedMapNum) FieldAt(i int) interface{} {
 }
 
 
+// Unmarsla parse flatbuffers data and store the result
+// in the value point to by v, if v is ni or not pointer,
+// Unmarshal returns an ERR_MUST_POINTER, ERR_INVALID_TYPE
+func (node FbsInvertedMapNum) Unmarshal(v interface{}) error {
+
+    return node.Node.Unmarshal(v, func(s string, rv reflect.Value) error {
+        
+        switch InvertedMapNum_FieldEnum[s] {
+        case InvertedMapNum_Key:
+            //return node.Key()
+            rv.Set(reflect.ValueOf(  node.Key() ))
+        }
+        return nil
+    })
+
+}
 
 
 

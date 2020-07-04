@@ -1,6 +1,9 @@
 package base
 
 import (
+	"errors"
+	"reflect"
+
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
@@ -17,6 +20,16 @@ const (
 	SizeOffloat64     = 8
 	SizeOfuint8       = 1
 	SizeOfbyte        = 1
+)
+
+var (
+	ERR_MUST_POINTER error = errors.New("parameter must be pointer")
+	ERR_INVALID_TYPE error = errors.New("parameter invalid type(must be struct or map[string]interface)")
+	ERR_NOT_FOUND    error = errors.New("data is not found")
+)
+
+var (
+	FBS_TAG_NAME string = "fbs"
 )
 
 type Base struct {
@@ -209,4 +222,35 @@ func (node *Node) ValueList(vIdx int) NodeList {
 
 	return NodeList{Node: NewNode(node.Base, node.Pos),
 		ValueInfo: node.ValueInfos[vIdx]}
+}
+
+type UnmarshalFn func(string, reflect.Value) error
+
+func (node *Node) Unmarshal(ptr interface{}, setter UnmarshalFn) error {
+
+	rv := reflect.ValueOf(ptr)
+	_ = rv
+
+	if rv.Kind() != reflect.Ptr {
+		return ERR_MUST_POINTER
+	}
+	z := rv.Elem().Kind()
+	_ = z
+	if rv.Elem().Kind() != reflect.Struct {
+		return ERR_INVALID_TYPE
+	}
+
+	t := rv.Elem().Type()
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		tName, ok := field.Tag.Lookup(FBS_TAG_NAME)
+		if !ok {
+			continue
+		}
+		if err := setter(tName, rv.Elem().Field(i)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

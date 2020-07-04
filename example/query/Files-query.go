@@ -9,6 +9,7 @@ package vfs_schema
 import (
     flatbuffers "github.com/google/flatbuffers/go"
     base "github.com/kazu/fbshelper/query/base"
+    "reflect"
 )
 
 const (
@@ -18,6 +19,11 @@ const (
 const (
         Files_Files =     0
 )
+
+var Files_FieldEnum = map[string]int{
+        "Files": Files_Files,
+}
+
 
 
 type FbsFiles struct {
@@ -62,6 +68,19 @@ func (node FbsFiles) FieldAt(i int) interface{} {
 }
 
 
+// Unmarsla parse flatbuffers data and store the result
+// in the value point to by v, if v is ni or not pointer,
+// Unmarshal returns an ERR_MUST_POINTER, ERR_INVALID_TYPE
+func (node FbsFiles) Unmarshal(v interface{}) error {
+
+    return node.Node.Unmarshal(v, func(s string, rv reflect.Value) error {
+        
+        switch Files_FieldEnum[s] {
+        }
+        return nil
+    })
+
+}
 
 
 

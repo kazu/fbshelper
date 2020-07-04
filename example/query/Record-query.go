@@ -9,6 +9,7 @@ package vfs_schema
 import (
     flatbuffers "github.com/google/flatbuffers/go"
     base "github.com/kazu/fbshelper/query/base"
+    "reflect"
 )
 
 const (
@@ -22,6 +23,15 @@ const (
         Record_OffsetOfValue =     3
         Record_ValueSize =     4
 )
+
+var Record_FieldEnum = map[string]int{
+        "FileId": Record_FileId,
+        "Offset": Record_Offset,
+        "Size": Record_Size,
+        "OffsetOfValue": Record_OffsetOfValue,
+        "ValueSize": Record_ValueSize,
+}
+
 
 
 type FbsRecord struct {
@@ -93,6 +103,34 @@ func (node FbsRecord) FieldAt(i int) interface{} {
 }
 
 
+// Unmarsla parse flatbuffers data and store the result
+// in the value point to by v, if v is ni or not pointer,
+// Unmarshal returns an ERR_MUST_POINTER, ERR_INVALID_TYPE
+func (node FbsRecord) Unmarshal(v interface{}) error {
+
+    return node.Node.Unmarshal(v, func(s string, rv reflect.Value) error {
+        
+        switch Record_FieldEnum[s] {
+        case Record_FileId:
+            //return node.FileId()
+            rv.Set(reflect.ValueOf(  node.FileId() ))
+        case Record_Offset:
+            //return node.Offset()
+            rv.Set(reflect.ValueOf(  node.Offset() ))
+        case Record_Size:
+            //return node.Size()
+            rv.Set(reflect.ValueOf(  node.Size() ))
+        case Record_OffsetOfValue:
+            //return node.OffsetOfValue()
+            rv.Set(reflect.ValueOf(  node.OffsetOfValue() ))
+        case Record_ValueSize:
+            //return node.ValueSize()
+            rv.Set(reflect.ValueOf(  node.ValueSize() ))
+        }
+        return nil
+    })
+
+}
 
 
 

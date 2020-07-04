@@ -9,6 +9,7 @@ package {{$.PkgName}}
 import (
     flatbuffers "github.com/google/flatbuffers/go"
     base "github.com/kazu/fbshelper/query/base"
+    "reflect"
 )
 
 const (
@@ -21,6 +22,13 @@ const (
         {{$SName}}_{{$v.Name}} =     {{$i}}
     {{- end}}
 )
+
+var {{$SName}}_FieldEnum = map[string]int{
+    {{- range $i, $v := .Fields}}
+        "{{$v.Name}}": {{$SName}}_{{$v.Name}},
+    {{- end}}
+}
+
 
 
 type Fbs{{$.Name}} struct {
@@ -156,6 +164,34 @@ func (node Fbs{{$SName}}) FieldAt(i int) interface{} {
 }
 
 
+// Unmarsla parse flatbuffers data and store the result
+// in the value point to by v, if v is ni or not pointer,
+// Unmarshal returns an ERR_MUST_POINTER, ERR_INVALID_TYPE
+func (node Fbs{{$SName}}) Unmarshal(v interface{}) error {
+
+    return node.Node.Unmarshal(v, func(s string, rv reflect.Value) error {
+        
+        switch {{$SName}}_FieldEnum[s] {        
+{{- range $i, $v := .Fields}}
+    {{- if eq (isStruct $v.Type) true }}
+    {{- else if eq (isUnion $IsUnion $v.Type) true }}
+    {{- else if eq $v.Type "[]byte" }}
+        case {{$SName}}_{{$v.Name}}:
+            //return node.{{$v.Name}}()
+            rv.Set(reflect.ValueOf(  node.{{$v.Name}}() ))
+    {{- else if eq (isSlice $v.Type) true }}
+    {{- else if eq (isMessage $v.Type) true }}
+    {{- else }}
+        case {{$SName}}_{{$v.Name}}:
+            //return node.{{$v.Name}}()
+            rv.Set(reflect.ValueOf(  node.{{$v.Name}}() ))
+    {{- end  }}
+{{- end }}
+        }
+        return nil
+    })
+
+}
 
 
 
