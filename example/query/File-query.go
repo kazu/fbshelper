@@ -35,6 +35,42 @@ type FbsFile struct {
 }
 
 
+
+func (node FbsFile) SearchInfo(pos int, fn RecFn, condFn CondFn) {
+
+	info := node.Info()
+
+    /* if info.Pos > pos {
+        return
+    }*/
+
+	if condFn(pos, info) {
+		fn(base.NodePath{Name: "File", Idx: -1}, info)
+	}else{
+        return
+    }
+
+	for i := 0; i < node.CountOfField(); i++ {
+		if node.IsLeafAt(i) {
+			fInfo := base.Info(node.ValueInfo(i))
+			if condFn(pos, fInfo) {
+				fn(base.NodePath{Name: "File", Idx: i}, info)
+			}
+			continue
+		}
+        switch i {
+        case 0:
+        case 1:
+        case 2:    
+        default:
+			base.Log(base.LOG_ERROR, func() base.LogArgs {
+				return F("node must be Noder")
+			})
+        }
+
+	}
+
+}
 func (node FbsFile) Info() base.Info {
 
     info := base.Info{Pos: node.Pos, Size: -1}
@@ -59,8 +95,6 @@ func (node FbsFile) IsLeafAt(i int) bool {
     }
     return false
 }
-
-
 func (node FbsFile) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -81,6 +115,7 @@ func (node FbsFile) ValueInfo(i int) base.ValueInfo {
      }
      return node.ValueInfos[i]
 }
+
 
 func (node FbsFile) FieldAt(i int) interface{} {
 

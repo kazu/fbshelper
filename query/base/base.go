@@ -1,7 +1,6 @@
 package base
 
 import (
-	"errors"
 	"io"
 	"reflect"
 
@@ -27,13 +26,6 @@ const (
 
 const (
 	DEFAULT_BUF_CAP = 512
-)
-
-var (
-	ERR_MUST_POINTER error = errors.New("parameter must be pointer")
-	ERR_INVALID_TYPE error = errors.New("parameter invalid type(must be struct or map[string]interface)")
-	ERR_NOT_FOUND    error = errors.New("data is not found")
-	ERR_READ_BUFFER  error = errors.New("cannot read least data")
 )
 
 var (
@@ -76,7 +68,11 @@ type ValueInfo struct {
 }
 
 type Info ValueInfo
-type NodePath []int
+
+type NodePath struct {
+	Name string
+	Idx  int
+}
 
 func NewNode(b *Base, pos int) *Node {
 	return NewNode2(b, pos, false)
@@ -332,46 +328,3 @@ func (node *Node) Unmarshal(ptr interface{}, setter UnmarshalFn) error {
 	}
 	return nil
 }
-
-/*
-func (node FbsRoot) Contain(path, pos int) bool {
-	 info := node.Info()
-	if node.Pos > pos {
-		return false
-	}
-	for i := 0; i < len(node.VTable); i++ {
-		vInfo := node.ValueInfo(i)
-		if
-
-
-}
-
-func (node FbsRoot) NodeInfo(path NodePath, nodeInfo NodeInfo)  error {
-
-	info := base.Info{Pos: node.Pos, Size: -1}
-	for i := 0; i < len(node.VTable); i++ {
-        //node.NodeInfo(nodeInfo)
-	}
-
-	vInfo = nodeInfo[nodeInfo.Max()]
-	if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
-		info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
-	}
-
-
-    return nil
-
-}
-
-func(NodeInfo ninfo) Max() (key string) {
-	max := 0
-
-	for k, info := ninfo {
-		if info.Pos + info.Size < max {
-			key = k
-			max = info.Pos + info.Size
-		}
-	}
-	return
-}
-*/

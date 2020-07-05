@@ -47,8 +47,17 @@ func(node Fbs{{$Name}}) Info(i int) base.Info {
         return node.{{$v}}().Info()
 {{- end}}
     }
-
     return base.Info{}
+}
+
+func(node Fbs{{$Name}}) Member(i int) interface{} {
+    switch i-1 {
+{{- range $i, $v := .Aliases}}
+    case {{$i}}:
+        return node.{{$v}}()
+{{- end}}
+    }
+    return nil
 }
 
 

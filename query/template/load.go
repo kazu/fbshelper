@@ -53,7 +53,32 @@ type Fbs{{$.Name}}{{$v.Name}} struct {
     {{- end }}
 {{- end }}
 
+
+
 {{- if eq (isRoot $SName) true }}
+// olny root type table definitions
+
+type CondFn func(int, base.Info) bool
+type RecFn func(base.NodePath, base.Info)
+
+type Noder interface {
+	IsLeafAt(int) bool
+	Info() base.Info
+	ValueInfo(int) base.ValueInfo
+	//FieldAt(int) Noder
+	SearchInfo(int, RecFn, CondFn)
+}
+
+type Searcher interface {
+    SearchInfo(int, RecFn, CondFn)
+}
+
+type UnionNoder interface {
+    Info(int) base.Info
+    Member(int) Noder
+}
+
+
 func Open(r io.Reader, cap int) Fbs{{$.Name}} {
     b := base.NewBaseByIO(r, 512)
     
@@ -61,7 +86,6 @@ func Open(r io.Reader, cap int) Fbs{{$.Name}} {
 		Node: base.NewNode(b, int(flatbuffers.GetUOffsetT( b.R(0) ))),
 	}
 }
-
 
 func OpenByBuf(buf []byte) Fbs{{$.Name}} {
 	return FbsRoot{
@@ -98,7 +122,70 @@ func (node Fbs{{$.Name}}) HasNext() bool {
     return node.LenBuf() + 4 < node.Len()
 }
 
+// logger formatter
+func F(s string, v ...interface{}) base.LogArgs {
+    return base.LogArgs{Fmt: s, Infs: v}
+}
+
+type LogArgs base.LogArgs
+
 {{- end }}
+
+func (node Fbs{{$SName}}) SearchInfo(pos int, fn RecFn, condFn CondFn) {
+
+	info := node.Info()
+
+    /* if info.Pos > pos {
+        return
+    }*/
+
+	if condFn(pos, info) {
+		fn(base.NodePath{Name: "{{$SName}}", Idx: -1}, info)
+	}else{
+        return
+    }
+
+	for i := 0; i < node.CountOfField(); i++ {
+		if node.IsLeafAt(i) {
+			fInfo := base.Info(node.ValueInfo(i))
+			if condFn(pos, fInfo) {
+				fn(base.NodePath{Name: "{{$SName}}", Idx: i}, info)
+			}
+			continue
+		}
+        switch i {
+        {{- range $i, $v := .Fields}}
+        case {{$i}}:
+            {{- if eq (isStruct $v.Type) true }}
+                node.{{$v.Name}}().SearchInfo(pos, fn, condFn)    
+            {{- else if eq (isUnion $IsUnion $v.Type) true }}
+                {{ $PIDX := add $i -1 }}
+                {{ $PREV := index $.Fields $PIDX }}
+                eIdx := int(node.{{ $PREV.Name }}())
+                v := node.{{$v.Name}}().Member(eIdx)
+                mNode,ok  := v.(Noder)
+                _ = ok
+                mNode.SearchInfo(pos, fn, condFn)
+            {{- else if eq $v.Type "[]byte" }}    
+            {{- else if eq (isSlice $v.Type) true }}
+                //FIXME
+                node.{{$v.Name}}().SearchInfo(pos, fn, condFn)
+            {{- else if eq (isMessage $v.Type) true }}
+                node.{{$v.Name}}().SearchInfo(pos, fn, condFn)    
+            {{- else }}
+            {{- end  }}
+
+        {{- end  }}    
+        default:
+			base.Log(base.LOG_ERROR, func() base.LogArgs {
+				return F("node must be Noder")
+			})
+        }
+
+	}
+
+}
+
 
 {{- if eq $IsTable false }}
 func (node Fbs{{$SName}}) Info() base.Info {
@@ -150,7 +237,25 @@ func (node Fbs{{$SName}}) IsLeafAt(i int) bool {
     return false
 }
 
+{{- if eq $IsTable false }}
+func (node Fbs{{$SName}}) ValueInfo(i int) base.ValueInfo {
+    if len(node.ValueInfos) > i {
+        return node.ValueInfos[i]
+    }
+    node.ValueInfos = make([]base.ValueInfo, 0, node.CountOfField())
 
+    info := base.ValueInfo{Pos: node.Pos, Size: 0}
+    {{- range $i, $v := .Fields}}
+        info.Pos += info.Size
+        info.Size = base.SizeOf{{$v.Type}}
+        node.ValueInfos = append(node.ValueInfos,  info)
+    {{- end}}
+
+    return node.ValueInfos[i]
+
+}
+
+{{- else }}
 func (node Fbs{{$SName}}) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -195,6 +300,8 @@ func (node Fbs{{$SName}}) ValueInfo(i int) base.ValueInfo {
      }
      return node.ValueInfos[i]
 }
+{{- end }}
+
 
 func (node Fbs{{$SName}}) FieldAt(i int) interface{} {
 
@@ -400,7 +507,42 @@ func (node Fbs{{$.Name}}{{$v.Name}}) Info() base.Info {
     return info
 }
 
+func (node Fbs{{$.Name}}{{$v.Name}}) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 
+    info := node.Info()
+
+    if condFn(pos, info) {
+        fn(base.NodePath{Name: "{{$.Name}}.{{$v.Name}}", Idx: -1}, info)
+	}else{
+        return
+    }
+
+    var v interface{}
+    for _, cNode := range node.All() {
+        v = cNode
+        if vv, ok := v.(Searcher); ok {    
+                vv.SearchInfo(pos, fn, condFn)
+        }else{
+            goto NO_NODE
+        }
+    }
+    return
+    
+
+NO_NODE:     
+    for i := 0 ; i < int(node.ValueInfo.VLen) ; i++ {
+        ptr := int(node.ValueInfo.Pos) + i*4
+        start := ptr + int(flatbuffers.GetUint32( node.R(ptr) ))
+        size := info.Size
+        if i + 1 < int(node.ValueInfo.Pos) {
+            size = ptr+4 + int(flatbuffers.GetUint32( node.R(ptr+4) )) - start
+        }
+        cInfo := base.Info{Pos: start, Size: size}
+        if condFn(pos, info) {
+            fn(base.NodePath{Name: "{{$.Name}}.{{$v.Name}}", Idx: i}, cInfo)
+        }
+    }
+}
 
     {{- end}}
 
@@ -458,9 +600,19 @@ func(node Fbs{{$Name}}) Info(i int) base.Info {
         return node.{{$v}}().Info()
 {{- end}}
     }
-
     return base.Info{}
 }
+
+func(node Fbs{{$Name}}) Member(i int) interface{} {
+    switch i-1 {
+{{- range $i, $v := .Aliases}}
+    case {{$i}}:
+        return node.{{$v}}()
+{{- end}}
+    }
+    return nil
+}
+
 
 
 ` 

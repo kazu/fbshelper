@@ -34,6 +34,42 @@ type FbsSymbol struct {
 type FbsSymbolKey struct {
     *base.NodeList
 }
+
+func (node FbsSymbol) SearchInfo(pos int, fn RecFn, condFn CondFn) {
+
+	info := node.Info()
+
+    /* if info.Pos > pos {
+        return
+    }*/
+
+	if condFn(pos, info) {
+		fn(base.NodePath{Name: "Symbol", Idx: -1}, info)
+	}else{
+        return
+    }
+
+	for i := 0; i < node.CountOfField(); i++ {
+		if node.IsLeafAt(i) {
+			fInfo := base.Info(node.ValueInfo(i))
+			if condFn(pos, fInfo) {
+				fn(base.NodePath{Name: "Symbol", Idx: i}, info)
+			}
+			continue
+		}
+        switch i {
+        case 0:
+                //FIXME
+                node.Key().SearchInfo(pos, fn, condFn)    
+        default:
+			base.Log(base.LOG_ERROR, func() base.LogArgs {
+				return F("node must be Noder")
+			})
+        }
+
+	}
+
+}
 func (node FbsSymbol) Info() base.Info {
 
     info := base.Info{Pos: node.Pos, Size: -1}
@@ -54,8 +90,6 @@ func (node FbsSymbol) IsLeafAt(i int) bool {
     }
     return false
 }
-
-
 func (node FbsSymbol) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -67,6 +101,7 @@ func (node FbsSymbol) ValueInfo(i int) base.ValueInfo {
      }
      return node.ValueInfos[i]
 }
+
 
 func (node FbsSymbol) FieldAt(i int) interface{} {
 
@@ -179,4 +214,41 @@ func (node FbsSymbolKey) Info() base.Info {
         info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
     }
     return info
+}
+
+func (node FbsSymbolKey) SearchInfo(pos int, fn RecFn, condFn CondFn) {
+
+    info := node.Info()
+
+    if condFn(pos, info) {
+        fn(base.NodePath{Name: "Symbol.Key", Idx: -1}, info)
+	}else{
+        return
+    }
+
+    var v interface{}
+    for _, cNode := range node.All() {
+        v = cNode
+        if vv, ok := v.(Searcher); ok {    
+                vv.SearchInfo(pos, fn, condFn)
+        }else{
+            goto NO_NODE
+        }
+    }
+    return
+    
+
+NO_NODE:     
+    for i := 0 ; i < int(node.ValueInfo.VLen) ; i++ {
+        ptr := int(node.ValueInfo.Pos) + i*4
+        start := ptr + int(flatbuffers.GetUint32( node.R(ptr) ))
+        size := info.Size
+        if i + 1 < int(node.ValueInfo.Pos) {
+            size = ptr+4 + int(flatbuffers.GetUint32( node.R(ptr+4) )) - start
+        }
+        cInfo := base.Info{Pos: start, Size: size}
+        if condFn(pos, info) {
+            fn(base.NodePath{Name: "Symbol.Key", Idx: i}, cInfo)
+        }
+    }
 }

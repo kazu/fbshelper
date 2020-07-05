@@ -60,8 +60,24 @@ func(node FbsIndex) Info(i int) base.Info {
     case 4:
         return node.InvertedMapString().Info()
     }
-
     return base.Info{}
 }
+
+func(node FbsIndex) Member(i int) interface{} {
+    switch i-1 {
+    case 0:
+        return node.IndexNum()
+    case 1:
+        return node.IndexString()
+    case 2:
+        return node.File()
+    case 3:
+        return node.InvertedMapNum()
+    case 4:
+        return node.InvertedMapString()
+    }
+    return nil
+}
+
 
 

@@ -244,3 +244,27 @@ func Test_RootIndexStringInfoPos(t *testing.T) {
 	assert.Equal(t, true, info.Pos < info2.Pos)
 
 }
+
+func Test_SearchInfo(t *testing.T) {
+
+	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+		})
+	})
+
+	q := query.Open(bytes.NewReader(buf), 512)
+	cond := func(pos int, info base.Info) bool {
+		return info.Pos <= pos && (info.Pos+info.Size) > pos
+	}
+
+	result := []base.NodePath{}
+	infos := []base.Info{}
+	recFn := func(s base.NodePath, info base.Info) {
+		result = append(result, s)
+		infos = append(infos, info)
+	}
+	q.SearchInfo(60, recFn, cond)
+	assert.True(t, len(infos) > 0)
+
+}

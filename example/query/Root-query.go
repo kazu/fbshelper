@@ -39,6 +39,29 @@ type FbsRoot struct {
 type FbsRootRootIndex struct {
     *base.Node
 }
+// olny root type table definitions
+
+type CondFn func(int, base.Info) bool
+type RecFn func(base.NodePath, base.Info)
+
+type Noder interface {
+	IsLeafAt(int) bool
+	Info() base.Info
+	ValueInfo(int) base.ValueInfo
+	//FieldAt(int) Noder
+	SearchInfo(int, RecFn, CondFn)
+}
+
+type Searcher interface {
+    SearchInfo(int, RecFn, CondFn)
+}
+
+type UnionNoder interface {
+    Info(int) base.Info
+    Member(int) Noder
+}
+
+
 func Open(r io.Reader, cap int) FbsRoot {
     b := base.NewBaseByIO(r, 512)
     
@@ -46,7 +69,6 @@ func Open(r io.Reader, cap int) FbsRoot {
 		Node: base.NewNode(b, int(flatbuffers.GetUOffsetT( b.R(0) ))),
 	}
 }
-
 
 func OpenByBuf(buf []byte) FbsRoot {
 	return FbsRoot{
@@ -82,6 +104,56 @@ func (node FbsRoot) HasNext() bool {
 
     return node.LenBuf() + 4 < node.Len()
 }
+
+// logger formatter
+func F(s string, v ...interface{}) base.LogArgs {
+    return base.LogArgs{Fmt: s, Infs: v}
+}
+
+type LogArgs base.LogArgs
+
+func (node FbsRoot) SearchInfo(pos int, fn RecFn, condFn CondFn) {
+
+	info := node.Info()
+
+    /* if info.Pos > pos {
+        return
+    }*/
+
+	if condFn(pos, info) {
+		fn(base.NodePath{Name: "Root", Idx: -1}, info)
+	}else{
+        return
+    }
+
+	for i := 0; i < node.CountOfField(); i++ {
+		if node.IsLeafAt(i) {
+			fInfo := base.Info(node.ValueInfo(i))
+			if condFn(pos, fInfo) {
+				fn(base.NodePath{Name: "Root", Idx: i}, info)
+			}
+			continue
+		}
+        switch i {
+        case 0:
+        case 1:
+        case 2:
+                
+                
+                eIdx := int(node.IndexType())
+                v := node.Index().Member(eIdx)
+                mNode,ok  := v.(Noder)
+                _ = ok
+                mNode.SearchInfo(pos, fn, condFn)    
+        default:
+			base.Log(base.LOG_ERROR, func() base.LogArgs {
+				return F("node must be Noder")
+			})
+        }
+
+	}
+
+}
 func (node FbsRoot) Info() base.Info {
 
     info := base.Info{Pos: node.Pos, Size: -1}
@@ -106,8 +178,6 @@ func (node FbsRoot) IsLeafAt(i int) bool {
     }
     return false
 }
-
-
 func (node FbsRoot) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -132,6 +202,7 @@ func (node FbsRoot) ValueInfo(i int) base.ValueInfo {
      }
      return node.ValueInfos[i]
 }
+
 
 func (node FbsRoot) FieldAt(i int) interface{} {
 

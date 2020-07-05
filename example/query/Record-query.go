@@ -39,6 +39,44 @@ type FbsRecord struct {
 }
 
 
+
+func (node FbsRecord) SearchInfo(pos int, fn RecFn, condFn CondFn) {
+
+	info := node.Info()
+
+    /* if info.Pos > pos {
+        return
+    }*/
+
+	if condFn(pos, info) {
+		fn(base.NodePath{Name: "Record", Idx: -1}, info)
+	}else{
+        return
+    }
+
+	for i := 0; i < node.CountOfField(); i++ {
+		if node.IsLeafAt(i) {
+			fInfo := base.Info(node.ValueInfo(i))
+			if condFn(pos, fInfo) {
+				fn(base.NodePath{Name: "Record", Idx: i}, info)
+			}
+			continue
+		}
+        switch i {
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        case 4:    
+        default:
+			base.Log(base.LOG_ERROR, func() base.LogArgs {
+				return F("node must be Noder")
+			})
+        }
+
+	}
+
+}
 func (node FbsRecord) Info() base.Info {
     info := base.Info{Pos: node.Pos, Size: -1}
     size := 0
@@ -69,39 +107,33 @@ func (node FbsRecord) IsLeafAt(i int) bool {
     }
     return false
 }
-
-
 func (node FbsRecord) ValueInfo(i int) base.ValueInfo {
+    if len(node.ValueInfos) > i {
+        return node.ValueInfos[i]
+    }
+    node.ValueInfos = make([]base.ValueInfo, 0, node.CountOfField())
 
-    switch i {
-    case 0:
-        if node.ValueInfos[i].IsNotReady() {
-            node.ValueInfoPos(i)
-        }
-        node.ValueInfos[i].Size = base.SizeOfuint64
-    case 1:
-        if node.ValueInfos[i].IsNotReady() {
-            node.ValueInfoPos(i)
-        }
-        node.ValueInfos[i].Size = base.SizeOfint64
-    case 2:
-        if node.ValueInfos[i].IsNotReady() {
-            node.ValueInfoPos(i)
-        }
-        node.ValueInfos[i].Size = base.SizeOfint64
-    case 3:
-        if node.ValueInfos[i].IsNotReady() {
-            node.ValueInfoPos(i)
-        }
-        node.ValueInfos[i].Size = base.SizeOfint32
-    case 4:
-        if node.ValueInfos[i].IsNotReady() {
-            node.ValueInfoPos(i)
-        }
-        node.ValueInfos[i].Size = base.SizeOfint32
-     }
-     return node.ValueInfos[i]
+    info := base.ValueInfo{Pos: node.Pos, Size: 0}
+        info.Pos += info.Size
+        info.Size = base.SizeOfuint64
+        node.ValueInfos = append(node.ValueInfos,  info)
+        info.Pos += info.Size
+        info.Size = base.SizeOfint64
+        node.ValueInfos = append(node.ValueInfos,  info)
+        info.Pos += info.Size
+        info.Size = base.SizeOfint64
+        node.ValueInfos = append(node.ValueInfos,  info)
+        info.Pos += info.Size
+        info.Size = base.SizeOfint32
+        node.ValueInfos = append(node.ValueInfos,  info)
+        info.Pos += info.Size
+        info.Size = base.SizeOfint32
+        node.ValueInfos = append(node.ValueInfos,  info)
+
+    return node.ValueInfos[i]
+
 }
+
 
 func (node FbsRecord) FieldAt(i int) interface{} {
 
