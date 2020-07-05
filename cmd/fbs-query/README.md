@@ -103,6 +103,8 @@ fbs.Files().First().Unmarshal(&f)
 
 ## TODO
 
+- [x] change base.Base when call Next()
+- [ ] support basic type slice ( []int, ... ), define FbsType ?
 - [ ] support writing
 - [ ] marshal
 - [ ] unmarshal nested Table/Struct
