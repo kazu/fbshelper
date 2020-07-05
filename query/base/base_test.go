@@ -8,6 +8,7 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 	query "github.com/kazu/fbshelper/example/query"
 	"github.com/kazu/fbshelper/example/vfs_schema"
+	"github.com/kazu/fbshelper/query/base"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -226,8 +227,18 @@ func Test_RootIndexStringInfoPos(t *testing.T) {
 	n := list.Count()
 	_ = n
 
+	infos := map[string]base.Info{}
+
 	info := list.First().ValueInfo(0)
+	infos["Maps[0].0"] = base.Info(info)
+	for i := 0; i < list.First().CountOfField(); i++ {
+		tmpInfo := list.First().ValueInfo(i)
+		infos[fmt.Sprintf("Maps[0].0.%d", i)] = base.Info(tmpInfo)
+
+	}
+
 	info2 := list.Last().Value().Info()
+	infos["Maps[1].1"] = base.Info(info2)
 
 	assert.Equal(t, true, info.Pos < info2.Pos)
 
