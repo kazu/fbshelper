@@ -109,11 +109,12 @@ type Fbsbytes []byte
 
 
 func (node FbsSymbolKey) At(i int) Fbsbytes {
-    if i > int(node.ValueInfo.VLen) || i < 0 {
+    if i >= int(node.ValueInfo.VLen) || i < 0 {
 		return Fbsbytes{}
 	}
 
-	ptr := int(node.ValueInfo.Pos) + (i-1)*4
+	//ptr := int(node.ValueInfo.Pos) + (i-1)*4
+    ptr := int(node.ValueInfo.Pos) + i*4
     return Fbsbytes(base.FbsString(base.NewNode(node.Base, ptr+ int(flatbuffers.GetUint32( node.R(ptr) )))))
 }
 
@@ -124,7 +125,7 @@ func (node FbsSymbolKey) First() Fbsbytes {
 
 
 func (node FbsSymbolKey) Last() Fbsbytes {
-	return node.At(int(node.ValueInfo.VLen))
+	return node.At(int(node.ValueInfo.VLen)-1)
 }
 
 func (node FbsSymbolKey) Select(fn func(m Fbsbytes) bool) []Fbsbytes {

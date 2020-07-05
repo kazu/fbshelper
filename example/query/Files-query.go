@@ -106,11 +106,12 @@ func (node FbsFiles) CountOfField() int {
 
 
 func (node FbsFilesFiles) At(i int) FbsFile {
-    if i > int(node.ValueInfo.VLen) || i < 0 {
+    if i >= int(node.ValueInfo.VLen) || i < 0 {
 		return FbsFile{}
 	}
 
-	ptr := int(node.ValueInfo.Pos) + (i-1)*4
+	//ptr := int(node.ValueInfo.Pos) + (i-1)*4
+    ptr := int(node.ValueInfo.Pos) + i*4
 	return FbsFile{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
 }
 
@@ -121,7 +122,7 @@ func (node FbsFilesFiles) First() FbsFile {
 
 
 func (node FbsFilesFiles) Last() FbsFile {
-	return node.At(int(node.ValueInfo.VLen))
+	return node.At(int(node.ValueInfo.VLen)-1)
 }
 
 func (node FbsFilesFiles) Select(fn func(m FbsFile) bool) []FbsFile {

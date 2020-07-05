@@ -14,8 +14,6 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/kazu/fbshelper/info"
 	"github.com/stretchr/testify/assert"
-
-	query "github.com/kazu/fbshelper/example/query"
 )
 
 type File struct {
@@ -289,52 +287,5 @@ func Test_GetFbsRootInfo_RootIndexString(t *testing.T) {
 	fbsInfo.FetchAll(buf, RootIndexStringOption())
 
 	assert.Equal(t, len(buf), int64Align(int(fbsInfo.Length)))
-
-}
-
-func Test_QueryFbs(t *testing.T) {
-	buf := MakeRootFileFbs(12, "root_test.json", 456)
-	root := query.OpenByBuf(buf)
-	idx := root.Index()
-	assert.Equal(t, uint64(12), idx.File().Id())
-	assert.Equal(t, "root_test.json", string(idx.File().Name()))
-
-	buf2 := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
-		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
-			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
-		})
-	})
-
-	root = query.OpenByBuf(buf2)
-	assert.Equal(t, len(buf2), root.Len())
-	z := root.Index().IndexString().Maps().Last()
-
-	assert.Equal(t, uint64(1), z.Value().FileId())
-	assert.Equal(t, int64(2), z.Value().Offset())
-
-	assert.Equal(t, int32(234), root.Index().IndexString().Size())
-	assert.Equal(t, 2, root.Index().IndexString().Maps().Count())
-}
-
-func TestSizaaae(t *testing.T) {
-	buf := MakeRootRecord(512)
-	buf2 := append(buf, MakeRootRecord(513)...)
-
-	root := query.OpenByBuf(buf2)
-	z := root.Index().InvertedMapNum()
-
-	record := z.Value()
-	val := z.FieldAt(0)
-	assert.NotNil(t, val)
-	assert.Equal(t, int64(512), root.Index().InvertedMapNum().Key())
-	assert.Equal(t, int64(2), record.Offset())
-	assert.Equal(t, uint64(1), record.FileId())
-	assert.Equal(t, len(buf), root.Len())
-	assert.Equal(t, len(buf), z.Info().Pos+z.Info().Size)
-
-	root2 := root.Next()
-
-	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key())
-	assert.False(t, root2.HasNext())
 
 }

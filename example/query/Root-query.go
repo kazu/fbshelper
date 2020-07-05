@@ -58,6 +58,10 @@ func (node FbsRoot) Len() int {
     info := node.Info()
     size := info.Pos + info.Size
 
+    if (size % 8) == 0 {
+        return size
+    }
+
     return size + (8 - (size % 8)) 
 }
 
@@ -106,7 +110,14 @@ func (node FbsRoot) ValueInfo(i int) base.ValueInfo {
         if node.ValueInfos[i].IsNotReady() {
             node.ValueInfoPosTable(i)
         }
-        node.ValueInfos[i].Size = node.Index().Info(i-1).Size
+        //node.ValueInfos[i].Size = node.Index().Info(i-1).Size
+        // 
+        // typeIdx := node.FieldAt(i-1).(EnumIndex)
+        // node.ValueInfos[i].Size = node.Index().Info(typeIdx).Size
+        
+        
+        eIdx := int(node.IndexType())
+        node.ValueInfos[i].Size = node.Index().Info(eIdx).Size
      }
      return node.ValueInfos[i]
 }

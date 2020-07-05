@@ -70,6 +70,10 @@ func (node Fbs{{$.Name}}) Len() int {
     info := node.Info()
     size := info.Pos + info.Size
 
+    if (size % 8) == 0 {
+        return size
+    }
+
     return size + (8 - (size % 8)) 
 }
 
@@ -134,7 +138,15 @@ func (node Fbs{{$SName}}) ValueInfo(i int) base.ValueInfo {
         if node.ValueInfos[i].IsNotReady() {
             node.ValueInfoPosTable(i)
         }
-        node.ValueInfos[i].Size = node.{{$v.Name}}().Info(i-1).Size
+        //node.ValueInfos[i].Size = node.{{$v.Name}}().Info(i-1).Size
+        // 
+        // typeIdx := node.FieldAt(i-1).(EnumIndex)
+        // node.ValueInfos[i].Size = node.{{$v.Name}}().Info(typeIdx).Size
+        {{ $PIDX := add $i -1 }}
+        {{ $PREV := index $.Fields $PIDX }}
+        eIdx := int(node.{{ $PREV.Name }}())
+        node.ValueInfos[i].Size = node.{{$v.Name}}().Info(eIdx).Size         
+
     {{- else if eq $v.Type "[]byte" }}
         if node.ValueInfos[i].IsNotReady() {
             node.ValueInfoPosBytes(i)
@@ -292,11 +304,13 @@ type Fbs{{ (toBareType $SingleName) }}s {{$SingleName}}
 
 
 func (node Fbs{{$.Name}}{{$v.Name}}) At(i int) Fbs{{ $SingleName }} {
-    if i > int(node.ValueInfo.VLen) || i < 0 {
+    if i >= int(node.ValueInfo.VLen) || i < 0 {
 		return Fbs{{ $SingleName }}{}
 	}
 
-	ptr := int(node.ValueInfo.Pos) + (i-1)*4
+	//ptr := int(node.ValueInfo.Pos) + (i-1)*4
+    ptr := int(node.ValueInfo.Pos) + i*4
+    
     {{- if eq $SingleName "bytes"}}
     return Fbs{{$SingleName}}(base.FbsString(base.NewNode(node.Base, ptr+ int(flatbuffers.GetUint32( node.R(ptr) )))))
     {{- else }}
@@ -311,7 +325,7 @@ func (node Fbs{{$.Name}}{{$v.Name}}) First() Fbs{{ $SingleName }} {
 
 
 func (node Fbs{{$.Name}}{{$v.Name}}) Last() Fbs{{ $SingleName }} {
-	return node.At(int(node.ValueInfo.VLen))
+	return node.At(int(node.ValueInfo.VLen)-1)
 }
 
 func (node Fbs{{$.Name}}{{$v.Name}}) Select(fn func(m Fbs{{ $SingleName }}) bool) []Fbs{{ $SingleName }} {

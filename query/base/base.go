@@ -72,6 +72,7 @@ type ValueInfo struct {
 }
 
 type Info ValueInfo
+type NodePath []int
 
 func NewNode(b *Base, pos int) *Node {
 	return NewNode2(b, pos, false)
@@ -311,3 +312,46 @@ func (node *Node) Unmarshal(ptr interface{}, setter UnmarshalFn) error {
 	}
 	return nil
 }
+
+/*
+func (node FbsRoot) Contain(path, pos int) bool {
+	 info := node.Info()
+	if node.Pos > pos {
+		return false
+	}
+	for i := 0; i < len(node.VTable); i++ {
+		vInfo := node.ValueInfo(i)
+		if
+
+
+}
+
+func (node FbsRoot) NodeInfo(path NodePath, nodeInfo NodeInfo)  error {
+
+	info := base.Info{Pos: node.Pos, Size: -1}
+	for i := 0; i < len(node.VTable); i++ {
+        //node.NodeInfo(nodeInfo)
+	}
+
+	vInfo = nodeInfo[nodeInfo.Max()]
+	if info.Pos + info.Size < vInfo.Pos + vInfo.Size {
+		info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+	}
+
+
+    return nil
+
+}
+
+func(NodeInfo ninfo) Max() (key string) {
+	max := 0
+
+	for k, info := ninfo {
+		if info.Pos + info.Size < max {
+			key = k
+			max = info.Pos + info.Size
+		}
+	}
+	return
+}
+*/

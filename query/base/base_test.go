@@ -2,6 +2,7 @@ package base_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -29,6 +30,66 @@ func MakeRootFileFbs(id uint64, name string, index_at int64) []byte {
 	vfs_schema.RootAddIndex(b, fbFile)
 	b.Finish(vfs_schema.RootEnd(b))
 	return b.FinishedBytes()
+}
+
+func MakeRootIndexString(fn func(b *flatbuffers.Builder) flatbuffers.UOffsetT) []byte {
+	b := flatbuffers.NewBuilder(0)
+
+	fbIndex := fn(b)
+
+	vfs_schema.RootStart(b)
+	vfs_schema.RootAddVersion(b, 1)
+	vfs_schema.RootAddIndexType(b, vfs_schema.IndexIndexString)
+	vfs_schema.RootAddIndex(b, fbIndex)
+	b.Finish(vfs_schema.RootEnd(b))
+	return b.FinishedBytes()
+
+}
+
+func MakeIndexString(b *flatbuffers.Builder, fn func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT) flatbuffers.UOffsetT {
+
+	data := fn(b, 0)
+	data2 := fn(b, 1)
+
+	vfs_schema.IndexStringStartMapsVector(b, 2)
+	b.PrependUOffsetT(data)
+	b.PrependUOffsetT(data2)
+	maps := b.EndVector(2)
+
+	vfs_schema.IndexStringStart(b)
+	vfs_schema.IndexStringAddMaps(b, maps)
+	vfs_schema.IndexStringAddSize(b, 234)
+	return vfs_schema.IndexStringEnd(b)
+
+}
+
+func MakeInvertedMapString(b *flatbuffers.Builder, key string) flatbuffers.UOffsetT {
+	//, vFn func(b *flatbuffers.Builder) flatbuffers.UOffsetT) flatbuffers.UOffsetT{
+
+	fkey := b.CreateString(key)
+	vfs_schema.InvertedMapStringStart(b)
+	vfs_schema.InvertedMapStringAddKey(b, fkey)
+	vfs_schema.InvertedMapStringAddValue(b, vfs_schema.CreateRecord(b, 1, 2, 3, 4, 5))
+	return vfs_schema.InvertedMapStringEnd(b)
+}
+
+func MakeRootRecord(key uint64) []byte {
+
+	b := flatbuffers.NewBuilder(0)
+
+	vfs_schema.InvertedMapNumStart(b)
+	vfs_schema.InvertedMapNumAddKey(b, int64(key))
+	vfs_schema.InvertedMapNumAddValue(b, vfs_schema.CreateRecord(b, 1, 2, 3, 0, 0))
+	iMapNum := vfs_schema.InvertedMapNumEnd(b)
+
+	vfs_schema.RootStart(b)
+	vfs_schema.RootAddVersion(b, 1)
+	vfs_schema.RootAddIndexType(b, vfs_schema.IndexInvertedMapNum)
+	vfs_schema.RootAddIndex(b, iMapNum)
+	b.Finish(vfs_schema.RootEnd(b))
+
+	return b.FinishedBytes()
+
 }
 
 type File struct {
@@ -100,4 +161,74 @@ func TestOpen(t *testing.T) {
 			assert.Equal(t, tt.IndexAt, file.IndexAt)
 		})
 	}
+}
+
+func Test_QueryFbs(t *testing.T) {
+	buf := MakeRootFileFbs(12, "root_test.json", 456)
+	root := query.OpenByBuf(buf)
+	idx := root.Index()
+	assert.Equal(t, uint64(12), idx.File().Id())
+	assert.Equal(t, "root_test.json", string(idx.File().Name()))
+
+	buf2 := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+		})
+	})
+
+	root = query.OpenByBuf(buf2)
+	assert.Equal(t, len(buf2), root.Len())
+	z := root.Index().IndexString().Maps().Last()
+
+	assert.Equal(t, uint64(1), z.Value().FileId())
+	assert.Equal(t, int64(2), z.Value().Offset())
+
+	assert.Equal(t, int32(234), root.Index().IndexString().Size())
+	assert.Equal(t, 2, root.Index().IndexString().Maps().Count())
+}
+
+func Test_QueryNext(t *testing.T) {
+	buf := MakeRootRecord(512)
+	buf2 := append(buf, MakeRootRecord(513)...)
+
+	root := query.OpenByBuf(buf2)
+	z := root.Index().InvertedMapNum()
+
+	record := z.Value()
+	val := z.FieldAt(0)
+	assert.NotNil(t, val)
+	assert.Equal(t, int64(512), root.Index().InvertedMapNum().Key())
+	assert.Equal(t, int64(2), record.Offset())
+	assert.Equal(t, uint64(1), record.FileId())
+	assert.Equal(t, len(buf), root.Len())
+	assert.Equal(t, len(buf), root.Len())
+	assert.Equal(t, len(buf), z.Info().Pos+z.Info().Size)
+
+	root2 := root.Next()
+
+	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key())
+	assert.False(t, root2.HasNext())
+
+}
+
+func Test_RootIndexStringInfoPos(t *testing.T) {
+
+	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+		})
+	})
+
+	q := query.Open(bytes.NewReader(buf), 512)
+	//q := query.OpenByBuf(buf)
+
+	list := q.Index().IndexString().Maps()
+	n := list.Count()
+	_ = n
+
+	info := list.First().ValueInfo(0)
+	info2 := list.Last().Value().Info()
+
+	assert.Equal(t, true, info.Pos < info2.Pos)
+
 }
