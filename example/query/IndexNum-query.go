@@ -48,6 +48,18 @@ func (node FbsIndexNum) Info() base.Info {
     return info    
 }
 
+
+func (node FbsIndexNum) IsLeafAt(i int) bool {
+    switch i {
+    case 0:
+        return true
+    case 1:
+        return false
+    }
+    return false
+}
+
+
 func (node FbsIndexNum) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -130,7 +142,6 @@ func (node FbsIndexNumMaps) At(i int) FbsInvertedMapNum {
 		return FbsInvertedMapNum{}
 	}
 
-	//ptr := int(node.ValueInfo.Pos) + (i-1)*4
     ptr := int(node.ValueInfo.Pos) + i*4
 	return FbsInvertedMapNum{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
 }

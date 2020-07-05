@@ -46,6 +46,16 @@ func (node FbsFiles) Info() base.Info {
     return info    
 }
 
+
+func (node FbsFiles) IsLeafAt(i int) bool {
+    switch i {
+    case 0:
+        return false
+    }
+    return false
+}
+
+
 func (node FbsFiles) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -110,7 +120,6 @@ func (node FbsFilesFiles) At(i int) FbsFile {
 		return FbsFile{}
 	}
 
-	//ptr := int(node.ValueInfo.Pos) + (i-1)*4
     ptr := int(node.ValueInfo.Pos) + i*4
 	return FbsFile{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
 }

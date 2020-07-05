@@ -123,6 +123,30 @@ func (node Fbs{{$SName}}) Info() base.Info {
 
 {{- end }}
 
+
+func (node Fbs{{$SName}}) IsLeafAt(i int) bool {
+    switch i {
+{{- range $i, $v := .Fields}}
+    case {{$i}}:
+    {{- if eq (isStruct $v.Type) true }}
+        return false
+    {{- else if eq (isUnion $IsUnion $v.Type) true }}
+        return false
+    {{- else if eq $v.Type "[]byte" }}
+        return true
+    {{- else if eq (isSlice $v.Type) true }}
+        return false
+    {{- else if eq (isMessage $v.Type) true }}
+         return false
+    {{- else }}
+        return true
+    {{- end }}    
+{{- end }}
+    }
+    return false
+}
+
+
 func (node Fbs{{$SName}}) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -138,10 +162,6 @@ func (node Fbs{{$SName}}) ValueInfo(i int) base.ValueInfo {
         if node.ValueInfos[i].IsNotReady() {
             node.ValueInfoPosTable(i)
         }
-        //node.ValueInfos[i].Size = node.{{$v.Name}}().Info(i-1).Size
-        // 
-        // typeIdx := node.FieldAt(i-1).(EnumIndex)
-        // node.ValueInfos[i].Size = node.{{$v.Name}}().Info(typeIdx).Size
         {{ $PIDX := add $i -1 }}
         {{ $PREV := index $.Fields $PIDX }}
         eIdx := int(node.{{ $PREV.Name }}())
@@ -308,7 +328,6 @@ func (node Fbs{{$.Name}}{{$v.Name}}) At(i int) Fbs{{ $SingleName }} {
 		return Fbs{{ $SingleName }}{}
 	}
 
-	//ptr := int(node.ValueInfo.Pos) + (i-1)*4
     ptr := int(node.ValueInfo.Pos) + i*4
     
     {{- if eq $SingleName "bytes"}}

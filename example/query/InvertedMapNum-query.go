@@ -45,6 +45,18 @@ func (node FbsInvertedMapNum) Info() base.Info {
     return info    
 }
 
+
+func (node FbsInvertedMapNum) IsLeafAt(i int) bool {
+    switch i {
+    case 0:
+        return true
+    case 1:
+        return false
+    }
+    return false
+}
+
+
 func (node FbsInvertedMapNum) ValueInfo(i int) base.ValueInfo {
 
     switch i {

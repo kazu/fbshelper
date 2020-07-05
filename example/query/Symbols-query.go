@@ -46,6 +46,16 @@ func (node FbsSymbols) Info() base.Info {
     return info    
 }
 
+
+func (node FbsSymbols) IsLeafAt(i int) bool {
+    switch i {
+    case 0:
+        return false
+    }
+    return false
+}
+
+
 func (node FbsSymbols) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -110,7 +120,6 @@ func (node FbsSymbolsSymbols) At(i int) FbsSymbol {
 		return FbsSymbol{}
 	}
 
-	//ptr := int(node.ValueInfo.Pos) + (i-1)*4
     ptr := int(node.ValueInfo.Pos) + i*4
 	return FbsSymbol{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
 }

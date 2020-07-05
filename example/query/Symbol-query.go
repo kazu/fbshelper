@@ -46,6 +46,16 @@ func (node FbsSymbol) Info() base.Info {
     return info    
 }
 
+
+func (node FbsSymbol) IsLeafAt(i int) bool {
+    switch i {
+    case 0:
+        return false
+    }
+    return false
+}
+
+
 func (node FbsSymbol) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -113,7 +123,6 @@ func (node FbsSymbolKey) At(i int) Fbsbytes {
 		return Fbsbytes{}
 	}
 
-	//ptr := int(node.ValueInfo.Pos) + (i-1)*4
     ptr := int(node.ValueInfo.Pos) + i*4
     return Fbsbytes(base.FbsString(base.NewNode(node.Base, ptr+ int(flatbuffers.GetUint32( node.R(ptr) )))))
 }

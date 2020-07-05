@@ -93,6 +93,20 @@ func (node FbsRoot) Info() base.Info {
     return info    
 }
 
+
+func (node FbsRoot) IsLeafAt(i int) bool {
+    switch i {
+    case 0:
+        return true
+    case 1:
+        return true
+    case 2:
+        return false
+    }
+    return false
+}
+
+
 func (node FbsRoot) ValueInfo(i int) base.ValueInfo {
 
     switch i {
@@ -110,10 +124,6 @@ func (node FbsRoot) ValueInfo(i int) base.ValueInfo {
         if node.ValueInfos[i].IsNotReady() {
             node.ValueInfoPosTable(i)
         }
-        //node.ValueInfos[i].Size = node.Index().Info(i-1).Size
-        // 
-        // typeIdx := node.FieldAt(i-1).(EnumIndex)
-        // node.ValueInfos[i].Size = node.Index().Info(typeIdx).Size
         
         
         eIdx := int(node.IndexType())

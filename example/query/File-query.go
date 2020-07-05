@@ -47,6 +47,20 @@ func (node FbsFile) Info() base.Info {
     return info    
 }
 
+
+func (node FbsFile) IsLeafAt(i int) bool {
+    switch i {
+    case 0:
+        return true
+    case 1:
+        return true
+    case 2:
+        return true
+    }
+    return false
+}
+
+
 func (node FbsFile) ValueInfo(i int) base.ValueInfo {
 
     switch i {
