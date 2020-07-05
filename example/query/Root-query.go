@@ -71,9 +71,10 @@ func (node FbsRoot) Next() FbsRoot {
     if node.LenBuf() + 4 < start {
         return node
     }
-
-    return FbsRoot{
-		Node: base.NewNode(node.Base, start + int(flatbuffers.GetUOffsetT( node.R(start)  ))),
+    
+	newBase := node.Base.NextBase(start)
+	return FbsRoot{
+		Node: base.NewNode(newBase, int(flatbuffers.GetUOffsetT(newBase.R(0)))),
 	}
 }
 

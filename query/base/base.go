@@ -25,6 +25,10 @@ const (
 	SizeOfbyte        = 1
 )
 
+const (
+	DEFAULT_BUF_CAP = 512
+)
+
 var (
 	ERR_MUST_POINTER error = errors.New("parameter must be pointer")
 	ERR_INVALID_TYPE error = errors.New("parameter invalid type(must be struct or map[string]interface)")
@@ -93,6 +97,22 @@ func NewBase(buf []byte) *Base {
 func NewBaseByIO(rio io.Reader, cap int) *Base {
 	b := &Base{r: rio, bytes: make([]byte, 0, cap)}
 	return b
+}
+
+func (b *Base) NextBase(skip int) *Base {
+	newBase := &Base{
+		r:     b.r,
+		bytes: b.bytes,
+	}
+	newBase.bytes = newBase.bytes[skip:]
+	if cap(newBase.bytes) < DEFAULT_BUF_CAP {
+		newBase.Diffs = append(newBase.Diffs, Diff{Offset: 0, bytes: make([]byte, 0, DEFAULT_BUF_CAP)})
+	}
+	if cap(b.bytes) > skip {
+		b.bytes = b.bytes[:skip]
+	}
+
+	return newBase
 }
 
 func (b *Base) HasIoReader() bool {

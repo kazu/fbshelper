@@ -192,7 +192,7 @@ func Test_QueryNext(t *testing.T) {
 	buf := MakeRootRecord(512)
 	buf2 := append(buf, MakeRootRecord(513)...)
 
-	root := query.OpenByBuf(buf2)
+	root := query.Open(bytes.NewReader(buf2), base.DEFAULT_BUF_CAP)
 	z := root.Index().InvertedMapNum()
 
 	record := z.Value()
@@ -209,6 +209,8 @@ func Test_QueryNext(t *testing.T) {
 
 	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key())
 	assert.False(t, root2.HasNext())
+	len1 := root.LenBuf()
+	assert.Equal(t, len(buf), len1)
 
 }
 
@@ -221,7 +223,6 @@ func Test_RootIndexStringInfoPos(t *testing.T) {
 	})
 
 	q := query.Open(bytes.NewReader(buf), 512)
-	//q := query.OpenByBuf(buf)
 
 	list := q.Index().IndexString().Maps()
 	n := list.Count()
