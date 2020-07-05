@@ -102,7 +102,7 @@ func (b *Base) NextBase(skip int) *Base {
 	}
 	newBase.bytes = newBase.bytes[skip:]
 	if cap(newBase.bytes) < DEFAULT_BUF_CAP {
-		newBase.Diffs = append(newBase.Diffs, Diff{Offset: 0, bytes: make([]byte, 0, DEFAULT_BUF_CAP)})
+		newBase.Diffs = append(newBase.Diffs, Diff{Offset: cap(newBase.bytes), bytes: make([]byte, 0, DEFAULT_BUF_CAP)})
 	}
 	if cap(b.bytes) > skip {
 		b.bytes = b.bytes[:skip]
@@ -154,6 +154,31 @@ func (b *Base) LenBuf() int {
 	}
 	return len(b.bytes)
 
+}
+
+type RawBufInfo struct {
+	Len int
+	Cap int
+}
+
+type BufInfo [2]RawBufInfo
+
+func (b *Base) BufInfo() (infos BufInfo) {
+
+	infos[0].Len = len(b.bytes)
+	infos[0].Cap = cap(b.bytes)
+
+	infos[1].Len = infos[0].Len
+	infos[1].Cap = infos[0].Cap
+	for _, diff := range b.Diffs {
+		if len(diff.bytes)+diff.Offset > infos[1].Len {
+			infos[1].Len = diff.Offset + len(diff.bytes)
+		}
+		if cap(diff.bytes)+diff.Offset > infos[1].Cap {
+			infos[1].Cap = diff.Offset + cap(diff.bytes)
+		}
+	}
+	return
 }
 
 func (n *Node) vtable() {

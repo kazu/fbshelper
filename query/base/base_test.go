@@ -210,6 +210,10 @@ func Test_QueryNext(t *testing.T) {
 	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key())
 	assert.False(t, root2.HasNext())
 	len1 := root.LenBuf()
+
+	rBufInfo := root.BufInfo()
+	r2BufInfo := root2.BufInfo()
+	_, _ = rBufInfo, r2BufInfo
 	assert.Equal(t, len(buf), len1)
 
 }
