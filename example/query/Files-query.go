@@ -137,9 +137,14 @@ func (node FbsFiles) Files() FbsFilesFiles {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsFiles) CountOfField() int {
     return 1
+}
+
+// SetFiles ... store v value to {$v.Name}} field.
+func (node FbsFiles) SetFiles(v  FbsFilesFiles ) error {    
+        return base.ERR_NO_SUPPORT    
 }
 
 

@@ -178,7 +178,32 @@ func (node FbsFile) IndexAt() int64 {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsFile) CountOfField() int {
     return 3
+}
+
+// SetId ... store v value to {$v.Name}} field.
+func (node FbsFile) SetId(v uint64) error {    
+        buf := node.ValueNormal(File_Id )   
+        if len(buf) < base.SizeOfuint64 {
+            return base.ERR_MORE_BUFFER
+        }
+        flatbuffers.WriteUint64(buf, uint64(v))
+        return nil
+}
+
+// SetName ... store v value to {$v.Name}} field.
+func (node FbsFile) SetName(v []byte) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+// SetIndexAt ... store v value to {$v.Name}} field.
+func (node FbsFile) SetIndexAt(v int64) error {    
+        buf := node.ValueNormal(File_IndexAt )   
+        if len(buf) < base.SizeOfint64 {
+            return base.ERR_MORE_BUFFER
+        }
+        flatbuffers.WriteInt64(buf, int64(v))
+        return nil
 }

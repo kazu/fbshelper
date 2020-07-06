@@ -263,7 +263,32 @@ func (node FbsRoot) Index() FbsIndex {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsRoot) CountOfField() int {
     return 3
+}
+
+// SetVersion ... store v value to {$v.Name}} field.
+func (node FbsRoot) SetVersion(v int32) error {    
+        buf := node.ValueNormal(Root_Version )   
+        if len(buf) < base.SizeOfint32 {
+            return base.ERR_MORE_BUFFER
+        }
+        flatbuffers.WriteInt32(buf, int32(v))
+        return nil
+}
+
+// SetIndexType ... store v value to {$v.Name}} field.
+func (node FbsRoot) SetIndexType(v byte) error {    
+        buf := node.ValueNormal(Root_IndexType )   
+        if len(buf) < base.SizeOfbyte {
+            return base.ERR_MORE_BUFFER
+        }
+        flatbuffers.WriteByte(buf, byte(v))
+        return nil
+}
+
+// SetIndex ... store v value to {$v.Name}} field.
+func (node FbsRoot) SetIndex(v FbsIndex) error {    
+        return base.ERR_NO_SUPPORT
 }

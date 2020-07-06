@@ -222,7 +222,32 @@ func (node FbsRecord) ValueSize() int32 {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsRecord) CountOfField() int {
     return 5
+}
+
+// SetFileId ... store v value to {$v.Name}} field.
+func (node FbsRecord) SetFileId(v uint64) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+// SetOffset ... store v value to {$v.Name}} field.
+func (node FbsRecord) SetOffset(v int64) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+// SetSize ... store v value to {$v.Name}} field.
+func (node FbsRecord) SetSize(v int64) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+// SetOffsetOfValue ... store v value to {$v.Name}} field.
+func (node FbsRecord) SetOffsetOfValue(v int32) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+// SetValueSize ... store v value to {$v.Name}} field.
+func (node FbsRecord) SetValueSize(v int32) error {    
+        return base.ERR_NO_SUPPORT
 }

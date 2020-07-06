@@ -155,7 +155,22 @@ func (node FbsInvertedMapNum) Value() FbsRecord {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsInvertedMapNum) CountOfField() int {
     return 2
+}
+
+// SetKey ... store v value to {$v.Name}} field.
+func (node FbsInvertedMapNum) SetKey(v int64) error {    
+        buf := node.ValueNormal(InvertedMapNum_Key )   
+        if len(buf) < base.SizeOfint64 {
+            return base.ERR_MORE_BUFFER
+        }
+        flatbuffers.WriteInt64(buf, int64(v))
+        return nil
+}
+
+// SetValue ... store v value to {$v.Name}} field.
+func (node FbsInvertedMapNum) SetValue(v FbsRecord) error {    
+        return base.ERR_NO_SUPPORT
 }

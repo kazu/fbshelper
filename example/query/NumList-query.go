@@ -137,9 +137,14 @@ func (node FbsNumList) Num() FbsNumListNum {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsNumList) CountOfField() int {
     return 1
+}
+
+// SetNum ... store v value to {$v.Name}} field.
+func (node FbsNumList) SetNum(v  FbsNumListNum ) error {    
+        return base.ERR_NO_SUPPORT    
 }
 
 

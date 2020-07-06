@@ -14,6 +14,7 @@ var (
 	ERR_NOT_FOUND    error = errors.New("data is not found")
 	ERR_READ_BUFFER  error = errors.New("cannot read least data")
 	ERR_MORE_BUFFER  error = errors.New("require more data")
+	ERR_NO_SUPPORT   error = errors.New("this method is not suppored")
 )
 
 type LogLevel byte

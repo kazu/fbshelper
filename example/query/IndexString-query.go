@@ -160,9 +160,24 @@ func (node FbsIndexString) Maps() FbsIndexStringMaps {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsIndexString) CountOfField() int {
     return 2
+}
+
+// SetSize ... store v value to {$v.Name}} field.
+func (node FbsIndexString) SetSize(v int32) error {    
+        buf := node.ValueNormal(IndexString_Size )   
+        if len(buf) < base.SizeOfint32 {
+            return base.ERR_MORE_BUFFER
+        }
+        flatbuffers.WriteInt32(buf, int32(v))
+        return nil
+}
+
+// SetMaps ... store v value to {$v.Name}} field.
+func (node FbsIndexString) SetMaps(v  FbsIndexStringMaps ) error {    
+        return base.ERR_NO_SUPPORT    
 }
 
 

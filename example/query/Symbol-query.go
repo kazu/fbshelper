@@ -137,9 +137,14 @@ func (node FbsSymbol) Key() FbsSymbolKey {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsSymbol) CountOfField() int {
     return 1
+}
+
+// SetKey ... store v value to {$v.Name}} field.
+func (node FbsSymbol) SetKey(v  FbsSymbolKey ) error {    
+        return base.ERR_NO_SUPPORT    
 }
 
 

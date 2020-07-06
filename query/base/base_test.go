@@ -342,3 +342,26 @@ func Test_SliceBasicType(t *testing.T) {
 	assert.Equal(t, int32(584), q.Index().NumList().Num().At(1))
 
 }
+
+func Test_RootSetVersion(t *testing.T) {
+
+	buf := MakeRootNumList(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeNumList(b, func(i int) int32 {
+			switch i {
+			case 0:
+				return 345
+			case 1:
+				return 584
+			default:
+				return 999
+			}
+		})
+	})
+
+	q := query.Open(bytes.NewReader(buf), 512)
+	assert.Equal(t, int32(1), q.Version())
+	q.SetVersion(int32(2))
+	assert.Equal(t, int32(2), q.Version())
+	assert.NotNil(t, buf)
+
+}

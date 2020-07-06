@@ -411,10 +411,56 @@ func (node Fbs{{$SName}}) {{$v.Name}}() {{$v.Type}} {
 
 {{ end}}
 
-
+// CountOfField ... returns count of table/struct fields
 func (node Fbs{{$.Name}}) CountOfField() int {
     return {{len $.Fields}}
 }
+
+{{- range $i, $v := .Fields}}
+
+// Set{{$v.Name}} ... store v value to {$v.Name}} field. 
+    {{- if eq $IsTable false }}
+func (node Fbs{{$.Name}}) Set{{$v.Name}}(v {{$v.Type}}) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+    {{- else if eq (isUnion $IsUnion $v.Type) true }}
+func (node Fbs{{$.Name}}) Set{{$v.Name}}(v Fbs{{$v.Type}}) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+    {{- else if eq $v.Type "[]byte" }}
+func (node Fbs{{$.Name}}) Set{{$v.Name}}(v {{$v.Type}}) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+    {{- else if eq (isSlice $v.Type) true }}
+func (node Fbs{{$.Name}}) Set{{$v.Name}}(v  Fbs{{$.Name}}{{$v.Name}} ) error {    
+        return base.ERR_NO_SUPPORT    
+}
+
+    {{- else if eq (isStruct $v.Type) true}}
+func (node Fbs{{$.Name}}) Set{{$v.Name}}(v Fbs{{$v.Type}}) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+    {{- else if eq (isMessage $v.Type) true }}
+func (node Fbs{{$.Name}}) Set{{$v.Name}}(v Fbs{{$v.Type}}) error {    
+        return base.ERR_NO_SUPPORT    
+}
+
+    {{- else }}
+func (node Fbs{{$.Name}}) Set{{$v.Name}}(v {{$v.Type}}) error {    
+        buf := node.ValueNormal({{$SName}}_{{$v.Name}} )   
+        if len(buf) < base.SizeOf{{$v.Type}} {
+            return base.ERR_MORE_BUFFER
+        }
+        flatbuffers.Write{{(toCamel $v.Type)}}(buf, {{$v.Type}}(v))
+        return nil
+}
+
+    {{- end  }}
+{{- end }}
 
 {{- range $i, $v := .Fields}}
     {{- if eq $v.Type "[]byte" }}

@@ -137,9 +137,14 @@ func (node FbsSymbols) Symbols() FbsSymbolsSymbols {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsSymbols) CountOfField() int {
     return 1
+}
+
+// SetSymbols ... store v value to {$v.Name}} field.
+func (node FbsSymbols) SetSymbols(v  FbsSymbolsSymbols ) error {    
+        return base.ERR_NO_SUPPORT    
 }
 
 

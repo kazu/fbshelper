@@ -154,7 +154,17 @@ func (node FbsInvertedMapString) Value() FbsRecord {
 
 
 
-
+// CountOfField ... returns count of table/struct fields
 func (node FbsInvertedMapString) CountOfField() int {
     return 2
+}
+
+// SetKey ... store v value to {$v.Name}} field.
+func (node FbsInvertedMapString) SetKey(v []byte) error {    
+        return base.ERR_NO_SUPPORT
+}
+
+// SetValue ... store v value to {$v.Name}} field.
+func (node FbsInvertedMapString) SetValue(v FbsRecord) error {    
+        return base.ERR_NO_SUPPORT
 }
