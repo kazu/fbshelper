@@ -20,6 +20,7 @@ const (
     IndexFile                 EnumIndex   = 3
     IndexInvertedMapNum                 EnumIndex   = 4
     IndexInvertedMapString                 EnumIndex   = 5
+    IndexNumList                 EnumIndex   = 6
 )
 
 
@@ -46,6 +47,10 @@ func(node FbsIndex) InvertedMapString() FbsInvertedMapString {
 
     return FbsInvertedMapString{Node: node.Node}
 }
+func(node FbsIndex) NumList() FbsNumList {
+
+    return FbsNumList{Node: node.Node}
+}
 
 func(node FbsIndex) Info(i int) base.Info {
     switch i-1 {
@@ -59,6 +64,8 @@ func(node FbsIndex) Info(i int) base.Info {
         return node.InvertedMapNum().Info()
     case 4:
         return node.InvertedMapString().Info()
+    case 5:
+        return node.NumList().Info()
     }
     return base.Info{}
 }
@@ -75,6 +82,8 @@ func(node FbsIndex) Member(i int) interface{} {
         return node.InvertedMapNum()
     case 4:
         return node.InvertedMapString()
+    case 5:
+        return node.NumList()
     }
     return nil
 }

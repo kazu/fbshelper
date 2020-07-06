@@ -422,40 +422,58 @@ func (node Fbs{{$.Name}}) CountOfField() int {
 
 {{ $SingleName := (toBareType $v.Type) }}
 
+        {{ $IsBasic := false }}
+        {{ $TypeName := "" }}
         {{- if eq (isSlice $SingleName) true }}
 type Fbs{{ (toBareType $SingleName) }}s {{$SingleName}}    
             {{ $SingleName = (toBareType $SingleName) }}
             {{ $SingleName = printf "%ss" $SingleName }}
+        {{- else if eq (isUnion $IsUnion $SingleName) true }}    
+        {{- else if eq (isStruct $SingleName) true}}
+        {{- else if eq (isMessage $SingleName) true }}
+        {{- else }}
+             {{ $IsBasic = true }}
         {{- end }}
 
+        {{- if eq  $IsBasic true}}
+           {{ $TypeName = $SingleName }}
+        {{- else }} 
+           {{ $TypeName = printf "Fbs%s" $SingleName }}
+        {{- end }}    
 
-func (node Fbs{{$.Name}}{{$v.Name}}) At(i int) Fbs{{ $SingleName }} {
+func (node Fbs{{$.Name}}{{$v.Name}}) At(i int) {{ $TypeName }} {
     if i >= int(node.ValueInfo.VLen) || i < 0 {
-		return Fbs{{ $SingleName }}{}
+            {{- if eq  $IsBasic true}}    
+		return {{ $TypeName }}(0) 
+            {{- else }}
+        return {{ $TypeName }}{}
+            {{- end }}    
 	}
 
     ptr := int(node.ValueInfo.Pos) + i*4
     
-    {{- if eq $SingleName "bytes"}}
-    return Fbs{{$SingleName}}(base.FbsString(base.NewNode(node.Base, ptr+ int(flatbuffers.GetUint32( node.R(ptr) )))))
-    {{- else }}
+        {{- if eq $SingleName "bytes"}}
+    return {{ $TypeName }}(base.FbsString(base.NewNode(node.Base, ptr+ int(flatbuffers.GetUint32( node.R(ptr) )))))
+        {{- else if eq  $IsBasic true}}
+    return {{ $TypeName }}(flatbuffers.Get{{(toCamel $TypeName)}}( node.R(ptr) ))
+        {{- else }} 
 	return Fbs{{$SingleName}}{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
-    {{- end }}
+        {{- end }}
 }
 
 
-func (node Fbs{{$.Name}}{{$v.Name}}) First() Fbs{{ $SingleName }} {
+func (node Fbs{{$.Name}}{{$v.Name}}) First() {{ $TypeName }} {
 	return node.At(0)
 }
 
 
-func (node Fbs{{$.Name}}{{$v.Name}}) Last() Fbs{{ $SingleName }} {
+func (node Fbs{{$.Name}}{{$v.Name}}) Last() {{ $TypeName }} {
 	return node.At(int(node.ValueInfo.VLen)-1)
 }
 
-func (node Fbs{{$.Name}}{{$v.Name}}) Select(fn func(m Fbs{{ $SingleName }}) bool) []Fbs{{ $SingleName }} {
+func (node Fbs{{$.Name}}{{$v.Name}}) Select(fn func(m {{ $TypeName }}) bool) []{{ $TypeName }} {
 
-	result := make([]Fbs{{ $SingleName }}, 0, int(node.ValueInfo.VLen))
+	result := make([]{{ $TypeName }}, 0, int(node.ValueInfo.VLen))
 	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			result = append(result, m)
@@ -464,18 +482,23 @@ func (node Fbs{{$.Name}}{{$v.Name}}) Select(fn func(m Fbs{{ $SingleName }}) bool
 	return result
 }
 
-func (node Fbs{{$.Name}}{{$v.Name}}) Find(fn func(m Fbs{{ $SingleName }}) bool) Fbs{{ $SingleName }}{
+func (node Fbs{{$.Name}}{{$v.Name}}) Find(fn func(m {{ $TypeName }}) bool) {{ $TypeName }}{
 
 	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			return m
 		}
 	}
-	return Fbs{{ $SingleName }}{}
+	    {{- if eq  $IsBasic true}}    
+	return {{ $TypeName }}(0) 
+        {{- else }}
+    return {{ $TypeName }}{}
+        {{- end }}   
+
 }
 
-func (node Fbs{{$.Name}}{{$v.Name}}) All() []Fbs{{ $SingleName }} {
-	return node.Select(func(m Fbs{{ $SingleName }}) bool { return true })
+func (node Fbs{{$.Name}}{{$v.Name}}) All() []{{ $TypeName }} {
+	return node.Select(func(m {{ $TypeName }}) bool { return true })
 }
 
 func (node Fbs{{$.Name}}{{$v.Name}}) Count() int {
@@ -486,13 +509,16 @@ func (node Fbs{{$.Name}}{{$v.Name}}) Info() base.Info {
 
     info := base.Info{Pos: node.ValueInfo.Pos, Size: -1}
     
-    {{- if eq $SingleName "bytes"}}
+        {{- if eq $SingleName "bytes"}}
 	ptr := int(node.ValueInfo.Pos) + (int(node.ValueInfo.VLen)-1)*4
 
     vInfo := base.FbsStringInfo(base.NewNode(node.Base, ptr+   int(flatbuffers.GetUint32( node.R(ptr) ))))
-    {{- else }}
+        {{- else if eq $IsBasic true}}   
+    ptr := int(node.ValueInfo.Pos) + (int(node.ValueInfo.VLen)-1)*4 
+    vInfo := base.Info{Pos: ptr, Size: base.SizeOf{{$SingleName}}}
+        {{- else }}
     vInfo := node.Last().Info()
-    {{- end }}
+        {{- end }}
 
 
 

@@ -144,13 +144,16 @@ func (node FbsSymbols) CountOfField() int {
 
 
 
+        
+         
+               
 
 func (node FbsSymbolsSymbols) At(i int) FbsSymbol {
     if i >= int(node.ValueInfo.VLen) || i < 0 {
-		return FbsSymbol{}
+        return FbsSymbol{}    
 	}
 
-    ptr := int(node.ValueInfo.Pos) + i*4
+    ptr := int(node.ValueInfo.Pos) + i*4 
 	return FbsSymbol{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
 }
 
@@ -182,7 +185,8 @@ func (node FbsSymbolsSymbols) Find(fn func(m FbsSymbol) bool) FbsSymbol{
 			return m
 		}
 	}
-	return FbsSymbol{}
+    return FbsSymbol{}   
+
 }
 
 func (node FbsSymbolsSymbols) All() []FbsSymbol {

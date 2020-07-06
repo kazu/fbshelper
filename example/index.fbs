@@ -6,7 +6,8 @@ union Index {
     IndexString,
     File,
     InvertedMapNum,
-    InvertedMapString
+    InvertedMapString,
+    NumList
 }
 
 table IndexNum {
@@ -60,6 +61,10 @@ table Symbols {
 
 table Symbol {
     key:[string];
+}
+
+table NumList {
+    num:[int];
 }
 
 file_identifier "VIDX";

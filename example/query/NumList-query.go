@@ -13,34 +13,34 @@ import (
 )
 
 const (
-    DUMMY_Files = flatbuffers.VtableMetadataFields
+    DUMMY_NumList = flatbuffers.VtableMetadataFields
 )
 
 const (
-        Files_Files =     0
+        NumList_Num =     0
 )
 
-var Files_FieldEnum = map[string]int{
-        "Files": Files_Files,
+var NumList_FieldEnum = map[string]int{
+        "Num": NumList_Num,
 }
 
 
 
-type FbsFiles struct {
+type FbsNumList struct {
 	*base.Node
 }
 
 
-type FbsFilesFiles struct {
+type FbsNumListNum struct {
     *base.NodeList
 }
 
-func (node FbsFiles) SearchInfo(pos int, fn RecFn, condFn CondFn) {
+func (node FbsNumList) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 
 	info := node.Info()
 
 	if condFn(pos, info) {
-		fn(base.NodePath{Name: "Files", Idx: -1}, info)
+		fn(base.NodePath{Name: "NumList", Idx: -1}, info)
 	}else{
         return
     }
@@ -49,13 +49,13 @@ func (node FbsFiles) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 		if node.IsLeafAt(i) {
 			fInfo := base.Info(node.ValueInfo(i))
 			if condFn(pos, fInfo) {
-				fn(base.NodePath{Name: "Files", Idx: i}, fInfo)
+				fn(base.NodePath{Name: "NumList", Idx: i}, fInfo)
 			}
 			continue
 		}
         switch i {
         case 0:
-                node.Files().SearchInfo(pos, fn, condFn)    
+                node.Num().SearchInfo(pos, fn, condFn)    
         default:
 			base.Log(base.LOG_ERROR, func() base.LogArgs {
 				return F("node must be Noder")
@@ -65,7 +65,7 @@ func (node FbsFiles) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 	}
 
 }
-func (node FbsFiles) Info() base.Info {
+func (node FbsNumList) Info() base.Info {
 
     info := base.Info{Pos: node.Pos, Size: -1}
     for i := 0; i < len(node.VTable); i++ {
@@ -78,31 +78,31 @@ func (node FbsFiles) Info() base.Info {
 }
 
 
-func (node FbsFiles) IsLeafAt(i int) bool {
+func (node FbsNumList) IsLeafAt(i int) bool {
     switch i {
     case 0:
         return false
     }
     return false
 }
-func (node FbsFiles) ValueInfo(i int) base.ValueInfo {
+func (node FbsNumList) ValueInfo(i int) base.ValueInfo {
 
     switch i {
     case 0:
          if node.ValueInfos[i].IsNotReady() {
             node.ValueInfoPosList(i)
         }
-        node.ValueInfos[i].Size = node.Files().Info().Size
+        node.ValueInfos[i].Size = node.Num().Info().Size
      }
      return node.ValueInfos[i]
 }
 
 
-func (node FbsFiles) FieldAt(i int) interface{} {
+func (node FbsNumList) FieldAt(i int) interface{} {
 
     switch i {
     case 0:
-        return node.Files()
+        return node.Num()
      }
      return nil
 }
@@ -111,11 +111,11 @@ func (node FbsFiles) FieldAt(i int) interface{} {
 // Unmarsla parse flatbuffers data and store the result
 // in the value point to by v, if v is ni or not pointer,
 // Unmarshal returns an ERR_MUST_POINTER, ERR_INVALID_TYPE
-func (node FbsFiles) Unmarshal(v interface{}) error {
+func (node FbsNumList) Unmarshal(v interface{}) error {
 
     return node.Node.Unmarshal(v, func(s string, rv reflect.Value) error {
         
-        switch Files_FieldEnum[s] {
+        switch NumList_FieldEnum[s] {
         }
         return nil
     })
@@ -125,12 +125,12 @@ func (node FbsFiles) Unmarshal(v interface{}) error {
 
 
 
-func (node FbsFiles) Files() FbsFilesFiles {
+func (node FbsNumList) Num() FbsNumListNum {
     if node.VTable[0] == 0 {
-        return FbsFilesFiles{}
+        return FbsNumListNum{}
     }
     nodelist :=  node.ValueList(0)
-    return FbsFilesFiles{
+    return FbsNumListNum{
                 NodeList: &nodelist,
     }
 }
@@ -138,38 +138,39 @@ func (node FbsFiles) Files() FbsFilesFiles {
 
 
 
-func (node FbsFiles) CountOfField() int {
+func (node FbsNumList) CountOfField() int {
     return 1
 }
 
 
 
         
-         
+        
+             
                
 
-func (node FbsFilesFiles) At(i int) FbsFile {
-    if i >= int(node.ValueInfo.VLen) || i < 0 {
-        return FbsFile{}    
+func (node FbsNumListNum) At(i int) int32 {
+    if i >= int(node.ValueInfo.VLen) || i < 0 {    
+		return int32(0)    
 	}
 
-    ptr := int(node.ValueInfo.Pos) + i*4 
-	return FbsFile{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
+    ptr := int(node.ValueInfo.Pos) + i*4
+    return int32(flatbuffers.GetInt32( node.R(ptr) ))
 }
 
 
-func (node FbsFilesFiles) First() FbsFile {
+func (node FbsNumListNum) First() int32 {
 	return node.At(0)
 }
 
 
-func (node FbsFilesFiles) Last() FbsFile {
+func (node FbsNumListNum) Last() int32 {
 	return node.At(int(node.ValueInfo.VLen)-1)
 }
 
-func (node FbsFilesFiles) Select(fn func(m FbsFile) bool) []FbsFile {
+func (node FbsNumListNum) Select(fn func(m int32) bool) []int32 {
 
-	result := make([]FbsFile, 0, int(node.ValueInfo.VLen))
+	result := make([]int32, 0, int(node.ValueInfo.VLen))
 	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			result = append(result, m)
@@ -178,29 +179,30 @@ func (node FbsFilesFiles) Select(fn func(m FbsFile) bool) []FbsFile {
 	return result
 }
 
-func (node FbsFilesFiles) Find(fn func(m FbsFile) bool) FbsFile{
+func (node FbsNumListNum) Find(fn func(m int32) bool) int32{
 
 	for i := 0; i < int(node.ValueInfo.VLen); i++ {
 		if m := node.At(i); fn(m) {
 			return m
 		}
-	}
-    return FbsFile{}   
+	}    
+	return int32(0)   
 
 }
 
-func (node FbsFilesFiles) All() []FbsFile {
-	return node.Select(func(m FbsFile) bool { return true })
+func (node FbsNumListNum) All() []int32 {
+	return node.Select(func(m int32) bool { return true })
 }
 
-func (node FbsFilesFiles) Count() int {
+func (node FbsNumListNum) Count() int {
 	return int(node.ValueInfo.VLen)
 }
 
-func (node FbsFilesFiles) Info() base.Info {
+func (node FbsNumListNum) Info() base.Info {
 
-    info := base.Info{Pos: node.ValueInfo.Pos, Size: -1}
-    vInfo := node.Last().Info()
+    info := base.Info{Pos: node.ValueInfo.Pos, Size: -1}   
+    ptr := int(node.ValueInfo.Pos) + (int(node.ValueInfo.VLen)-1)*4 
+    vInfo := base.Info{Pos: ptr, Size: base.SizeOfint32}
 
 
 
@@ -210,12 +212,12 @@ func (node FbsFilesFiles) Info() base.Info {
     return info
 }
 
-func (node FbsFilesFiles) SearchInfo(pos int, fn RecFn, condFn CondFn) {
+func (node FbsNumListNum) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 
     info := node.Info()
 
     if condFn(pos, info) {
-        fn(base.NodePath{Name: "Files.Files", Idx: -1}, info)
+        fn(base.NodePath{Name: "NumList.Num", Idx: -1}, info)
 	}else{
         return
     }
@@ -242,7 +244,7 @@ NO_NODE:
         }
         cInfo := base.Info{Pos: start, Size: size}
         if condFn(pos, info) {
-            fn(base.NodePath{Name: "Files.Files", Idx: i}, cInfo)
+            fn(base.NodePath{Name: "NumList.Num", Idx: i}, cInfo)
         }
     }
 }

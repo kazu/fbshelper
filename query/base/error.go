@@ -13,6 +13,7 @@ var (
 	ERR_INVALID_TYPE error = errors.New("parameter invalid type(must be struct or map[string]interface)")
 	ERR_NOT_FOUND    error = errors.New("data is not found")
 	ERR_READ_BUFFER  error = errors.New("cannot read least data")
+	ERR_MORE_BUFFER  error = errors.New("require more data")
 )
 
 type LogLevel byte

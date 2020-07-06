@@ -143,14 +143,17 @@ func (node FbsSymbol) CountOfField() int {
 }
 
 
+
+        
+        
 type Fbsbytes []byte    
             
-            
-
+             
+               
 
 func (node FbsSymbolKey) At(i int) Fbsbytes {
     if i >= int(node.ValueInfo.VLen) || i < 0 {
-		return Fbsbytes{}
+        return Fbsbytes{}    
 	}
 
     ptr := int(node.ValueInfo.Pos) + i*4
@@ -185,7 +188,8 @@ func (node FbsSymbolKey) Find(fn func(m Fbsbytes) bool) Fbsbytes{
 			return m
 		}
 	}
-	return Fbsbytes{}
+    return Fbsbytes{}   
+
 }
 
 func (node FbsSymbolKey) All() []Fbsbytes {

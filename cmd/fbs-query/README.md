@@ -104,7 +104,10 @@ fbs.Files().First().Unmarshal(&f)
 ## TODO
 
 - [x] change base.Base when call Next()
-- [ ] support basic type slice ( []int, ... ), define FbsType ?
+- [x] support basic type slice ( []int, ... )
 - [ ] support writing
+      - [ ] Set() basic type
+      - [ ] NewFbsNode()
+      - [ ] Set() table/struct/union 
 - [ ] marshal
 - [ ] unmarshal nested Table/Struct

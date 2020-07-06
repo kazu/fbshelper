@@ -167,13 +167,16 @@ func (node FbsIndexString) CountOfField() int {
 
 
 
+        
+         
+               
 
 func (node FbsIndexStringMaps) At(i int) FbsInvertedMapString {
     if i >= int(node.ValueInfo.VLen) || i < 0 {
-		return FbsInvertedMapString{}
+        return FbsInvertedMapString{}    
 	}
 
-    ptr := int(node.ValueInfo.Pos) + i*4
+    ptr := int(node.ValueInfo.Pos) + i*4 
 	return FbsInvertedMapString{Node: base.NewNode(node.Base, ptr + int(flatbuffers.GetUint32( node.R(ptr) )))}
 }
 
@@ -205,7 +208,8 @@ func (node FbsIndexStringMaps) Find(fn func(m FbsInvertedMapString) bool) FbsInv
 			return m
 		}
 	}
-	return FbsInvertedMapString{}
+    return FbsInvertedMapString{}   
+
 }
 
 func (node FbsIndexStringMaps) All() []FbsInvertedMapString {

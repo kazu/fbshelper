@@ -13,6 +13,7 @@ const (
 	IndexFile              Index = 3
 	IndexInvertedMapNum    Index = 4
 	IndexInvertedMapString Index = 5
+	IndexNumList           Index = 6
 )
 
 var EnumNamesIndex = map[Index]string{
@@ -22,6 +23,7 @@ var EnumNamesIndex = map[Index]string{
 	IndexFile:              "File",
 	IndexInvertedMapNum:    "InvertedMapNum",
 	IndexInvertedMapString: "InvertedMapString",
+	IndexNumList:           "NumList",
 }
 
 var EnumValuesIndex = map[string]Index{
@@ -31,6 +33,7 @@ var EnumValuesIndex = map[string]Index{
 	"File":              IndexFile,
 	"InvertedMapNum":    IndexInvertedMapNum,
 	"InvertedMapString": IndexInvertedMapString,
+	"NumList":           IndexNumList,
 }
 
 func (v Index) String() string {

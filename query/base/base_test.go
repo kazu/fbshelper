@@ -3,7 +3,10 @@ package base_test
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"testing"
+
+	"github.com/kazu/loncha"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	query "github.com/kazu/fbshelper/example/query"
@@ -31,6 +34,32 @@ func MakeRootFileFbs(id uint64, name string, index_at int64) []byte {
 	vfs_schema.RootAddIndex(b, fbFile)
 	b.Finish(vfs_schema.RootEnd(b))
 	return b.FinishedBytes()
+}
+
+func MakeRootNumList(fn func(b *flatbuffers.Builder) flatbuffers.UOffsetT) []byte {
+	b := flatbuffers.NewBuilder(0)
+	numList := fn(b)
+
+	vfs_schema.RootStart(b)
+	vfs_schema.RootAddVersion(b, 1)
+	vfs_schema.RootAddIndexType(b, vfs_schema.IndexNumList)
+	vfs_schema.RootAddIndex(b, numList)
+	b.Finish(vfs_schema.RootEnd(b))
+	return b.FinishedBytes()
+}
+
+func MakeNumList(b *flatbuffers.Builder, fn func(i int) int32) flatbuffers.UOffsetT {
+
+	vfs_schema.NumListStartNumVector(b, 2)
+	// vector store reverse
+	b.PrependInt32(fn(1))
+	b.PrependInt32(fn(0))
+	nums := b.EndVector(2)
+
+	vfs_schema.NumListStart(b)
+	vfs_schema.NumListAddNum(b, nums)
+	return vfs_schema.IndexStringEnd(b)
+
 }
 
 func MakeRootIndexString(fn func(b *flatbuffers.Builder) flatbuffers.UOffsetT) []byte {
@@ -260,6 +289,7 @@ func Test_SearchInfo(t *testing.T) {
 	q := query.Open(bytes.NewReader(buf), 512)
 	cond := func(pos int, info base.Info) bool {
 		return info.Pos <= pos && (info.Pos+info.Size) > pos
+		//return true
 	}
 
 	result := []base.NodePath{}
@@ -268,7 +298,47 @@ func Test_SearchInfo(t *testing.T) {
 		result = append(result, s)
 		infos = append(infos, info)
 	}
-	q.SearchInfo(60, recFn, cond)
+
+	q.SearchInfo(109, recFn, cond)
+	sortInfos := make([]base.Info, len(infos))
+	copy(sortInfos, infos)
+
+	sort.Slice(sortInfos, func(i, j int) bool {
+		return sortInfos[i].Pos < sortInfos[j].Pos
+	})
+
+	loncha.Uniq(&sortInfos, func(i int) interface{} {
+		return fmt.Sprintf("%d.%d", sortInfos[i].Pos, sortInfos[i].Size)
+	})
+
+	for i := 0; i < len(infos); i++ {
+		fmt.Printf("%v\t%+v\n", result[i], infos[i])
+	}
+
 	assert.True(t, len(infos) > 0)
+
+}
+
+func Test_SliceBasicType(t *testing.T) {
+
+	buf := MakeRootNumList(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeNumList(b, func(i int) int32 {
+			switch i {
+			case 0:
+				return 345
+			case 1:
+				return 584
+			default:
+				return 999
+			}
+		})
+	})
+
+	q := query.Open(bytes.NewReader(buf), 512)
+	_ = q
+	assert.NotNil(t, buf)
+	assert.Equal(t, 2, q.Index().NumList().Num().Count())
+	assert.Equal(t, int32(345), q.Index().NumList().Num().At(0))
+	assert.Equal(t, int32(584), q.Index().NumList().Num().At(1))
 
 }
