@@ -39,10 +39,6 @@ func (node FbsSymbols) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 
 	info := node.Info()
 
-    /* if info.Pos > pos {
-        return
-    }*/
-
 	if condFn(pos, info) {
 		fn(base.NodePath{Name: "Symbols", Idx: -1}, info)
 	}else{
@@ -53,13 +49,12 @@ func (node FbsSymbols) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 		if node.IsLeafAt(i) {
 			fInfo := base.Info(node.ValueInfo(i))
 			if condFn(pos, fInfo) {
-				fn(base.NodePath{Name: "Symbols", Idx: i}, info)
+				fn(base.NodePath{Name: "Symbols", Idx: i}, fInfo)
 			}
 			continue
 		}
         switch i {
         case 0:
-                //FIXME
                 node.Symbols().SearchInfo(pos, fn, condFn)    
         default:
 			base.Log(base.LOG_ERROR, func() base.LogArgs {

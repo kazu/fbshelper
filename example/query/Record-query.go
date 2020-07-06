@@ -44,10 +44,6 @@ func (node FbsRecord) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 
 	info := node.Info()
 
-    /* if info.Pos > pos {
-        return
-    }*/
-
 	if condFn(pos, info) {
 		fn(base.NodePath{Name: "Record", Idx: -1}, info)
 	}else{
@@ -58,7 +54,7 @@ func (node FbsRecord) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 		if node.IsLeafAt(i) {
 			fInfo := base.Info(node.ValueInfo(i))
 			if condFn(pos, fInfo) {
-				fn(base.NodePath{Name: "Record", Idx: i}, info)
+				fn(base.NodePath{Name: "Record", Idx: i}, fInfo)
 			}
 			continue
 		}

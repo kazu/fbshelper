@@ -41,10 +41,6 @@ func (node FbsIndexNum) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 
 	info := node.Info()
 
-    /* if info.Pos > pos {
-        return
-    }*/
-
 	if condFn(pos, info) {
 		fn(base.NodePath{Name: "IndexNum", Idx: -1}, info)
 	}else{
@@ -55,14 +51,13 @@ func (node FbsIndexNum) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 		if node.IsLeafAt(i) {
 			fInfo := base.Info(node.ValueInfo(i))
 			if condFn(pos, fInfo) {
-				fn(base.NodePath{Name: "IndexNum", Idx: i}, info)
+				fn(base.NodePath{Name: "IndexNum", Idx: i}, fInfo)
 			}
 			continue
 		}
         switch i {
         case 0:
         case 1:
-                //FIXME
                 node.Maps().SearchInfo(pos, fn, condFn)    
         default:
 			base.Log(base.LOG_ERROR, func() base.LogArgs {

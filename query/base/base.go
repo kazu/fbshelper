@@ -25,28 +25,38 @@ const (
 )
 
 const (
+	// this is cap size of Base's buffef([]byte)
 	DEFAULT_BUF_CAP = 512
 )
 
 var (
+	// tag for Marshal/Unmarshal
 	FBS_TAG_NAME string = "fbs"
 )
 
+// Base is Base Object of byte buffer for flatbuffers
+// read from r and store bytes.
+// Diffs has jounals for writing
 type Base struct {
 	r     io.Reader
 	bytes []byte
 	Diffs []Diff
 }
 
+// Diff is journal for create/update
 type Diff struct {
 	Offset int
 	bytes  []byte
 }
 
+// Root manage top node of data.
 type Root struct {
 	*Node
 }
 
+// Node base struct.
+// Pos is start position of buffer
+// ValueInfos is information of pointted fields
 type Node struct {
 	*Base
 	Pos        int
@@ -56,28 +66,37 @@ type Node struct {
 	ValueInfos []ValueInfo
 }
 
+// NodeList is struct for Vector(list) Node
 type NodeList struct {
 	*Node
 	ValueInfo
 }
 
+// ValueInfo is information of flatbuffer's table/struct field
 type ValueInfo struct {
 	Pos  int
 	Size int
 	VLen uint32
 }
 
+// Info is infotion of flatbuffer's table/struct
 type Info ValueInfo
 
+// NodePath is path for traverse data tree
 type NodePath struct {
 	Name string
 	Idx  int
 }
 
+// NewNode ... this provide creation of Node
+// Node share buffer in same tree.
+//    Base is buffer
+//    pos is start position in Base's buffer
 func NewNode(b *Base, pos int) *Node {
 	return NewNode2(b, pos, false)
 }
 
+// NewNode2 ...  provide skip to initialize Vtable
 func NewNode2(b *Base, pos int, noVTable bool) *Node {
 	node := &Node{Base: b, Pos: pos, Size: -1}
 	if !noVTable {
@@ -86,15 +105,20 @@ func NewNode2(b *Base, pos int, noVTable bool) *Node {
 	return node
 }
 
+// NewBase initialize Base struct via buffer(buf)
 func NewBase(buf []byte) *Base {
 	return &Base{bytes: buf}
 }
 
+// NewBaseByIO initialize , make Base
+//   this dosent use []byte, use io.Reader
 func NewBaseByIO(rio io.Reader, cap int) *Base {
 	b := &Base{r: rio, bytes: make([]byte, 0, cap)}
 	return b
 }
 
+// NextBase provide next root flatbuffers
+// this is mainly for streaming data.
 func (b *Base) NextBase(skip int) *Base {
 	newBase := &Base{
 		r:     b.r,
@@ -111,10 +135,13 @@ func (b *Base) NextBase(skip int) *Base {
 	return newBase
 }
 
+// HasIoReader ... Base buffer is reading io.Reader or not.
 func (b *Base) HasIoReader() bool {
 	return b.r != nil
 }
 
+// R ... is access buffer data
+// Base cannot access byte buffer directly.
 func (b *Base) R(off int) []byte {
 
 	n, e := loncha.IndexOf(b.Diffs, func(i int) bool {
@@ -144,6 +171,7 @@ func (b *Base) expandBuf(plus int) error {
 	return nil
 }
 
+// LenBuf ... size of buffer
 func (b *Base) LenBuf() int {
 
 	if len(b.Diffs) < 1 {
@@ -156,13 +184,18 @@ func (b *Base) LenBuf() int {
 
 }
 
+// RawBufInfo ... capacity/length infomation of Base's buffer
 type RawBufInfo struct {
 	Len int
 	Cap int
 }
 
+// BufInfo is buffer detail infomation
+// information of Base.bytes is stored to 0 indexed
+//  information of Base.Diffs is stored to 1 indexed
 type BufInfo [2]RawBufInfo
 
+// BufInfo ... return infos(buffer detail information)
 func (b *Base) BufInfo() (infos BufInfo) {
 
 	infos[0].Len = len(b.bytes)
@@ -196,6 +229,7 @@ func (n *Node) vtable() {
 	n.ValueInfos = make([]ValueInfo, len(n.VTable))
 }
 
+// FbsString ... return []bytes for string data
 func FbsString(node *Node) []byte {
 	pos := node.Pos + int(node.VTable[0])
 	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
@@ -205,6 +239,7 @@ func FbsString(node *Node) []byte {
 	return node.R(start)[:sLen]
 }
 
+// FbsStringInfo ... return Node Infomation for FbsString
 func FbsStringInfo(node *Node) Info {
 
 	pos := node.Pos + int(node.VTable[0])
@@ -215,11 +250,13 @@ func FbsStringInfo(node *Node) Info {
 	return Info{Pos: start, Size: int(sLen)}
 }
 
+// IsNotReady ... already set ValueInfo (field information)
 func (info ValueInfo) IsNotReady() bool {
 	return info.Pos < 1
 
 }
 
+// ValueInfoPos ... fetching vtable position infomation
 func (node *Node) ValueInfoPos(vIdx int) ValueInfo {
 	if node.VTable[vIdx] == 0 {
 		node.ValueInfos[vIdx].Pos = -1
@@ -230,6 +267,7 @@ func (node *Node) ValueInfoPos(vIdx int) ValueInfo {
 	return node.ValueInfos[vIdx]
 }
 
+// ValueInfoPosBytes ... etching vtable position infomation for []byte
 func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
 	if node.VTable[vIdx] == 0 {
 		node.ValueInfos[vIdx].Pos = -1
@@ -247,6 +285,7 @@ func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
 	return node.ValueInfos[vIdx]
 }
 
+// ValueInfoPosTable ... etching vtable position infomation for flatbuffers table
 func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
 	if node.VTable[vIdx] == 0 {
 		node.ValueInfos[vIdx].Pos = -1
@@ -262,6 +301,7 @@ func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
 	return node.ValueInfos[vIdx]
 }
 
+// ValueInfoPosList ... etching vtable position infomation for flatbuffers vector
 func (node *Node) ValueInfoPosList(vIdx int) ValueInfo {
 	if node.VTable[vIdx] == 0 {
 		node.ValueInfos[vIdx].Pos = -1

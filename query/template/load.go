@@ -135,10 +135,6 @@ func (node Fbs{{$SName}}) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 
 	info := node.Info()
 
-    /* if info.Pos > pos {
-        return
-    }*/
-
 	if condFn(pos, info) {
 		fn(base.NodePath{Name: "{{$SName}}", Idx: -1}, info)
 	}else{
@@ -149,7 +145,7 @@ func (node Fbs{{$SName}}) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 		if node.IsLeafAt(i) {
 			fInfo := base.Info(node.ValueInfo(i))
 			if condFn(pos, fInfo) {
-				fn(base.NodePath{Name: "{{$SName}}", Idx: i}, info)
+				fn(base.NodePath{Name: "{{$SName}}", Idx: i}, fInfo)
 			}
 			continue
 		}
@@ -168,7 +164,6 @@ func (node Fbs{{$SName}}) SearchInfo(pos int, fn RecFn, condFn CondFn) {
                 mNode.SearchInfo(pos, fn, condFn)
             {{- else if eq $v.Type "[]byte" }}    
             {{- else if eq (isSlice $v.Type) true }}
-                //FIXME
                 node.{{$v.Name}}().SearchInfo(pos, fn, condFn)
             {{- else if eq (isMessage $v.Type) true }}
                 node.{{$v.Name}}().SearchInfo(pos, fn, condFn)    
@@ -612,7 +607,6 @@ func(node Fbs{{$Name}}) Member(i int) interface{} {
     }
     return nil
 }
-
 
 
 ` 

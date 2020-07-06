@@ -142,7 +142,7 @@ func (node Fbs{{$SName}}) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 		if node.IsLeafAt(i) {
 			fInfo := base.Info(node.ValueInfo(i))
 			if condFn(pos, fInfo) {
-				fn(base.NodePath{Name: "{{$SName}}", Idx: i}, info)
+				fn(base.NodePath{Name: "{{$SName}}", Idx: i}, fInfo)
 			}
 			continue
 		}
