@@ -10,23 +10,10 @@ import (
 )
 
 const (
-	SizeOfbool        = 1
-	SizeOfSizeOfint8  = 1
-	SizeOfSizeOfint16 = 2
-	SizeOfuint16      = 2
-	SizeOfint32       = 4
-	SizeOfuint32      = 4
-	SizeOfint64       = 8
-	SizeOfuint64      = 8
-	SizeOffloat32     = 4
-	SizeOffloat64     = 8
-	SizeOfuint8       = 1
-	SizeOfbyte        = 1
-)
-
-const (
 	// this is cap size of Base's buffef([]byte)
 	DEFAULT_BUF_CAP = 512
+	// this is cap size of Base's buffer via CreateNode
+	DEFAULT_NODE_BUF_CAP = 64
 )
 
 var (
@@ -88,6 +75,13 @@ type NodePath struct {
 	Idx  int
 }
 
+func IsMatchBit(i, j int) bool {
+	if (i & j) > 0 {
+		return true
+	}
+	return false
+}
+
 // NewNode ... this provide creation of Node
 // Node share buffer in same tree.
 //    Base is buffer
@@ -97,9 +91,9 @@ func NewNode(b *Base, pos int) *Node {
 }
 
 // NewNode2 ...  provide skip to initialize Vtable
-func NewNode2(b *Base, pos int, noVTable bool) *Node {
+func NewNode2(b *Base, pos int, noLoadVTable bool) *Node {
 	node := &Node{Base: b, Pos: pos, Size: -1}
-	if !noVTable {
+	if !noLoadVTable {
 		node.vtable()
 	}
 	return node
@@ -158,11 +152,16 @@ func (b *Base) R(off int) []byte {
 }
 
 func (b *Base) expandBuf(plus int) error {
-	if !b.HasIoReader() {
+	if !b.HasIoReader() && cap(b.bytes)-len(b.bytes) < plus {
 		return nil
 	}
 	l := len(b.bytes)
 	b.bytes = b.bytes[:l+plus]
+
+	if !b.HasIoReader() {
+		return nil
+	}
+
 	n, err := io.ReadAtLeast(b.r, b.bytes[l:], plus)
 	if n < plus || err != nil {
 		b.bytes = b.bytes[:l+n]
@@ -393,3 +392,54 @@ func (node *Node) Unmarshal(ptr interface{}, setter UnmarshalFn) error {
 	}
 	return nil
 }
+
+func (node *Node) Int64() int64 {
+	return flatbuffers.GetInt64(node.R(node.Pos))
+}
+func (node *Node) Byte() byte {
+	return flatbuffers.GetByte(node.R(node.Pos))
+}
+
+type Value struct {
+	*Node
+	S int
+	E int
+}
+
+func (v Value) String() string {
+	return string(v.R(v.S)[:v.E])
+}
+
+// const VTABLE_HEADER_SIZE = 4
+
+// func VtableSize(cnt int) int {
+// 	return VTABLE_HEADER_SIZE + cnt * 2
+// }
+
+// func CreateNode(cntVtable int) *Node {
+
+// 	vSize := VtableSize(cntVtable)
+
+// 	node := NewNode2(NewBase(make([]byte, 0. DEFAULT_NODE_BUF_CAP)), vSize, true)
+// 	flatbuffers.WriteInt16( node.R(node.Pos) , int16(vSize))
+// 	//return node
+
+// }
+
+// func (node *Node) initVtable(cnt) {
+
+// 	if len(node.VTable) == 0 {
+// 		node.VTable = make([]int16, cnt)
+// 	}
+// 	n.ValueInfos = make([]ValueInfo, len(n.VTable))
+
+// }
+
+// func (node *Node) VTableToBuf(vPos int) {
+
+// 	// write head
+// 	for i , _ := range node.VTable {
+// 		flatbuffers.WriteUint16( node.R(vPos + VTABLE_HEADER_SIZE + i * 2), node.VTable[i])
+// 	}
+
+// }
