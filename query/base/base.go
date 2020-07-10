@@ -1,7 +1,6 @@
 package base
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,7 +10,7 @@ import (
 	"github.com/kazu/loncha"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	//. "github.com/kazu/fbshelper/query/error"
+	log "github.com/kazu/fbshelper/query/log"
 )
 
 const (
@@ -27,16 +26,16 @@ var (
 )
 
 var (
-	ERR_MUST_POINTER  error = errors.New("parameter must be pointer")
-	ERR_INVALID_TYPE  error = errors.New("parameter invalid type(must be struct or map[string]interface)")
-	ERR_NOT_FOUND     error = errors.New("data is not found")
-	ERR_READ_BUFFER   error = errors.New("cannot read least data")
-	ERR_MORE_BUFFER   error = errors.New("require more data")
-	ERR_NO_SUPPORT    error = errors.New("this method is not suppored")
-	ERR_INVALID_INDEX error = errors.New("invalid index number")
+	ERR_MUST_POINTER  error = log.ERR_MUST_POINTER
+	ERR_INVALID_TYPE  error = log.ERR_INVALID_TYPE
+	ERR_NOT_FOUND     error = log.ERR_NOT_FOUND
+	ERR_READ_BUFFER   error = log.ERR_READ_BUFFER
+	ERR_MORE_BUFFER   error = log.ERR_MORE_BUFFER
+	ERR_NO_SUPPORT    error = log.ERR_NO_SUPPORT
+	ERR_INVALID_INDEX error = log.ERR_INVALID_INDEX
 )
 
-type LogLevel byte
+type LogLevel = log.LogLevel
 
 var CurrentLogLevel LogLevel
 var LogW io.Writer = os.Stderr

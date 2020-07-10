@@ -45,3 +45,5 @@ func (node NodeName) FieldName() (result *ResultType) {
 
 	return
 }
+
+//func (node NodeName)

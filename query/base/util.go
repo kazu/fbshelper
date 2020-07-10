@@ -1,5 +1,7 @@
 package base
 
+import "github.com/kazu/loncha"
+
 //. "github.com/kazu/fbshelper/query/error"
 
 // type CondFn func(int) bool
@@ -41,12 +43,12 @@ const (
 
 const (
 	TypeBool = iota
-	Typebyte
+	TypeByte
 	TypeInt8
 	TypeInt16
 	TypeInt32
 	TypeInt64
-	TypeUnt8
+	TypeUint8
 	TypeUint16
 	TypeUint32
 	TypeUint64
@@ -66,26 +68,39 @@ const (
 	FieldTypeBasic8
 )
 
+type Bool bool
+type Byte byte
+type Int8 int8
+type Int16 int16
+type Int32 int32
+type Int64 int64
+type Uint8 uint8
+type Uint16 uint16
+type Uint32 uint32
+type Uint64 uint64
+type Float32 float32
+type Float64 float64
+
 var NameToType map[string]int = map[string]int{
 	"bool":    TypeBool,
-	"byte":    Typebyte,
+	"byte":    TypeByte,
 	"int8":    TypeInt8,
 	"int16":   TypeInt16,
 	"int32":   TypeInt32,
 	"int64":   TypeInt64,
-	"unt8":    TypeUnt8,
+	"unt8":    TypeUint8,
 	"uint16":  TypeUint16,
 	"uint32":  TypeUint32,
 	"uint64":  TypeUint64,
 	"float32": TypeFloat32,
 	"float64": TypeFloat64,
 	"Bool":    TypeBool,
-	"Byte":    Typebyte,
+	"Byte":    TypeByte,
 	"Int8":    TypeInt8,
 	"Int16":   TypeInt16,
 	"Int32":   TypeInt32,
 	"Int64":   TypeInt64,
-	"Unt8":    TypeUnt8,
+	"Unt8":    TypeUint8,
 	"Uint16":  TypeUint16,
 	"Uint32":  TypeUint32,
 	"Uint64":  TypeUint64,
@@ -95,12 +110,12 @@ var NameToType map[string]int = map[string]int{
 
 var TypeToGroup map[int]int = map[int]int{
 	TypeBool:    FieldTypeBasic1,
-	Typebyte:    FieldTypeBasic1,
+	TypeByte:    FieldTypeBasic1,
 	TypeInt8:    FieldTypeBasic1,
 	TypeInt16:   FieldTypeBasic2,
 	TypeInt32:   FieldTypeBasic4,
 	TypeInt64:   FieldTypeBasic8,
-	TypeUnt8:    FieldTypeBasic1,
+	TypeUint8:   FieldTypeBasic1,
 	TypeUint16:  FieldTypeBasic2,
 	TypeUint32:  FieldTypeBasic4,
 	TypeUint64:  FieldTypeBasic8,
@@ -110,12 +125,12 @@ var TypeToGroup map[int]int = map[int]int{
 
 var TypeToSize map[int]int = map[int]int{
 	TypeBool:    1,
-	Typebyte:    1,
+	TypeByte:    1,
 	TypeInt8:    1,
 	TypeInt16:   2,
 	TypeInt32:   4,
 	TypeInt64:   8,
-	TypeUnt8:    1,
+	TypeUint8:   1,
 	TypeUint16:  2,
 	TypeUint32:  4,
 	TypeUint64:  8,
@@ -200,6 +215,81 @@ var All_IdxToType map[string](map[int]int) = map[string](map[int]int){}
 var All_IdxToTypeGroup map[string](map[int]int) = map[string](map[int]int){}
 var All_IdxToName map[string](map[int]string) = map[string](map[int]string){}
 var All_NameToIdx map[string](map[string]int) = map[string](map[string]int){}
+
+var IdxNames []string = []string{}
+
+var Name2Idx map[string]int = map[string]int{}
+
+func AddName(s string) {
+
+	if _, ok := Name2Idx[s]; ok {
+		return
+	}
+
+	IdxNames = append(IdxNames, s)
+	idx, err := loncha.IndexOf(IdxNames, func(i int) bool { return IdxNames[i] == s })
+	if err != nil {
+		Log(LOG_WARN, func() LogArgs {
+			return F("IdxNames: fail to add %s ", s)
+		})
+		return
+	}
+	Name2Idx[s] = idx
+	return
+}
+
+func Symbol(s string) int {
+	v, ok := Name2Idx[s]
+	if !ok {
+		return -1
+	}
+	return v
+}
+
+func SymbolToString(i int) string {
+	if i >= len(IdxNames) {
+		return ""
+	}
+	return IdxNames[i]
+}
+
+func NodeFieldSynmbol(node, field string) (uint32, error) {
+	nidx := uint32(Symbol(node))
+	fidx := uint32(Symbol(field))
+	if nidx < 0 || fidx < 0 {
+		return 0, ERR_INVALID_INDEX
+	}
+	nidx = nidx << 16
+	nidx += fidx
+	return nidx, nil
+}
+
+func SymbolToNames(idx uint32) (node, field string, e error) {
+
+	nidx := idx >> 16
+	fidx := idx - ((idx >> 16) << 16)
+
+	node = SymbolToString(int(nidx))
+	if node == "" {
+		e = ERR_INVALID_INDEX
+		return
+	}
+	field = SymbolToString(int(fidx))
+	if field == "" {
+		e = ERR_INVALID_INDEX
+		return
+	}
+
+	return
+}
+
+func IsSameTable(i, j uint32) bool {
+	return (i >> 16) == (j >> 16)
+}
+
+func IsSameField(i, j uint32) bool {
+	return (i - ((i >> 16) << 16)) == (j - ((j >> 16) << 16))
+}
 
 func SetNameToIdx(name string, v map[string]int) {
 	All_NameToIdx[name] = v
