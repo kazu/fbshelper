@@ -1,12 +1,5 @@
 package base
 
-//"io"
-//"reflect"
-
-//"github.com/kazu/loncha"
-
-//flatbuffers "github.com/google/flatbuffers/go"
-
 type CondFn func(int, Info) bool
 type RecFn func(NodePath, Info)
 

@@ -1,19 +1,12 @@
 package query
 
 /*
-must call per UnionName
-　genny gen "NodeName=Root UnionName=Version AliasName=IndexString,IndexNum"
+genny must be called per UnionName
 */
 
 import (
 	"github.com/kazu/fbshelper/query/base"
 )
-
-// import (
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
-
-//type AliasName generic.Type
 
 var DUMMP_UnionNameAliasName bool = base.SetAlias("UnionName", "AliasName")
 

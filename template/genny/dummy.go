@@ -6,11 +6,6 @@ import (
 	b "github.com/kazu/fbshelper/query/base"
 )
 
-/*
-type ResultType struct {
-	*b.NodeList
-}
-*/
 type ResultType NodeName
 
 type RootType struct {

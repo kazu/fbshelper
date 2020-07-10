@@ -1,18 +1,12 @@
 package query
 
 /*
-    must call 1 times per NodeName
-	go run github.com/cheekybits/genny gen "UnionName=Index"
-
+   genny must be called 1 times per NodeName
 */
 
 import (
 	"github.com/kazu/fbshelper/query/base"
 )
-
-// import (
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 type UnionName struct {
 	*base.CommonNode

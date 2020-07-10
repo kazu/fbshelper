@@ -6,22 +6,12 @@ import (
 )
 
 /*
-must call per Field
-	go run github.com/cheekybits/genny gen "NodeName=Root FieldName=Version FieldType=int64 ResultType=base.CommonNode FieldNum=0 IsStruct=false"
-	go run github.com/cheekybits/genny gen "NodeName=Root FieldName=Index   FieldType=Index ResultType=Index        FieldNum=1 IsStruct=false"
+genny must be called per Field
 */
-
-// import (
-// 	"github.com/cheekybits/genny/generic"
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 type FieldName generic.Type
 
-//type FieldNum generic.Number
 type FieldType generic.Type
-
-//type ResultType generic.Type
 
 var (
 	NodeName_FieldName_FieldNum int = base.AtoiNoErr(Atoi("FieldNum"))
@@ -30,9 +20,6 @@ var (
 
 // (field inedx, field type) ->  NodeName_IdxToType
 var DUMMY_NodeName_FieldName bool = SetNodeNameFields("NodeName", "FieldName", "FieldType", NodeName_FieldName_FieldNum)
-
-// NodeNameSetNodeToIdx(NodeName_FieldName, base.NameToTypeEnum("FieldType")) &&
-// 							NodeNameSetIdxToName("FieldType", NodeName_FieldName)
 
 func (node NodeName) FieldName() (result *ResultType) {
 	result = NewResultType()
@@ -45,5 +32,3 @@ func (node NodeName) FieldName() (result *ResultType) {
 
 	return
 }
-
-//func (node NodeName)

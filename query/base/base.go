@@ -51,7 +51,7 @@ type LogArgs struct {
 	Infs []interface{}
 }
 
-type LogFn func() LogArgs //(string, interface{}...)
+type LogFn func() LogArgs
 
 func SetLogLevel(l LogLevel) {
 	CurrentLogLevel = l
@@ -235,7 +235,6 @@ func (b *Base) U(off, size int) []byte {
 		diffbefore.bytes = diffbefore.bytes[:off+size]
 		b.Diffs[sn] = diffbefore
 		b.Diffs = append(b.Diffs, diff, diffafter)
-		//b.Diffs = append([]Diff{diff, diffafter}, b.Diffs...)
 
 		return diff.bytes
 	}
@@ -247,13 +246,11 @@ func (b *Base) U(off, size int) []byte {
 	//MENTION: should increase cap ?
 	diff := Diff{Offset: off, bytes: make([]byte, size)}
 	b.Diffs = append(b.Diffs, diff)
-	//b.Diffs = append([]Diff{diff}, b.Diffs...)
 
 	if cap(b.bytes[off:]) > size {
 		diffafter := Diff{Offset: off + size, bytes: b.bytes[off+size:]}
 		b.bytes = b.bytes[:off+size]
 		b.Diffs = append(b.Diffs, diffafter)
-		//b.Diffs = append([]Diff{diffafter}, b.Diffs...)
 	}
 
 	return diff.bytes
@@ -299,7 +296,7 @@ type RawBufInfo struct {
 
 // BufInfo is buffer detail infomation
 // information of Base.bytes is stored to 0 indexed
-//  information of Base.Diffs is stored to 1 indexed
+// information of Base.Diffs is stored to 1 indexed
 type BufInfo [2]RawBufInfo
 
 // BufInfo ... return infos(buffer detail information)
@@ -525,11 +522,6 @@ type FieldsDefile struct {
 	IdxToTyoe      map[int]int
 	IdxToTypeGroup map[int]int
 }
-
-/*func (node *NodeList) Info(nName string, idxToType, odxToTypeGroup map[int]int ) Info {
-
-}
-*/
 
 func (node *Node) Byte() byte {
 	return flatbuffers.GetByte(node.R(node.Pos))

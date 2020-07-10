@@ -1,6 +1,5 @@
 package query
 
-// go run github.com/cheekybits/genny gen "RootType=Root "
 import (
 	"io"
 	"strconv"

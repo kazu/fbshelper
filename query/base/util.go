@@ -2,30 +2,6 @@ package base
 
 import "github.com/kazu/loncha"
 
-//. "github.com/kazu/fbshelper/query/error"
-
-// type CondFn func(int) bool
-// type ItrFn func(int)
-
-// type FieldIter struct {
-// 	Cond []CondFn
-// 	Fn   []ItrFn
-// }
-
-// func IteratorField(cnt int, conds []CondFn, fnList ...ItrFn) {
-
-// 	for j := 0 ; j < cnt; j++ {
-// 		for i := 0; i < len(conds); i++ {
-// 			if conds[i](j) {
-// 				fnList[i](j)
-// 				goto NEXT_J
-// 			}
-// 		}
-// NEXT_J:
-// 	}
-
-// }
-
 const (
 	SizeOfbool    = 1
 	SizeOfint8    = 1
