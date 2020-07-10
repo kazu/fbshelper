@@ -205,7 +205,7 @@ func (b *Base) HasIoReader() bool {
 // Base cannot access byte buffer directly.
 func (b *Base) R(off int) []byte {
 
-	n, e := loncha.IndexOf(b.Diffs, func(i int) bool {
+	n, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
 		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
 	})
 	if e == nil && n >= 0 {
@@ -216,6 +216,47 @@ func (b *Base) R(off int) []byte {
 	}
 
 	return b.bytes[off:]
+}
+
+func (b *Base) U(off, size int) []byte {
+
+	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
+		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
+	})
+
+	if e == nil && sn >= 0 {
+		if b.Diffs[sn].Offset+len(b.Diffs[sn].bytes) <= off+size {
+			//FIXME INVALID state
+		}
+		diffbefore := b.Diffs[sn]
+		//MENTION: should increase cap ?
+		diff := Diff{Offset: off, bytes: make([]byte, size)}
+		diffafter := Diff{Offset: off + size, bytes: diffbefore.bytes[off-diffbefore.Offset+size:]}
+		diffbefore.bytes = diffbefore.bytes[:off+size]
+		b.Diffs[sn] = diffbefore
+		b.Diffs = append(b.Diffs, diff, diffafter)
+		//b.Diffs = append([]Diff{diff, diffafter}, b.Diffs...)
+
+		return diff.bytes
+	}
+
+	if len(b.bytes[off:]) < size {
+		//b.expandBuf(off - len(b.bytes) + 32)
+		//FIXME IMVALID state ?
+	}
+	//MENTION: should increase cap ?
+	diff := Diff{Offset: off, bytes: make([]byte, size)}
+	b.Diffs = append(b.Diffs, diff)
+	//b.Diffs = append([]Diff{diff}, b.Diffs...)
+
+	if cap(b.bytes[off:]) > size {
+		diffafter := Diff{Offset: off + size, bytes: b.bytes[off+size:]}
+		b.bytes = b.bytes[:off+size]
+		b.Diffs = append(b.Diffs, diffafter)
+		//b.Diffs = append([]Diff{diffafter}, b.Diffs...)
+	}
+
+	return diff.bytes
 }
 
 func (b *Base) expandBuf(plus int) error {

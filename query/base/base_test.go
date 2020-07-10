@@ -384,5 +384,28 @@ func Test_RootSetVersion(t *testing.T) {
 	q.SetVersion(int32(2))
 	assert.Equal(t, int32(2), q.Version())
 	assert.NotNil(t, buf)
+}
 
+func TestSetInt64(t *testing.T) {
+	tests := DataRootFileTest()
+	for _, tt := range tests {
+		t.Run(tt.TestName, func(t *testing.T) {
+			buf := MakeRootFileFbs(tt.ID, string(tt.Name), tt.IndexAt)
+			file := File{}
+			_ = file
+			root := query2.Open(bytes.NewReader(buf), 512)
+			fq := root.Index().File()
+			// e := fq.Unmarshal(&file)
+			// assert.NoError(t, e)
+			assert.Equal(t, tt.ID, fq.Id().Uint64())
+			assert.Equal(t, tt.IndexAt, fq.IndexAt().Int64())
+			fq.IndexAt().SetInt64(tt.IndexAt + 2)
+			assert.Equal(t, tt.IndexAt+2, fq.IndexAt().Int64())
+			fq.Id().SetUint64(tt.ID + 2)
+			assert.Equal(t, tt.ID+2, fq.Id().Uint64())
+			// assert.Equal(t, tt.ID, file.ID)
+			// assert.Equal(t, tt.Name, file.Name)
+			// assert.Equal(t, tt.IndexAt, file.IndexAt)
+		})
+	}
 }
