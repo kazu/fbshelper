@@ -7,15 +7,8 @@ package query
 import "github.com/kazu/fbshelper/query/base"
 
 /*
-must call per Field
-go run github . com / cheekybits / genny gen "Record=Root Size=Version Int64=int64 CommonNode=base.CommonNode 2=0 False=false" ;
-go run github . com / cheekybits / genny gen "Record=Root Size=Index   Int64=Index CommonNode=Index        2=1 False=false" ;
+genny must be called per Field
 */
-
-// import (
-// 	"github.com/cheekybits/genny/generic"
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var (
 	Record_Size_2 int = base.AtoiNoErr(Atoi("2"))
@@ -24,9 +17,6 @@ var (
 
 // (field inedx, field type) -> Record_IdxToType
 var DUMMY_Record_Size bool = SetRecordFields("Record", "Size", "Int64", Record_Size_2)
-
-// RecordSetNodeToIdx(Record_Size, base.NameToTypeEnum("Int64")) &&
-// RecordSetIdxToName("Int64", Record_Size)
 
 func (node Record) Size() (result *CommonNode) {
 	result = NewCommonNode()

@@ -7,13 +7,8 @@ package query
 import "github.com/kazu/fbshelper/query/base"
 
 /*
-must call per Index ;
-ILLEGAL genny gen "NodeName=Root Index=Version IndexNum=IndexString,IndexNum" ;
+genny must be called per Index ;
 */
-
-// import (
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var DUMMP_IndexIndexNum bool = base.SetAlias("Index", "IndexNum")
 
@@ -28,13 +23,8 @@ func (node Index) IndexNum() IndexNum {
 }
 
 /*
-must call per Index ;
-ILLEGAL genny gen "NodeName=Root Index=Version IndexString=IndexString,IndexNum" ;
+genny must be called per Index ;
 */
-
-// import (
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var DUMMP_IndexIndexString bool = base.SetAlias("Index", "IndexString")
 
@@ -49,13 +39,8 @@ func (node Index) IndexString() IndexString {
 }
 
 /*
-must call per Index ;
-ILLEGAL genny gen "NodeName=Root Index=Version File=IndexString,IndexNum" ;
+genny must be called per Index ;
 */
-
-// import (
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var DUMMP_IndexFile bool = base.SetAlias("Index", "File")
 
@@ -70,13 +55,8 @@ func (node Index) File() File {
 }
 
 /*
-must call per Index ;
-ILLEGAL genny gen "NodeName=Root Index=Version InvertedMapNum=IndexString,IndexNum" ;
+genny must be called per Index ;
 */
-
-// import (
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var DUMMP_IndexInvertedMapNum bool = base.SetAlias("Index", "InvertedMapNum")
 
@@ -91,13 +71,8 @@ func (node Index) InvertedMapNum() InvertedMapNum {
 }
 
 /*
-must call per Index ;
-ILLEGAL genny gen "NodeName=Root Index=Version InvertedMapString=IndexString,IndexNum" ;
+genny must be called per Index ;
 */
-
-// import (
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var DUMMP_IndexInvertedMapString bool = base.SetAlias("Index", "InvertedMapString")
 
@@ -112,13 +87,8 @@ func (node Index) InvertedMapString() InvertedMapString {
 }
 
 /*
-must call per Index ;
-ILLEGAL genny gen "NodeName=Root Index=Version NumList=IndexString,IndexNum" ;
+genny must be called per Index ;
 */
-
-// import (
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var DUMMP_IndexNumList bool = base.SetAlias("Index", "NumList")
 

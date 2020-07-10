@@ -7,15 +7,8 @@ package query
 import "github.com/kazu/fbshelper/query/base"
 
 /*
-must call per Field
-go run github . com / cheekybits / genny gen "Root=Root Index=Version Index=int64 Index=base.CommonNode 2=0 False=false" ;
-go run github . com / cheekybits / genny gen "Root=Root Index=Index   Index=Index Index=Index        2=1 False=false" ;
+genny must be called per Field
 */
-
-// import (
-// 	"github.com/cheekybits/genny/generic"
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var (
 	Root_Index_2 int = base.AtoiNoErr(Atoi("2"))
@@ -24,9 +17,6 @@ var (
 
 // (field inedx, field type) -> Root_IdxToType
 var DUMMY_Root_Index bool = SetRootFields("Root", "Index", "Index", Root_Index_2)
-
-// RootSetNodeToIdx(Root_Index, base.NameToTypeEnum("Index")) &&
-// RootSetIdxToName("Index", Root_Index)
 
 func (node Root) Index() (result *Index) {
 	result = NewIndex()

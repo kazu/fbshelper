@@ -7,15 +7,8 @@ package query
 import "github.com/kazu/fbshelper/query/base"
 
 /*
-must call per Field
-go run github . com / cheekybits / genny gen "IndexNum=Root Maps=Version []InvertedMapNum=int64 CommonNode=base.CommonNode 1=0 False=false" ;
-go run github . com / cheekybits / genny gen "IndexNum=Root Maps=Index   []InvertedMapNum=Index CommonNode=Index        1=1 False=false" ;
+genny must be called per Field
 */
-
-// import (
-// 	"github.com/cheekybits/genny/generic"
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var (
 	IndexNum_Maps_1 int = base.AtoiNoErr(Atoi("1"))
@@ -24,9 +17,6 @@ var (
 
 // (field inedx, field type) -> IndexNum_IdxToType
 var DUMMY_IndexNum_Maps bool = SetIndexNumFields("IndexNum", "Maps", "[]InvertedMapNum", IndexNum_Maps_1)
-
-// IndexNumSetNodeToIdx(IndexNum_Maps, base.NameToTypeEnum("[]InvertedMapNum")) &&
-// IndexNumSetIdxToName("[]InvertedMapNum", IndexNum_Maps)
 
 func (node IndexNum) Maps() (result *CommonNode) {
 	result = NewCommonNode()

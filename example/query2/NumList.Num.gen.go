@@ -7,15 +7,8 @@ package query
 import "github.com/kazu/fbshelper/query/base"
 
 /*
-must call per Field
-go run github . com / cheekybits / genny gen "NumList=Root Num=Version []int32=int64 CommonNode=base.CommonNode 0=0 False=false" ;
-go run github . com / cheekybits / genny gen "NumList=Root Num=Index   []int32=Index CommonNode=Index        0=1 False=false" ;
+genny must be called per Field
 */
-
-// import (
-// 	"github.com/cheekybits/genny/generic"
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var (
 	NumList_Num_0 int = base.AtoiNoErr(Atoi("0"))
@@ -24,9 +17,6 @@ var (
 
 // (field inedx, field type) -> NumList_IdxToType
 var DUMMY_NumList_Num bool = SetNumListFields("NumList", "Num", "[]int32", NumList_Num_0)
-
-// NumListSetNodeToIdx(NumList_Num, base.NameToTypeEnum("[]int32")) &&
-// NumListSetIdxToName("[]int32", NumList_Num)
 
 func (node NumList) Num() (result *CommonNode) {
 	result = NewCommonNode()

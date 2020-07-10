@@ -7,15 +7,8 @@ package query
 import "github.com/kazu/fbshelper/query/base"
 
 /*
-must call per Field
-go run github . com / cheekybits / genny gen "InvertedMapNum=Root Value=Version Record=int64 Record=base.CommonNode 1=0 True=false" ;
-go run github . com / cheekybits / genny gen "InvertedMapNum=Root Value=Index   Record=Index Record=Index        1=1 True=false" ;
+genny must be called per Field
 */
-
-// import (
-// 	"github.com/cheekybits/genny/generic"
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var (
 	InvertedMapNum_Value_1 int = base.AtoiNoErr(Atoi("1"))
@@ -24,9 +17,6 @@ var (
 
 // (field inedx, field type) -> InvertedMapNum_IdxToType
 var DUMMY_InvertedMapNum_Value bool = SetInvertedMapNumFields("InvertedMapNum", "Value", "Record", InvertedMapNum_Value_1)
-
-// InvertedMapNumSetNodeToIdx(InvertedMapNum_Value, base.NameToTypeEnum("Record")) &&
-// InvertedMapNumSetIdxToName("Record", InvertedMapNum_Value)
 
 func (node InvertedMapNum) Value() (result *Record) {
 	result = NewRecord()

@@ -7,14 +7,8 @@ package query
 import "github.com/kazu/fbshelper/query/base"
 
 /*
-    must call 1 times per NodeName
-go run github . com / cheekybits / genny gen "Index=Index" ;
-
+   genny must be called 1 times per NodeName
 */
-
-// import (
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 type Index struct {
 	*base.CommonNode

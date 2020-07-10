@@ -12,8 +12,6 @@ import (
 	"github.com/kazu/fbshelper/query/base"
 )
 
-// go run github.com/cheekybits/genny gen "Root=Root "
-
 type Bool = base.Bool
 type Byte = base.Byte
 type Int8 = base.Int8

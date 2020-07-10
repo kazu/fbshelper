@@ -7,15 +7,8 @@ package query
 import "github.com/kazu/fbshelper/query/base"
 
 /*
-must call per Field
-go run github . com / cheekybits / genny gen "Symbols=Root Symbols=Version []Symbol=int64 CommonNode=base.CommonNode 0=0 False=false" ;
-go run github . com / cheekybits / genny gen "Symbols=Root Symbols=Index   []Symbol=Index CommonNode=Index        0=1 False=false" ;
+genny must be called per Field
 */
-
-// import (
-// 	"github.com/cheekybits/genny/generic"
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var (
 	Symbols_Symbols_0 int = base.AtoiNoErr(Atoi("0"))
@@ -24,9 +17,6 @@ var (
 
 // (field inedx, field type) -> Symbols_IdxToType
 var DUMMY_Symbols_Symbols bool = SetSymbolsFields("Symbols", "Symbols", "[]Symbol", Symbols_Symbols_0)
-
-// SymbolsSetNodeToIdx(Symbols_Symbols, base.NameToTypeEnum("[]Symbol")) &&
-// SymbolsSetIdxToName("[]Symbol", Symbols_Symbols)
 
 func (node Symbols) Symbols() (result *CommonNode) {
 	result = NewCommonNode()

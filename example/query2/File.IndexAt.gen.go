@@ -7,15 +7,8 @@ package query
 import "github.com/kazu/fbshelper/query/base"
 
 /*
-must call per Field
-go run github . com / cheekybits / genny gen "File=Root IndexAt=Version Int64=int64 CommonNode=base.CommonNode 2=0 False=false" ;
-go run github . com / cheekybits / genny gen "File=Root IndexAt=Index   Int64=Index CommonNode=Index        2=1 False=false" ;
+genny must be called per Field
 */
-
-// import (
-// 	"github.com/cheekybits/genny/generic"
-// 	b "github.com/kazu/fbshelper/query/base"
-// )
 
 var (
 	File_IndexAt_2 int = base.AtoiNoErr(Atoi("2"))
@@ -24,9 +17,6 @@ var (
 
 // (field inedx, field type) -> File_IdxToType
 var DUMMY_File_IndexAt bool = SetFileFields("File", "IndexAt", "Int64", File_IndexAt_2)
-
-// FileSetNodeToIdx(File_IndexAt, base.NameToTypeEnum("Int64")) &&
-// FileSetIdxToName("Int64", File_IndexAt)
 
 func (node File) IndexAt() (result *CommonNode) {
 	result = NewCommonNode()
