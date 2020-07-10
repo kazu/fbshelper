@@ -7,17 +7,23 @@ package query
 */
 
 import (
-	b "github.com/kazu/fbshelper/query/base"
+	"github.com/kazu/fbshelper/query/base"
 )
 
+// import (
+// 	b "github.com/kazu/fbshelper/query/base"
+// )
+
 type UnionName struct {
-	*b.Node
+	*base.CommonNode
 }
 
-// func InitUnionName() {
-// 	b.UnionAlias["UnionName"] = make([]string, 0, 10)
-// }
+func NewUnionName() *UnionName {
+	result := &UnionName{CommonNode: &base.CommonNode{}}
+	result.Name = "UnionName"
+	return result
+}
 
-func (node NodeName) Member(i int) interface{} {
+func (node UnionName) Member(i int) interface{} {
 	return nil
 }

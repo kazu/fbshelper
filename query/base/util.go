@@ -1,5 +1,7 @@
 package base
 
+//. "github.com/kazu/fbshelper/query/error"
+
 // type CondFn func(int) bool
 // type ItrFn func(int)
 
@@ -77,6 +79,18 @@ var NameToType map[string]int = map[string]int{
 	"uint64":  TypeUint64,
 	"float32": TypeFloat32,
 	"float64": TypeFloat64,
+	"Bool":    TypeBool,
+	"Byte":    Typebyte,
+	"Int8":    TypeInt8,
+	"Int16":   TypeInt16,
+	"Int32":   TypeInt32,
+	"Int64":   TypeInt64,
+	"Unt8":    TypeUnt8,
+	"Uint16":  TypeUint16,
+	"Uint32":  TypeUint32,
+	"Uint64":  TypeUint64,
+	"Float32": TypeFloat32,
+	"Float64": TypeFloat64,
 }
 
 var TypeToGroup map[int]int = map[int]int{
@@ -119,13 +133,19 @@ func SetNameIsStrunct(name string, enable bool) bool {
 	return false
 }
 
-func NameToTypeEnum(string) int {
-	return 0
+func NameToTypeEnum(s string) int {
+	if v, ok := NameToType[s]; ok {
+		return v
+	}
+	return -1
 }
 
 func AtoiNoErr(i int, e error) int {
 	if e != nil {
-		return -1
+		Log(LOG_WARN, func() LogArgs {
+			return F("AtoiNoErr(%d, e=%v) has error\n", i, e)
+		})
+		return 0
 	}
 	return i
 }
@@ -174,4 +194,52 @@ func IsUnionName(s string) bool {
 
 func ToBool(s string) bool {
 	return s == "true"
+}
+
+var All_IdxToType map[string](map[int]int) = map[string](map[int]int){}
+var All_IdxToTypeGroup map[string](map[int]int) = map[string](map[int]int){}
+var All_IdxToName map[string](map[int]string) = map[string](map[int]string){}
+var All_NameToIdx map[string](map[string]int) = map[string](map[string]int){}
+
+func SetNameToIdx(name string, v map[string]int) {
+	All_NameToIdx[name] = v
+}
+
+func SetIdxToName(name string, v map[int]string) {
+	All_IdxToName[name] = v
+}
+
+func SetIdxToType(name string, v map[int]int) {
+	All_IdxToType[name] = v
+}
+func SetdxToTypeGroup(name string, v map[int]int) {
+	All_IdxToTypeGroup[name] = v
+}
+
+func GetTypeGroup(s string) (result int) {
+
+	result = 0
+	if enum, ok := NameToType[s]; ok {
+		return TypeToGroup[enum]
+	}
+
+	if _, ok := UnionAlias[s]; ok {
+		return FieldTypeUnion
+	}
+	if s[0:6] == "[]byte" {
+		return FieldTypeSlice | FieldTypeBasic1
+	}
+
+	if s[0:2] == "[]" {
+		result |= FieldTypeSlice
+	}
+
+	if enum, ok := NameToType[s[2:]]; ok {
+		result |= TypeToGroup[enum]
+		return
+	}
+
+	result |= FieldTypeTable
+	return
+
 }

@@ -10,6 +10,7 @@ import (
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	query "github.com/kazu/fbshelper/example/query"
+	query2 "github.com/kazu/fbshelper/example/query2"
 	"github.com/kazu/fbshelper/example/vfs_schema"
 	"github.com/kazu/fbshelper/query/base"
 	"github.com/stretchr/testify/assert"
@@ -186,6 +187,26 @@ func TestOpen(t *testing.T) {
 			e := fq.Unmarshal(&file)
 
 			assert.NoError(t, e)
+			assert.Equal(t, tt.ID, file.ID)
+			assert.Equal(t, tt.Name, file.Name)
+			assert.Equal(t, tt.IndexAt, file.IndexAt)
+		})
+	}
+}
+
+func TestOpen2(t *testing.T) {
+	tests := DataRootFileTest()
+	for _, tt := range tests {
+		t.Run(tt.TestName, func(t *testing.T) {
+			buf := MakeRootFileFbs(tt.ID, string(tt.Name), tt.IndexAt)
+			file := File{}
+			root := query2.Open(bytes.NewReader(buf), 512)
+			fq := root.Index().File()
+			e := fq.Unmarshal(&file)
+
+			assert.NoError(t, e)
+			assert.Equal(t, tt.ID, fq.Id().Uint64())
+			assert.Equal(t, tt.IndexAt, fq.IndexAt().Int64())
 			assert.Equal(t, tt.ID, file.ID)
 			assert.Equal(t, tt.Name, file.Name)
 			assert.Equal(t, tt.IndexAt, file.IndexAt)

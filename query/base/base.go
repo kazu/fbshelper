@@ -1,12 +1,17 @@
 package base
 
 import (
+	"errors"
+	"fmt"
 	"io"
+	"os"
 	"reflect"
+	"strings"
 
 	"github.com/kazu/loncha"
 
 	flatbuffers "github.com/google/flatbuffers/go"
+	//. "github.com/kazu/fbshelper/query/error"
 )
 
 const (
@@ -20,6 +25,69 @@ var (
 	// tag for Marshal/Unmarshal
 	FBS_TAG_NAME string = "fbs"
 )
+
+var (
+	ERR_MUST_POINTER  error = errors.New("parameter must be pointer")
+	ERR_INVALID_TYPE  error = errors.New("parameter invalid type(must be struct or map[string]interface)")
+	ERR_NOT_FOUND     error = errors.New("data is not found")
+	ERR_READ_BUFFER   error = errors.New("cannot read least data")
+	ERR_MORE_BUFFER   error = errors.New("require more data")
+	ERR_NO_SUPPORT    error = errors.New("this method is not suppored")
+	ERR_INVALID_INDEX error = errors.New("invalid index number")
+)
+
+type LogLevel byte
+
+var CurrentLogLevel LogLevel
+var LogW io.Writer = os.Stderr
+
+const (
+	LOG_ERROR LogLevel = iota
+	LOG_WARN
+	LOG_DEBUG
+)
+
+type LogArgs struct {
+	Fmt  string
+	Infs []interface{}
+}
+
+type LogFn func() LogArgs //(string, interface{}...)
+
+func SetLogLevel(l LogLevel) {
+	CurrentLogLevel = l
+}
+
+func F(s string, v ...interface{}) LogArgs {
+	return LogArgs{Fmt: s, Infs: v}
+}
+
+// if no output , not eval args
+//  Log(LOG_DEBUG, func() LogArgs { return F("test %d \n", 1) })
+func Log(l LogLevel, fn LogFn) {
+
+	if CurrentLogLevel < l {
+		return
+	}
+
+	var b strings.Builder
+	switch l {
+	case LOG_DEBUG:
+		b.WriteString("D: ")
+	case LOG_WARN:
+		b.WriteString("W: ")
+	case LOG_ERROR:
+		b.WriteString("E: ")
+	default:
+		b.WriteString(" ")
+	}
+	args := fn()
+	fmt.Fprintf(&b, args.Fmt, args.Infs...)
+	io.WriteString(LogW, b.String())
+
+	return
+
+}
 
 // Base is Base Object of byte buffer for flatbuffers
 // read from r and store bytes.
@@ -366,6 +434,11 @@ type UnmarshalFn func(string, reflect.Value) error
 
 func (node *Node) Unmarshal(ptr interface{}, setter UnmarshalFn) error {
 
+	return node.unmarshal(ptr, setter)
+}
+
+func (node *Node) unmarshal(ptr interface{}, setter UnmarshalFn) error {
+
 	rv := reflect.ValueOf(ptr)
 	_ = rv
 
@@ -393,13 +466,6 @@ func (node *Node) Unmarshal(ptr interface{}, setter UnmarshalFn) error {
 	return nil
 }
 
-func (node *Node) Int64() int64 {
-	return flatbuffers.GetInt64(node.R(node.Pos))
-}
-func (node *Node) Byte() byte {
-	return flatbuffers.GetByte(node.R(node.Pos))
-}
-
 type Value struct {
 	*Node
 	S int
@@ -410,36 +476,65 @@ func (v Value) String() string {
 	return string(v.R(v.S)[:v.E])
 }
 
-// const VTABLE_HEADER_SIZE = 4
+// mock
+func (nList *NodeList) Member(i int) interface{} {
+	return nil
+}
 
-// func VtableSize(cnt int) int {
-// 	return VTABLE_HEADER_SIZE + cnt * 2
-// }
+type FieldsDefile struct {
+	IdxToTyoe      map[int]int
+	IdxToTypeGroup map[int]int
+}
 
-// func CreateNode(cntVtable int) *Node {
+/*func (node *NodeList) Info(nName string, idxToType, odxToTypeGroup map[int]int ) Info {
 
-// 	vSize := VtableSize(cntVtable)
+}
+*/
 
-// 	node := NewNode2(NewBase(make([]byte, 0. DEFAULT_NODE_BUF_CAP)), vSize, true)
-// 	flatbuffers.WriteInt16( node.R(node.Pos) , int16(vSize))
-// 	//return node
+func (node *Node) Byte() byte {
+	return flatbuffers.GetByte(node.R(node.Pos))
+}
 
-// }
+func (node *Node) Bool() bool {
+	return flatbuffers.GetBool(node.R(node.Pos))
+}
 
-// func (node *Node) initVtable(cnt) {
+func (node *Node) Uint8() uint8 {
+	return flatbuffers.GetUint8(node.R(node.Pos))
+}
 
-// 	if len(node.VTable) == 0 {
-// 		node.VTable = make([]int16, cnt)
-// 	}
-// 	n.ValueInfos = make([]ValueInfo, len(n.VTable))
+func (node *Node) Uint16() uint16 {
+	return flatbuffers.GetUint16(node.R(node.Pos))
+}
 
-// }
+func (node *Node) Uint32() uint32 {
+	return flatbuffers.GetUint32(node.R(node.Pos))
+}
 
-// func (node *Node) VTableToBuf(vPos int) {
+func (node *Node) Uint64() uint64 {
+	return flatbuffers.GetUint64(node.R(node.Pos))
+}
 
-// 	// write head
-// 	for i , _ := range node.VTable {
-// 		flatbuffers.WriteUint16( node.R(vPos + VTABLE_HEADER_SIZE + i * 2), node.VTable[i])
-// 	}
+func (node *Node) Int8() int8 {
+	return flatbuffers.GetInt8(node.R(node.Pos))
+}
 
-// }
+func (node *Node) Int16() int16 {
+	return flatbuffers.GetInt16(node.R(node.Pos))
+}
+
+func (node *Node) Int32() int32 {
+	return flatbuffers.GetInt32(node.R(node.Pos))
+}
+
+func (node *Node) Int64() int64 {
+	return flatbuffers.GetInt64(node.R(node.Pos))
+}
+
+func (node *Node) Float32() float32 {
+	return flatbuffers.GetFloat32(node.R(node.Pos))
+}
+
+func (node *Node) Float64() float64 {
+	return flatbuffers.GetFloat64(node.R(node.Pos))
+}
