@@ -235,7 +235,7 @@ func main() {
 	}
 
 	if len(os.Args) < 3 {
-		fmt.Fprint(os.Stderr, "usage: fbs-query fbsfile outputdir\n")
+		fmt.Println(Usage)
 		return
 	}
 	//fmt.Println(filter, fbsfile, outDir)
