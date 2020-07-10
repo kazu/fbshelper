@@ -538,3 +538,7 @@ func (node *Node) Float32() float32 {
 func (node *Node) Float64() float64 {
 	return flatbuffers.GetFloat64(node.R(node.Pos))
 }
+
+func (node *Node) Bytes() []byte {
+	return node.R(node.Pos)[:node.Size]
+}

@@ -134,12 +134,12 @@ func TestBase(t *testing.T) {
 	buf := MakeRootFileFbs(12, "root_test1.json", 456)
 	assert.NotNil(t, buf)
 
-	q := query.OpenByBuf(buf)
+	q := query2.OpenByBuf(buf)
 
-	assert.Equal(t, int32(1), q.Version())
-	assert.Equal(t, uint64(12), q.Index().File().Id())
-	assert.Equal(t, []byte("root_test1.json"), q.Index().File().Name())
-	assert.Equal(t, int64(456), q.Index().File().IndexAt())
+	assert.Equal(t, int32(1), q.Version().Int32())
+	assert.Equal(t, uint64(12), q.Index().File().Id().Uint64())
+	assert.Equal(t, []byte("root_test1.json"), q.Index().File().Name().Bytes())
+	assert.Equal(t, int64(456), q.Index().File().IndexAt().Int64())
 }
 
 type FileTest struct {

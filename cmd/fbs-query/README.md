@@ -31,7 +31,9 @@ table Root {
 
 root_type Root;
 
-$ fbs-query index.fbs tmp/
+$ fbs-query --fbs=index.fbs  --out=tmp/query -v 
+or 
+$ go run github.com/fbshelper/cmd/fbs-query --fbs=index.fbs  --out=tmp/query -v
 ```
 
 
@@ -62,9 +64,9 @@ fbsFile.IndexAt()
 ```go
 q := query.OpenByBuf(buf)
 q.Len()
-q.Index().File().Id()
-q.Index().File().Name()
-q.Index().File().IndexAt()
+q.Index().File().Id().Int64()
+q.Index().File().Name().String()
+q.Index().File().IndexAt().Int64()
 
 ```
 
@@ -105,6 +107,7 @@ fbs.Files().First().Unmarshal(&f)
 
 - [x] change base.Base when call Next()
 - [x] support basic type slice ( []int, ... )
+- [x] change text/template to genny
 - [x] support writing
       - [x] Set() basic type
       - [ ] NewFbsNode()
