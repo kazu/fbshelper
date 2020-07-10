@@ -69,8 +69,9 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 		if node.ValueInfos[idx].IsNotReady() {
 			node.ValueInfoPosTable(idx)
 		}
-
-		node.ValueInfos[idx].Size = node.FollowUnion(idx).Info().Size
+		if node.CanFollow(idx) {
+			node.ValueInfos[idx].Size = node.FollowUnion(idx).Info().Size
+		}
 
 	} else if IsFieldBytes(grp) {
 		if node.ValueInfos[idx].IsNotReady() {
@@ -106,9 +107,13 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 
 	return node.ValueInfos[idx]
 }
+func (node *CommonNode) CanFollow(idx int) bool {
+
+	return node.FieldAt(idx-1).Byte() > 0
+}
 
 func (node *CommonNode) FollowUnion(idx int) *CommonNode {
-	idxOfAlias := node.FieldAt(idx - 1).Byte()
+	idxOfAlias := node.FieldAt(idx-1).Byte() - 1
 	if int(idxOfAlias) >= len(UnionAlias[All_IdxToName[node.Name][idx]]) {
 		Log(LOG_WARN, func() LogArgs {
 			return F("Invalid union=%s aliases=%+v idx=%d\n",
@@ -120,7 +125,7 @@ func (node *CommonNode) FollowUnion(idx int) *CommonNode {
 	newName := UnionAlias[All_IdxToName[node.Name][idx]][idxOfAlias]
 
 	return &CommonNode{
-		NodeList:       node.NodeList,
+		NodeList:       &NodeList{Node: node.Node},
 		Name:           newName,
 		IdxToType:      All_IdxToType[newName],
 		IdxToTypeGroup: All_IdxToTypeGroup[newName],
@@ -149,7 +154,7 @@ func (node *CommonNode) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 		}
 		if IsMatchBit(g, FieldTypeStruct) {
 			node.FieldAt(i).SearchInfo(pos, fn, condFn)
-		} else if IsMatchBit(g, FieldTypeUnion) {
+		} else if IsMatchBit(g, FieldTypeUnion) && node.CanFollow(i) {
 			node.FollowUnion(i).SearchInfo(pos, fn, condFn)
 		} else if IsMatchBit(g, FieldTypeSlice) && IsMatchBit(g, FieldTypeBasic1) {
 			node.FieldAt(i).SearchInfoSlice(pos, fn, condFn)
@@ -302,6 +307,7 @@ func (node *CommonNode) At(i int) (*CommonNode, error) {
 	}
 
 	cNode := &CommonNode{}
+	cNode.NodeList = &NodeList{}
 	cNode.Node = nNode
 	cNode.Name = tName
 	if _, ok := All_IdxToName[tName]; ok {

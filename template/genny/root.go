@@ -28,11 +28,18 @@ func NewCommonNode() *base.CommonNode {
 }
 
 func Open(r io.Reader, cap int) RootType {
-	return RootType{CommonNode: base.Open(r, cap)}
+	result := RootType{CommonNode: base.Open(r, cap)}
+	result.CommonNode.Name = "RootType"
+	result.FetchIndex()
+	return result
+	//return RootType{CommonNode: base.Open(r, cap)}
 }
 
 func OpenByBuf(buf []byte) RootType {
-	return RootType{CommonNode: base.OpenByBuf(buf)}
+	result := RootType{CommonNode: base.OpenByBuf(buf)}
+	result.CommonNode.Name = "RootType"
+	result.FetchIndex()
+	return result
 }
 
 func (node RootType) Next() RootType {
