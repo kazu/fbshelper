@@ -135,6 +135,7 @@ func (node *CommonNode) FollowUnion(idx int) *CommonNode {
 	return next
 }
 
+// if TraverseInfo is work. removed
 func (node *CommonNode) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 	info := node.Info()
 
@@ -147,7 +148,7 @@ func (node *CommonNode) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 	for i := 0; i < len(node.IdxToTypeGroup); i++ {
 		g := node.IdxToTypeGroup[i]
 
-		if node.IsLeafAt(node.IdxToTypeGroup[i]) {
+		if node.IsLeafAt(i) {
 			fInfo := Info(node.ValueInfo(i))
 			if condFn(pos, fInfo) {
 				fn(NodePath{Name: node.Name, Idx: i}, fInfo)
@@ -663,4 +664,75 @@ func (node *CommonNode) SetFloat64(v float64) error {
 
 	return nil
 
+}
+
+func (node *CommonNode) TraverseInfo(pos int, fn TraverseRec, condFn TraverseCond) {
+
+	for i := 0; i < len(node.IdxToTypeGroup); i++ {
+
+		if node.IsLeafAt(i) {
+			fInfo := Info(node.ValueInfo(i))
+			if condFn(node.Node.Pos, fInfo.Pos, fInfo.Size) {
+				fn(node, i, node.Node.Pos, fInfo.Pos, fInfo.Size)
+			}
+			continue
+		}
+
+		// fixme: not require  to get data via FieldAt()
+		var next *CommonNode
+		g := node.IdxToTypeGroup[i]
+		if !IsFieldUnion(g) {
+			next = node.FieldAt(i)
+		} else {
+			next = node.FollowUnion(i)
+		}
+		var nPos int
+		if IsFieldSlice(g) {
+			nPos = next.NodeList.ValueInfo.Pos
+		} else {
+			nPos = next.Node.Pos
+		}
+
+		if condFn(node.Node.Pos, nPos, -1) {
+			fn(node, i, node.Node.Pos, nPos, -1)
+		}
+
+		if IsFieldSlice(g) {
+			next.TraverseInfoSlice(pos, fn, condFn)
+		} else {
+			next.TraverseInfo(pos, fn, condFn)
+		}
+	}
+}
+
+func (node *CommonNode) TraverseInfoSlice(pos int, fn TraverseRec, condFn TraverseCond) {
+
+	var v interface{}
+	for _, cNode := range node.All() {
+		v = cNode
+		if vv, ok := v.(Searcher); ok {
+			vv.TraverseInfo(pos, fn, condFn)
+		} else {
+			goto NO_NODE
+		}
+	}
+	return
+
+NO_NODE:
+
+	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
+		ptr := int(node.NodeList.ValueInfo.Pos) + i*4
+		start := ptr + int(flatbuffers.GetUint32(node.R(ptr)))
+		// size := info.Size
+		// if i+1 < int(node.NodeList.ValueInfo.Pos) {
+		// 	size = ptr + 4 + int(flatbuffers.GetUint32(node.R(ptr+4))) - start
+		// }
+		if condFn(node.Node.Pos, start, -1) {
+			fn(node, i, node.NodeList.ValueInfo.Pos, start, -1)
+		}
+	}
+}
+
+func (node *CommonNode) Count() int {
+	return int(node.NodeList.ValueInfo.VLen)
 }

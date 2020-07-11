@@ -3,13 +3,9 @@ package base_test
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"testing"
 
-	"github.com/kazu/loncha"
-
 	flatbuffers "github.com/google/flatbuffers/go"
-	query "github.com/kazu/fbshelper/example/query"
 	query2 "github.com/kazu/fbshelper/example/query2"
 	"github.com/kazu/fbshelper/example/vfs_schema"
 	"github.com/kazu/fbshelper/query/base"
@@ -312,7 +308,62 @@ func Test_RootIndexStringInfoPos(t *testing.T) {
 
 }
 
-func Test_SearchInfo(t *testing.T) {
+// func TestSearchInfo(t *testing.T) {
+// 	type HasSearchIfo interface {
+// 		SearchInfo(int, base.RecFn, base.CondFn)
+// 	}
+
+// 	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+// 		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+// 			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+// 		})
+// 	})
+
+// 	q := query.Open(bytes.NewReader(buf), 512)
+// 	q2 := query2.Open(bytes.NewReader(buf), 512)
+// 	ch := make(chan []base.Info, 2)
+
+// 	fn := func(t *testing.T, q HasSearchIfo, ch chan<- []base.Info) {
+// 		cond := func(pos int, info base.Info) bool {
+// 			return info.Pos <= pos && (info.Pos+info.Size) > pos
+// 			//return true
+// 		}
+
+// 		result := []base.NodePath{}
+// 		infos := []base.Info{}
+// 		recFn := func(s base.NodePath, info base.Info) {
+// 			result = append(result, s)
+// 			infos = append(infos, info)
+// 		}
+
+// 		q.SearchInfo(109, recFn, cond)
+// 		ch <- infos
+// 		sortInfos := make([]base.Info, len(infos))
+// 		copy(sortInfos, infos)
+
+// 		sort.Slice(sortInfos, func(i, j int) bool {
+// 			return sortInfos[i].Pos < sortInfos[j].Pos
+// 		})
+
+// 		loncha.Uniq(&sortInfos, func(i int) interface{} {
+// 			return fmt.Sprintf("%d.%d", sortInfos[i].Pos, sortInfos[i].Size)
+// 		})
+
+// 		for i := 0; i < len(infos); i++ {
+// 			fmt.Printf("%v\t%+v\n", result[i], infos[i])
+// 		}
+
+// 		assert.True(t, len(infos) > 0)
+// 	}
+// 	fn(t, q, ch)
+// 	fn(t, q2, ch)
+
+// 	qdata := <-ch
+// 	q2data := <-ch
+// 	assert.True(t, reflect.DeepEqual(qdata, q2data))
+// }
+
+func Test_TraverseInfo(t *testing.T) {
 
 	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
 		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
@@ -320,38 +371,78 @@ func Test_SearchInfo(t *testing.T) {
 		})
 	})
 
-	q := query.Open(bytes.NewReader(buf), 512)
-	cond := func(pos int, info base.Info) bool {
-		return info.Pos <= pos && (info.Pos+info.Size) > pos
-		//return true
+	type Result struct {
+		name   string
+		idx    int
+		parent int
+		child  int
+		size   int
 	}
 
-	result := []base.NodePath{}
-	infos := []base.Info{}
-	recFn := func(s base.NodePath, info base.Info) {
-		result = append(result, s)
-		infos = append(infos, info)
+	results := []Result{}
+
+	recFn := func(node *base.CommonNode, idx, parent, child, size int) {
+		//result[node.Name] = []int{parent, child, idx, size}
+		results = append(results,
+			Result{
+				name:   node.Name,
+				idx:    idx,
+				parent: parent,
+				child:  child,
+				size:   size,
+			})
+	}
+	cond := func(pos, parent, child int) bool {
+		//return parent <= pos && pos <= child
+		return true
 	}
 
-	q.SearchInfo(109, recFn, cond)
-	sortInfos := make([]base.Info, len(infos))
-	copy(sortInfos, infos)
-
-	sort.Slice(sortInfos, func(i, j int) bool {
-		return sortInfos[i].Pos < sortInfos[j].Pos
-	})
-
-	loncha.Uniq(&sortInfos, func(i int) interface{} {
-		return fmt.Sprintf("%d.%d", sortInfos[i].Pos, sortInfos[i].Size)
-	})
-
-	for i := 0; i < len(infos); i++ {
-		fmt.Printf("%v\t%+v\n", result[i], infos[i])
-	}
-
-	assert.True(t, len(infos) > 0)
+	q := query2.Open(bytes.NewReader(buf), 512)
+	q.TraverseInfo(109, recFn, cond)
+	assert.True(t, len(results) > 0)
 
 }
+
+// func Test_SearchInfo(t *testing.T) {
+
+// 	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+// 		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+// 			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+// 		})
+// 	})
+
+// 	q := query.Open(bytes.NewReader(buf), 512)
+// 	cond := func(pos int, info base.Info) bool {
+// 		return info.Pos <= pos && (info.Pos+info.Size) > pos
+// 		//return true
+// 	}
+
+// 	result := []base.NodePath{}
+// 	infos := []base.Info{}
+// 	recFn := func(s base.NodePath, info base.Info) {
+// 		result = append(result, s)
+// 		infos = append(infos, info)
+// 	}
+
+// 	q.SearchInfo(109, recFn, cond)
+// 	sortInfos := make([]base.Info, len(infos))
+// 	copy(sortInfos, infos)
+
+// 	sort.Slice(sortInfos, func(i, j int) bool {
+// 		return sortInfos[i].Pos < sortInfos[j].Pos
+// 	})
+
+// 	loncha.Uniq(&sortInfos, func(i int) interface{} {
+// 		return fmt.Sprintf("%d.%d", sortInfos[i].Pos, sortInfos[i].Size)
+// 	})
+
+// 	for i := 0; i < len(infos); i++ {
+// 		fmt.Printf("%v\t%+v\n", result[i], infos[i])
+// 	}
+
+// 	assert.True(t, len(infos) > 0)
+
+// }
 
 func Test_SliceBasicType(t *testing.T) {
 
@@ -368,12 +459,24 @@ func Test_SliceBasicType(t *testing.T) {
 		})
 	})
 
-	q := query.Open(bytes.NewReader(buf), 512)
+	q := query2.Open(bytes.NewReader(buf), 512)
 	_ = q
+
+	type CommonNodeWithErr struct {
+		*base.CommonNode
+		e error
+	}
+	withe := func(c *base.CommonNode, e error) CommonNodeWithErr {
+		return CommonNodeWithErr{
+			CommonNode: c,
+			e:          e,
+		}
+	}
+
 	assert.NotNil(t, buf)
 	assert.Equal(t, 2, q.Index().NumList().Num().Count())
-	assert.Equal(t, int32(345), q.Index().NumList().Num().At(0))
-	assert.Equal(t, int32(584), q.Index().NumList().Num().At(1))
+	assert.Equal(t, int32(345), withe(q.Index().NumList().Num().At(0)).Int32())
+	assert.Equal(t, int32(584), withe(q.Index().NumList().Num().At(1)).Int32())
 
 }
 
@@ -392,10 +495,10 @@ func Test_RootSetVersion(t *testing.T) {
 		})
 	})
 
-	q := query.Open(bytes.NewReader(buf), 512)
-	assert.Equal(t, int32(1), q.Version())
-	q.SetVersion(int32(2))
-	assert.Equal(t, int32(2), q.Version())
+	q := query2.Open(bytes.NewReader(buf), 512)
+	assert.Equal(t, int32(1), q.Version().Int32())
+	q.Version().SetInt32(2)
+	assert.Equal(t, int32(2), q.Version().Int32())
 	assert.NotNil(t, buf)
 }
 

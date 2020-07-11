@@ -13,9 +13,13 @@ type Noder interface {
 
 type Searcher interface {
 	SearchInfo(int, RecFn, CondFn)
+	TraverseInfo(pos int, fn TraverseRec, condFn TraverseCond)
 }
 
 type UnionNoder interface {
 	Info(int) Info
 	Member(int) Noder
 }
+
+type TraverseCond func(int, int, int) bool
+type TraverseRec func(*CommonNode, int, int, int, int)
