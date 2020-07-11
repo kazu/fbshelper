@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	// this is cap size of Base's buffef([]byte)
+	// DEFAULT_BUF_CAP .. cap size of Base's buffef([]byte)
 	DEFAULT_BUF_CAP = 512
-	// this is cap size of Base's buffer via CreateNode
+	// DEFAULT_NODE_BUF_CAP ... cap size of Base's buffer via CreateNode
 	DEFAULT_NODE_BUF_CAP = 64
 )
 
