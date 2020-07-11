@@ -1,4 +1,4 @@
-package base
+package error
 
 import (
 	"errors"
@@ -9,12 +9,13 @@ import (
 )
 
 var (
-	ERR_MUST_POINTER error = errors.New("parameter must be pointer")
-	ERR_INVALID_TYPE error = errors.New("parameter invalid type(must be struct or map[string]interface)")
-	ERR_NOT_FOUND    error = errors.New("data is not found")
-	ERR_READ_BUFFER  error = errors.New("cannot read least data")
-	ERR_MORE_BUFFER  error = errors.New("require more data")
-	ERR_NO_SUPPORT   error = errors.New("this method is not suppored")
+	ERR_MUST_POINTER  error = errors.New("parameter must be pointer")
+	ERR_INVALID_TYPE  error = errors.New("parameter invalid type")
+	ERR_NOT_FOUND     error = errors.New("data is not found")
+	ERR_READ_BUFFER   error = errors.New("cannot read least data")
+	ERR_MORE_BUFFER   error = errors.New("require more data")
+	ERR_NO_SUPPORT    error = errors.New("this method is not suppored")
+	ERR_INVALID_INDEX error = errors.New("invalid index number")
 )
 
 type LogLevel byte

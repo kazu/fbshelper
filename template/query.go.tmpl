@@ -29,6 +29,12 @@ var {{$SName}}_FieldEnum = map[string]int{
     {{- end}}
 }
 
+// sample Root_idxToType
+var {{$SName}}_IdxToType = map[int]int = map[int]int{
+    {{- range $i, $v := .Fields}}
+        {{$SName}}_{{$v.Name}}: NameToEnum({{$v.Type}})
+    {{- end}}
+}
 
 
 type Fbs{{$.Name}} struct {

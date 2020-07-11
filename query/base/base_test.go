@@ -3,13 +3,10 @@ package base_test
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"testing"
 
-	"github.com/kazu/loncha"
-
 	flatbuffers "github.com/google/flatbuffers/go"
-	query "github.com/kazu/fbshelper/example/query"
+	query2 "github.com/kazu/fbshelper/example/query2"
 	"github.com/kazu/fbshelper/example/vfs_schema"
 	"github.com/kazu/fbshelper/query/base"
 	"github.com/stretchr/testify/assert"
@@ -94,7 +91,6 @@ func MakeIndexString(b *flatbuffers.Builder, fn func(b *flatbuffers.Builder, i i
 }
 
 func MakeInvertedMapString(b *flatbuffers.Builder, key string) flatbuffers.UOffsetT {
-	//, vFn func(b *flatbuffers.Builder) flatbuffers.UOffsetT) flatbuffers.UOffsetT{
 
 	fkey := b.CreateString(key)
 	vfs_schema.InvertedMapStringStart(b)
@@ -133,12 +129,12 @@ func TestBase(t *testing.T) {
 	buf := MakeRootFileFbs(12, "root_test1.json", 456)
 	assert.NotNil(t, buf)
 
-	q := query.OpenByBuf(buf)
+	q := query2.OpenByBuf(buf)
 
-	assert.Equal(t, int32(1), q.Version())
-	assert.Equal(t, uint64(12), q.Index().File().Id())
-	assert.Equal(t, []byte("root_test1.json"), q.Index().File().Name())
-	assert.Equal(t, int64(456), q.Index().File().IndexAt())
+	assert.Equal(t, int32(1), q.Version().Int32())
+	assert.Equal(t, uint64(12), q.Index().File().Id().Uint64())
+	assert.Equal(t, []byte("root_test1.json"), q.Index().File().Name().Bytes())
+	assert.Equal(t, int64(456), q.Index().File().IndexAt().Int64())
 }
 
 type FileTest struct {
@@ -165,7 +161,7 @@ func TestUnmarshal(t *testing.T) {
 		t.Run(tt.TestName, func(t *testing.T) {
 			buf := MakeRootFileFbs(tt.ID, string(tt.Name), tt.IndexAt)
 			file := File{}
-			fq := query.OpenByBuf(buf).Index().File()
+			fq := query2.OpenByBuf(buf).Index().File()
 			e := fq.Unmarshal(&file)
 
 			assert.NoError(t, e)
@@ -182,7 +178,7 @@ func TestOpen(t *testing.T) {
 		t.Run(tt.TestName, func(t *testing.T) {
 			buf := MakeRootFileFbs(tt.ID, string(tt.Name), tt.IndexAt)
 			file := File{}
-			fq := query.Open(bytes.NewReader(buf), 512).Index().File()
+			fq := query2.Open(bytes.NewReader(buf), 512).Index().File()
 			e := fq.Unmarshal(&file)
 
 			assert.NoError(t, e)
@@ -193,50 +189,77 @@ func TestOpen(t *testing.T) {
 	}
 }
 
+func TestOpen2(t *testing.T) {
+	tests := DataRootFileTest()
+	for _, tt := range tests {
+		t.Run(tt.TestName, func(t *testing.T) {
+			buf := MakeRootFileFbs(tt.ID, string(tt.Name), tt.IndexAt)
+			file := File{}
+			root := query2.Open(bytes.NewReader(buf), 512)
+			fq := root.Index().File()
+			e := fq.Unmarshal(&file)
+
+			assert.NoError(t, e)
+			assert.Equal(t, tt.ID, fq.Id().Uint64())
+			assert.Equal(t, tt.IndexAt, fq.IndexAt().Int64())
+			assert.Equal(t, tt.ID, file.ID)
+			assert.Equal(t, tt.Name, file.Name)
+			assert.Equal(t, tt.IndexAt, file.IndexAt)
+		})
+	}
+}
+
 func Test_QueryFbs(t *testing.T) {
 	buf := MakeRootFileFbs(12, "root_test.json", 456)
-	root := query.OpenByBuf(buf)
+	root := query2.OpenByBuf(buf)
 	idx := root.Index()
-	assert.Equal(t, uint64(12), idx.File().Id())
-	assert.Equal(t, "root_test.json", string(idx.File().Name()))
+	assert.Equal(t, uint64(12), idx.File().Id().Uint64())
+	assert.Equal(t, "root_test.json", string(idx.File().Name().Bytes()))
 
 	buf2 := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
 		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
 			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
 		})
 	})
+	root2 := query2.OpenByBuf(buf2)
+	assert.Equal(t, len(buf2), root2.Len())
+	z, e := root2.Index().IndexString().Maps().Last()
+	_, _ = z, e
 
-	root = query.OpenByBuf(buf2)
-	assert.Equal(t, len(buf2), root.Len())
-	z := root.Index().IndexString().Maps().Last()
+	assert.Equal(t, uint64(1), z.Value().FileId().Uint64())
+	assert.Equal(t, int64(2), z.Value().Offset().Int64())
 
-	assert.Equal(t, uint64(1), z.Value().FileId())
-	assert.Equal(t, int64(2), z.Value().Offset())
+	assert.Equal(t, int32(234), root2.Index().IndexString().Size().Int32())
 
-	assert.Equal(t, int32(234), root.Index().IndexString().Size())
-	assert.Equal(t, 2, root.Index().IndexString().Maps().Count())
+	assert.Equal(t, 2, root2.Index().IndexString().Maps().Count())
+
 }
 
 func Test_QueryNext(t *testing.T) {
 	buf := MakeRootRecord(512)
 	buf2 := append(buf, MakeRootRecord(513)...)
 
-	root := query.Open(bytes.NewReader(buf2), base.DEFAULT_BUF_CAP)
+	root := query2.Open(bytes.NewReader(buf2), base.DEFAULT_BUF_CAP)
 	z := root.Index().InvertedMapNum()
 
 	record := z.Value()
+	rPos1 := record.Node.Pos
+
 	val := z.FieldAt(0)
 	assert.NotNil(t, val)
-	assert.Equal(t, int64(512), root.Index().InvertedMapNum().Key())
-	assert.Equal(t, int64(2), record.Offset())
-	assert.Equal(t, uint64(1), record.FileId())
+
+	assert.Equal(t, int64(512), root.Index().InvertedMapNum().Key().Int64())
+	assert.Equal(t, int64(2), record.Offset().Int64())
+	assert.Equal(t, rPos1, record.Node.Pos)
+	assert.Equal(t, uint64(1), record.FileId().Uint64())
+	assert.Equal(t, rPos1, record.Node.Pos)
 	assert.Equal(t, len(buf), root.Len())
 	assert.Equal(t, len(buf), root.Len())
 	assert.Equal(t, len(buf), z.Info().Pos+z.Info().Size)
 
 	root2 := root.Next()
 
-	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key())
+	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key().Int64())
 	assert.False(t, root2.HasNext())
 	len1 := root.LenBuf()
 
@@ -255,7 +278,7 @@ func Test_RootIndexStringInfoPos(t *testing.T) {
 		})
 	})
 
-	q := query.Open(bytes.NewReader(buf), 512)
+	q := query2.Open(bytes.NewReader(buf), 512)
 
 	list := q.Index().IndexString().Maps()
 	n := list.Count()
@@ -263,22 +286,24 @@ func Test_RootIndexStringInfoPos(t *testing.T) {
 
 	infos := map[string]base.Info{}
 
-	info := list.First().ValueInfo(0)
+	lFirst, _ := list.First()
+	info := lFirst.ValueInfo(0)
 	infos["Maps[0].0"] = base.Info(info)
-	for i := 0; i < list.First().CountOfField(); i++ {
-		tmpInfo := list.First().ValueInfo(i)
+
+	for i := 0; i < lFirst.CountOfField(); i++ {
+		tmpInfo := lFirst.ValueInfo(i)
 		infos[fmt.Sprintf("Maps[0].0.%d", i)] = base.Info(tmpInfo)
 
 	}
-
-	info2 := list.Last().Value().Info()
+	lLast, _ := list.Last()
+	info2 := lLast.Value().Info()
 	infos["Maps[1].1"] = base.Info(info2)
 
 	assert.Equal(t, true, info.Pos < info2.Pos)
 
 }
 
-func Test_SearchInfo(t *testing.T) {
+func Test_TraverseInfo(t *testing.T) {
 
 	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
 		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
@@ -286,36 +311,35 @@ func Test_SearchInfo(t *testing.T) {
 		})
 	})
 
-	q := query.Open(bytes.NewReader(buf), 512)
-	cond := func(pos int, info base.Info) bool {
-		return info.Pos <= pos && (info.Pos+info.Size) > pos
-		//return true
+	type Result struct {
+		name   string
+		idx    int
+		parent int
+		child  int
+		size   int
 	}
 
-	result := []base.NodePath{}
-	infos := []base.Info{}
-	recFn := func(s base.NodePath, info base.Info) {
-		result = append(result, s)
-		infos = append(infos, info)
+	results := []Result{}
+
+	recFn := func(node *base.CommonNode, idx, parent, child, size int) {
+		//result[node.Name] = []int{parent, child, idx, size}
+		results = append(results,
+			Result{
+				name:   node.Name,
+				idx:    idx,
+				parent: parent,
+				child:  child,
+				size:   size,
+			})
+	}
+	cond := func(pos, parent, child int) bool {
+		//return parent <= pos && pos <= child
+		return true
 	}
 
-	q.SearchInfo(109, recFn, cond)
-	sortInfos := make([]base.Info, len(infos))
-	copy(sortInfos, infos)
-
-	sort.Slice(sortInfos, func(i, j int) bool {
-		return sortInfos[i].Pos < sortInfos[j].Pos
-	})
-
-	loncha.Uniq(&sortInfos, func(i int) interface{} {
-		return fmt.Sprintf("%d.%d", sortInfos[i].Pos, sortInfos[i].Size)
-	})
-
-	for i := 0; i < len(infos); i++ {
-		fmt.Printf("%v\t%+v\n", result[i], infos[i])
-	}
-
-	assert.True(t, len(infos) > 0)
+	q := query2.Open(bytes.NewReader(buf), 512)
+	q.TraverseInfo(109, recFn, cond)
+	assert.True(t, len(results) > 0)
 
 }
 
@@ -334,12 +358,24 @@ func Test_SliceBasicType(t *testing.T) {
 		})
 	})
 
-	q := query.Open(bytes.NewReader(buf), 512)
+	q := query2.Open(bytes.NewReader(buf), 512)
 	_ = q
+
+	type CommonNodeWithErr struct {
+		*base.CommonNode
+		e error
+	}
+	withe := func(c *base.CommonNode, e error) CommonNodeWithErr {
+		return CommonNodeWithErr{
+			CommonNode: c,
+			e:          e,
+		}
+	}
+
 	assert.NotNil(t, buf)
 	assert.Equal(t, 2, q.Index().NumList().Num().Count())
-	assert.Equal(t, int32(345), q.Index().NumList().Num().At(0))
-	assert.Equal(t, int32(584), q.Index().NumList().Num().At(1))
+	assert.Equal(t, int32(345), withe(q.Index().NumList().Num().At(0)).Int32())
+	assert.Equal(t, int32(584), withe(q.Index().NumList().Num().At(1)).Int32())
 
 }
 
@@ -358,10 +394,28 @@ func Test_RootSetVersion(t *testing.T) {
 		})
 	})
 
-	q := query.Open(bytes.NewReader(buf), 512)
-	assert.Equal(t, int32(1), q.Version())
-	q.SetVersion(int32(2))
-	assert.Equal(t, int32(2), q.Version())
+	q := query2.Open(bytes.NewReader(buf), 512)
+	assert.Equal(t, int32(1), q.Version().Int32())
+	q.Version().SetInt32(2)
+	assert.Equal(t, int32(2), q.Version().Int32())
 	assert.NotNil(t, buf)
+}
 
+func TestSetInt64(t *testing.T) {
+	tests := DataRootFileTest()
+	for _, tt := range tests {
+		t.Run(tt.TestName, func(t *testing.T) {
+			buf := MakeRootFileFbs(tt.ID, string(tt.Name), tt.IndexAt)
+			file := File{}
+			_ = file
+			root := query2.Open(bytes.NewReader(buf), 512)
+			fq := root.Index().File()
+			assert.Equal(t, tt.ID, fq.Id().Uint64())
+			assert.Equal(t, tt.IndexAt, fq.IndexAt().Int64())
+			fq.IndexAt().SetInt64(tt.IndexAt + 2)
+			assert.Equal(t, tt.IndexAt+2, fq.IndexAt().Int64())
+			fq.Id().SetUint64(tt.ID + 2)
+			assert.Equal(t, tt.ID+2, fq.Id().Uint64())
+		})
+	}
 }
