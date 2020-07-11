@@ -18,8 +18,8 @@ var (
 // (field inedx, field type) -> Symbol_IdxToType
 var DUMMY_Symbol_Key bool = SetSymbolFields("Symbol", "Key", "[][]byte", Symbol_Key_0)
 
-func (node Symbol) Key() (result *CommonNode) {
-	result = NewCommonNode()
+func (node Symbol) Key() (result *CommonNodeList) {
+	result = NewCommonNodeList()
 	common := node.FieldAt(Symbol_Key_0)
 
 	result.Name = common.Name

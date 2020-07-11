@@ -123,14 +123,16 @@ func (node *CommonNode) FollowUnion(idx int) *CommonNode {
 	}
 
 	newName := UnionAlias[All_IdxToName[node.Name][idx]][idxOfAlias]
+	union := node.FieldAt(idx)
 
-	return &CommonNode{
-		NodeList:       &NodeList{Node: node.Node},
+	next := &CommonNode{
+		NodeList:       union.NodeList,
 		Name:           newName,
-		IdxToType:      All_IdxToType[newName],
-		IdxToTypeGroup: All_IdxToTypeGroup[newName],
+		IdxToType:      union.IdxToType,
+		IdxToTypeGroup: union.IdxToTypeGroup,
 	}
-
+	next.FetchIndex()
+	return next
 }
 
 func (node *CommonNode) SearchInfo(pos int, fn RecFn, condFn CondFn) {
@@ -219,8 +221,7 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 				break
 			}
 		}
-		node.Node.Pos = pos
-		result.Node = node.Node
+		result.Node = NewNode2(node.Node.Base, pos, true)
 
 		goto RESULT
 	}
@@ -416,6 +417,8 @@ NO_NODE:
 
 func Open(r io.Reader, cap int) (node *CommonNode) {
 
+	ApplyRequestNameFields()
+
 	b := NewBaseByIO(r, 512)
 
 	node = &CommonNode{}
@@ -425,6 +428,9 @@ func Open(r io.Reader, cap int) (node *CommonNode) {
 }
 
 func OpenByBuf(buf []byte) *CommonNode {
+
+	ApplyRequestNameFields()
+
 	node := &CommonNode{}
 	node.NodeList = &NodeList{}
 	node.Node = NewNode(NewBase(buf), int(flatbuffers.GetUOffsetT(buf)))

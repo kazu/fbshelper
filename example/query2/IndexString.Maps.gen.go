@@ -18,8 +18,8 @@ var (
 // (field inedx, field type) -> IndexString_IdxToType
 var DUMMY_IndexString_Maps bool = SetIndexStringFields("IndexString", "Maps", "[]InvertedMapString", IndexString_Maps_1)
 
-func (node IndexString) Maps() (result *CommonNode) {
-	result = NewCommonNode()
+func (node IndexString) Maps() (result *InvertedMapStringList) {
+	result = NewInvertedMapStringList()
 	common := node.FieldAt(IndexString_Maps_1)
 
 	result.Name = common.Name

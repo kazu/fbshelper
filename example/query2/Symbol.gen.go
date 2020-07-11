@@ -26,6 +26,9 @@ var Symbol_NameToIdx map[string]int = map[string]int{}
 var DUMMP_SymbolFalse bool = base.SetNameIsStrunct("Symbol", base.ToBool("False"))
 
 func SetSymbolFields(nName, fName, fType string, fNum int) bool {
+
+	base.RequestSettingNameFields(nName, fName, fType, fNum)
+
 	enumFtype, ok := base.NameToType[fType]
 	if ok {
 		SymbolSetIdxToType(fNum, enumFtype)

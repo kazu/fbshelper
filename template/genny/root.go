@@ -23,8 +23,14 @@ type Float64 = base.Float64
 
 type CommonNode = base.CommonNode
 
+type CommonNodeList = base.CommonNode
+
 func NewCommonNode() *base.CommonNode {
 	return &base.CommonNode{}
+}
+
+func NewCommonNodeList() *CommonNodeList {
+	return &CommonNodeList{}
 }
 
 func Open(r io.Reader, cap int) RootType {
@@ -52,6 +58,8 @@ func (node RootType) Next() RootType {
 	newBase := node.Base.NextBase(start)
 
 	root := RootType{}
+	root.CommonNode = NewCommonNode()
+	root.NodeList = &base.NodeList{}
 	root.Node = base.NewNode(newBase, int(flatbuffers.GetUOffsetT(newBase.R(0))))
 	return root
 }

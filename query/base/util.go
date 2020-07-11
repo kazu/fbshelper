@@ -131,6 +131,11 @@ func NameToTypeEnum(s string) int {
 	return -1
 }
 
+func HasNameType(s string) bool {
+	_, ok := NameToType[s]
+	return ok
+}
+
 func AtoiNoErr(i int, e error) int {
 	if e != nil {
 		Log(LOG_WARN, func() LogArgs {
@@ -184,7 +189,7 @@ func IsUnionName(s string) bool {
 }
 
 func ToBool(s string) bool {
-	return s == "true"
+	return s == "true" || s == "True"
 }
 
 var All_IdxToType map[string](map[int]int) = map[string](map[int]int){}
@@ -304,8 +309,46 @@ func GetTypeGroup(s string) (result int) {
 		result |= TypeToGroup[enum]
 		return
 	}
+	if IsStructName[s] {
+		result |= FieldTypeStruct
+	} else {
+		result |= FieldTypeTable
+	}
 
-	result |= FieldTypeTable
 	return
 
+}
+
+type ReqestNameField struct {
+	Names []string
+	fNum  int
+}
+
+var requestNameFields []ReqestNameField = []ReqestNameField{}
+
+func RequestSettingNameFields(nName, fName, fType string, fNum int) bool {
+
+	requestNameFields = append(requestNameFields,
+		ReqestNameField{
+			Names: []string{nName, fName, fType},
+			fNum:  fNum,
+		})
+	return true
+}
+
+func ApplyRequestNameFields() {
+
+	if len(requestNameFields) == 0 {
+		return
+	}
+
+	loncha.Delete(&requestNameFields, func(i int) bool {
+		req := requestNameFields[i]
+		grp := GetTypeGroup(req.Names[2])
+		idxs := All_IdxToTypeGroup[req.Names[0]]
+		idxs[req.fNum] = grp
+		return true
+	})
+
+	return
 }

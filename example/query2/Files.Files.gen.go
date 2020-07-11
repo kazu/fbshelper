@@ -18,8 +18,8 @@ var (
 // (field inedx, field type) -> Files_IdxToType
 var DUMMY_Files_Files bool = SetFilesFields("Files", "Files", "[]File", Files_Files_0)
 
-func (node Files) Files() (result *CommonNode) {
-	result = NewCommonNode()
+func (node Files) Files() (result *FileList) {
+	result = NewFileList()
 	common := node.FieldAt(Files_Files_0)
 
 	result.Name = common.Name

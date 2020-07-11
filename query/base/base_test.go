@@ -226,41 +226,49 @@ func Test_QueryFbs(t *testing.T) {
 			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
 		})
 	})
+	//root1 := query.OpenByBuf(buf2)
+	root2 := query2.OpenByBuf(buf2)
+	//assert.Equal(t, len(buf2), root1.Len())
+	assert.Equal(t, len(buf2), root2.Len())
+	z, e := root2.Index().IndexString().Maps().Last()
+	//z1 := root1.Index().IndexString().Maps().Last()
+	_, _ = z, e
 
-	root = query2.OpenByBuf(buf2)
-	//assert.Equal(t, len(buf2), root.Len())
-	z, e := root.Index().IndexString().Maps().Last()
-	_ = z
-	assert.NoError(t, e)
-	/*
-		assert.Equal(t, uint64(1), z.Value().FileId())
-		assert.Equal(t, int64(2), z.Value().Offset())
+	assert.Equal(t, uint64(1), z.Value().FileId().Uint64())
+	assert.Equal(t, int64(2), z.Value().Offset().Int64())
 
-			assert.Equal(t, int32(234), root.Index().IndexString().Size())
-			assert.Equal(t, 2, root.Index().IndexString().Maps().Count())
-	*/
+	//assert.Equal(t, int32(234), root1.Index().IndexString().Size())
+	assert.Equal(t, int32(234), root2.Index().IndexString().Size().Int32())
+
+	assert.Equal(t, 2, root2.Index().IndexString().Maps().Count())
+
 }
 
 func Test_QueryNext(t *testing.T) {
 	buf := MakeRootRecord(512)
 	buf2 := append(buf, MakeRootRecord(513)...)
 
-	root := query.Open(bytes.NewReader(buf2), base.DEFAULT_BUF_CAP)
+	root := query2.Open(bytes.NewReader(buf2), base.DEFAULT_BUF_CAP)
 	z := root.Index().InvertedMapNum()
 
 	record := z.Value()
+	rPos1 := record.Node.Pos
+
 	val := z.FieldAt(0)
 	assert.NotNil(t, val)
-	assert.Equal(t, int64(512), root.Index().InvertedMapNum().Key())
-	assert.Equal(t, int64(2), record.Offset())
-	assert.Equal(t, uint64(1), record.FileId())
+
+	assert.Equal(t, int64(512), root.Index().InvertedMapNum().Key().Int64())
+	assert.Equal(t, int64(2), record.Offset().Int64())
+	assert.Equal(t, rPos1, record.Node.Pos)
+	assert.Equal(t, uint64(1), record.FileId().Uint64())
+	assert.Equal(t, rPos1, record.Node.Pos)
 	assert.Equal(t, len(buf), root.Len())
 	assert.Equal(t, len(buf), root.Len())
 	assert.Equal(t, len(buf), z.Info().Pos+z.Info().Size)
 
 	root2 := root.Next()
 
-	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key())
+	assert.Equal(t, int64(513), root2.Index().InvertedMapNum().Key().Int64())
 	assert.False(t, root2.HasNext())
 	len1 := root.LenBuf()
 
@@ -279,7 +287,7 @@ func Test_RootIndexStringInfoPos(t *testing.T) {
 		})
 	})
 
-	q := query.Open(bytes.NewReader(buf), 512)
+	q := query2.Open(bytes.NewReader(buf), 512)
 
 	list := q.Index().IndexString().Maps()
 	n := list.Count()
@@ -287,15 +295,17 @@ func Test_RootIndexStringInfoPos(t *testing.T) {
 
 	infos := map[string]base.Info{}
 
-	info := list.First().ValueInfo(0)
+	lFirst, _ := list.First()
+	info := lFirst.ValueInfo(0)
 	infos["Maps[0].0"] = base.Info(info)
-	for i := 0; i < list.First().CountOfField(); i++ {
-		tmpInfo := list.First().ValueInfo(i)
+
+	for i := 0; i < lFirst.CountOfField(); i++ {
+		tmpInfo := lFirst.ValueInfo(i)
 		infos[fmt.Sprintf("Maps[0].0.%d", i)] = base.Info(tmpInfo)
 
 	}
-
-	info2 := list.Last().Value().Info()
+	lLast, _ := list.Last()
+	info2 := lLast.Value().Info()
 	infos["Maps[1].1"] = base.Info(info2)
 
 	assert.Equal(t, true, info.Pos < info2.Pos)

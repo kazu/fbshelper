@@ -18,8 +18,8 @@ var (
 // (field inedx, field type) -> Symbols_IdxToType
 var DUMMY_Symbols_Symbols bool = SetSymbolsFields("Symbols", "Symbols", "[]Symbol", Symbols_Symbols_0)
 
-func (node Symbols) Symbols() (result *CommonNode) {
-	result = NewCommonNode()
+func (node Symbols) Symbols() (result *SymbolList) {
+	result = NewSymbolList()
 	common := node.FieldAt(Symbols_Symbols_0)
 
 	result.Name = common.Name

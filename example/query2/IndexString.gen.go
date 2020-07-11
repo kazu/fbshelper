@@ -26,6 +26,9 @@ var IndexString_NameToIdx map[string]int = map[string]int{}
 var DUMMP_IndexStringFalse bool = base.SetNameIsStrunct("IndexString", base.ToBool("False"))
 
 func SetIndexStringFields(nName, fName, fType string, fNum int) bool {
+
+	base.RequestSettingNameFields(nName, fName, fType, fNum)
+
 	enumFtype, ok := base.NameToType[fType]
 	if ok {
 		IndexStringSetIdxToType(fNum, enumFtype)

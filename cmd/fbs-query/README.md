@@ -114,3 +114,4 @@ fbs.Files().First().Unmarshal(&f)
       - [ ] Set() table/struct/union 
 - [ ] marshal
 - [ ] unmarshal nested Table/Struct
+- [ ] no generate list without using as list

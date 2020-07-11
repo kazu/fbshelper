@@ -88,10 +88,18 @@ func MakeGenGennies(parser *fbsparser.Parser, dir string, opt GennyOpt) (result 
 		}
 		iPath = filepath.Join(tdir, "node.go")
 		oPath = filepath.Join(odir, info.Name+".gen.go")
-		fmt.Fprintf(b, GennyLineTemplate, iPath, oPath)
 
+		fmt.Fprintf(b, GennyLineTemplate, iPath, oPath)
 		fmt.Fprintf(b, ` "NodeName=%s`, info.Name)
 		fmt.Fprintf(b, ` IsStruct=%v"`, IsStruct(info.Name))
+		fmt.Fprintf(b, "\n")
+
+		iPath = filepath.Join(tdir, "list.go")
+		oPath = filepath.Join(odir, info.Name+"List.gen.go")
+
+		fmt.Fprintf(b, GennyLineTemplate, iPath, oPath)
+		fmt.Fprintf(b, ` "NodeName=%s`, info.Name)
+		fmt.Fprintf(b, ` ListType=%s"`, info.Name+"List")
 		fmt.Fprintf(b, "\n")
 
 		iPath = filepath.Join(tdir, "field.go")
@@ -102,8 +110,10 @@ func MakeGenGennies(parser *fbsparser.Parser, dir string, opt GennyOpt) (result 
 			fmt.Fprintf(b, " FieldName=%s", field.Name)
 			fmt.Fprintf(b, " FieldType=%s", field.Type)
 
-			if _, ok := base.NameToType[field.Type]; ok || IsSlice(field.Type) {
+			if _, ok := base.NameToType[field.Type]; ok || IsBasicTypeSlice(field.Type) {
 				fmt.Fprintf(b, " ResultType=%s", "CommonNode")
+			} else if IsSlice(field.Type) {
+				fmt.Fprintf(b, " ResultType=%s", ConvResultType(field.Type))
 			} else {
 				fmt.Fprintf(b, " ResultType=%s", field.Type)
 			}
@@ -111,6 +121,7 @@ func MakeGenGennies(parser *fbsparser.Parser, dir string, opt GennyOpt) (result 
 			fmt.Fprintf(b, ` IsStruct=%v"`, IsStruct(field.Type))
 			fmt.Fprintf(b, "\n")
 		}
+
 	}
 
 	for _, union := range parser.Fbs.Unions {
@@ -135,6 +146,17 @@ func MakeGenGennies(parser *fbsparser.Parser, dir string, opt GennyOpt) (result 
 
 	return b.String(), e
 }
+func ConvResultType(o string) string {
+	s := strings.ReplaceAll(o, "[]byte", "CommonNode")
+	if len(s) < 2 {
+		return s
+	}
+	if s[:2] == "[]" {
+		s = s[2:] + "List"
+	}
+	return s
+}
+
 func RunGenerate(dir, s string, isNotDryRun bool) error {
 
 	os.MkdirAll(dir, os.ModePerm)
@@ -332,6 +354,10 @@ func IsSlice(s string) bool {
 		return true
 	}
 	return false
+}
+
+func IsBasicTypeSlice(s string) bool {
+	return IsSlice(s) && base.HasNameType(s[2:])
 }
 
 func IsRoot(s string) bool {

@@ -26,6 +26,9 @@ var File_NameToIdx map[string]int = map[string]int{}
 var DUMMP_FileFalse bool = base.SetNameIsStrunct("File", base.ToBool("False"))
 
 func SetFileFields(nName, fName, fType string, fNum int) bool {
+
+	base.RequestSettingNameFields(nName, fName, fType, fNum)
+
 	enumFtype, ok := base.NameToType[fType]
 	if ok {
 		FileSetIdxToType(fNum, enumFtype)

@@ -26,6 +26,9 @@ var Record_NameToIdx map[string]int = map[string]int{}
 var DUMMP_RecordTrue bool = base.SetNameIsStrunct("Record", base.ToBool("True"))
 
 func SetRecordFields(nName, fName, fType string, fNum int) bool {
+
+	base.RequestSettingNameFields(nName, fName, fType, fNum)
+
 	enumFtype, ok := base.NameToType[fType]
 	if ok {
 		RecordSetIdxToType(fNum, enumFtype)
