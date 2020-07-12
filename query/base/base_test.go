@@ -33,6 +33,27 @@ func MakeRootFileFbs(id uint64, name string, index_at int64) []byte {
 	return b.FinishedBytes()
 }
 
+func MakeRootFileFbsNoVersion(id uint64, name string, index_at int64) []byte {
+
+	b := flatbuffers.NewBuilder(130)
+	fname := b.CreateString(name)
+	zz := b.Bytes[120:]
+	_ = zz
+
+	vfs_schema.FileStart(b)
+	vfs_schema.FileAddId(b, id)
+	vfs_schema.FileAddName(b, fname)
+	vfs_schema.FileAddIndexAt(b, index_at)
+	fbFile := vfs_schema.FileEnd(b)
+
+	vfs_schema.RootStart(b)
+	//vfs_schema.RootAddVersion(b, 1)
+	vfs_schema.RootAddIndexType(b, vfs_schema.IndexFile)
+	vfs_schema.RootAddIndex(b, fbFile)
+	b.Finish(vfs_schema.RootEnd(b))
+	return b.FinishedBytes()
+}
+
 func MakeRootNumList(fn func(b *flatbuffers.Builder) flatbuffers.UOffsetT) []byte {
 	b := flatbuffers.NewBuilder(0)
 	numList := fn(b)
@@ -418,4 +439,14 @@ func TestSetInt64(t *testing.T) {
 			assert.Equal(t, tt.ID+2, fq.Id().Uint64())
 		})
 	}
+}
+
+func Test_MakeRootFileNoVersion(t *testing.T) {
+
+	buf := MakeRootFileFbsNoVersion(123, "aaa", 987)
+
+	root := query2.OpenByBuf(buf)
+	assert.Equal(t, int64(0), root.Version().Int64())
+	assert.Equal(t, []byte("aaa"), root.Index().File().Name().Bytes())
+	assert.Equal(t, int64(123), root.Index().File().Id().Int64())
 }

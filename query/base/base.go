@@ -524,53 +524,104 @@ type FieldsDefile struct {
 }
 
 func (node *Node) Byte() byte {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetByte(node.R(node.Pos))
 }
 
 func (node *Node) Bool() bool {
+	if node == nil {
+		return false
+	}
+
 	return flatbuffers.GetBool(node.R(node.Pos))
 }
 
 func (node *Node) Uint8() uint8 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetUint8(node.R(node.Pos))
 }
 
 func (node *Node) Uint16() uint16 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetUint16(node.R(node.Pos))
 }
 
 func (node *Node) Uint32() uint32 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetUint32(node.R(node.Pos))
 }
 
 func (node *Node) Uint64() uint64 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetUint64(node.R(node.Pos))
 }
 
 func (node *Node) Int8() int8 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetInt8(node.R(node.Pos))
 }
 
 func (node *Node) Int16() int16 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetInt16(node.R(node.Pos))
 }
 
 func (node *Node) Int32() int32 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetInt32(node.R(node.Pos))
 }
 
 func (node *Node) Int64() int64 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetInt64(node.R(node.Pos))
 }
 
 func (node *Node) Float32() float32 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetFloat32(node.R(node.Pos))
 }
 
 func (node *Node) Float64() float64 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetFloat64(node.R(node.Pos))
 }
 
 func (node *Node) Bytes() []byte {
+	if node == nil {
+		return nil
+	}
 	return node.R(node.Pos)[:node.Size]
 }
