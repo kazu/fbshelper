@@ -40,6 +40,7 @@ func NewCommonNodeList() *CommonNodeList {
 func Open(r io.Reader, cap int) Root {
 	result := Root{CommonNode: base.Open(r, cap)}
 	result.CommonNode.Name = "Root"
+	base.SetRootName(result.CommonNode.Name)
 	result.FetchIndex()
 	return result
 	//return Root{CommonNode: base.Open(r, cap)}
@@ -48,8 +49,19 @@ func Open(r io.Reader, cap int) Root {
 func OpenByBuf(buf []byte) Root {
 	result := Root{CommonNode: base.OpenByBuf(buf)}
 	result.CommonNode.Name = "Root"
+	base.SetRootName(result.CommonNode.Name)
 	result.FetchIndex()
 	return result
+}
+
+func toRoot(b *base.Base) Root {
+	common := &CommonNode{}
+	common.NodeList = &base.NodeList{}
+	common.Node = base.NewNode(b, int(flatbuffers.GetUOffsetT(b.R(0))))
+	root := Root{CommonNode: common}
+	root.CommonNode.Name = "Root"
+	root.FetchIndex()
+	return root
 }
 
 func (node Root) Next() Root {
@@ -66,6 +78,10 @@ func (node Root) Next() Root {
 	root.NodeList = &base.NodeList{}
 	root.Node = base.NewNode(newBase, int(flatbuffers.GetUOffsetT(newBase.R(0))))
 	return root
+}
+
+func (node Root) InsertBuf(pos, size int) {
+	node.CommonNode.InsertBuf(pos, size)
 }
 
 func (node Root) HasNext() bool {

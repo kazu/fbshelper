@@ -92,9 +92,14 @@ func Log(l LogLevel, fn LogFn) {
 // read from r and store bytes.
 // Diffs has jounals for writing
 type Base struct {
-	r     io.Reader
-	bytes []byte
-	Diffs []Diff
+	r       io.Reader
+	bytes   []byte
+	Diffs   []Diff
+	dirties []Dirty
+}
+
+type Dirty struct {
+	Pos int
 }
 
 // Diff is journal for create/update
@@ -249,7 +254,8 @@ func (b *Base) U(off, size int) []byte {
 
 	if cap(b.bytes[off:]) > size {
 		diffafter := Diff{Offset: off + size, bytes: b.bytes[off+size:]}
-		b.bytes = b.bytes[:off+size]
+		// b.bytes = b.bytes[:off+size] bug ?
+		b.bytes = b.bytes[:off]
 		b.Diffs = append(b.Diffs, diffafter)
 	}
 
@@ -624,4 +630,31 @@ func (node *Node) Bytes() []byte {
 		return nil
 	}
 	return node.R(node.Pos)[:node.Size]
+}
+
+func (b *Base) insertBuf(pos, size int) *Base {
+
+	newBase := &Base{
+		r:     b.r,
+		bytes: b.bytes,
+	}
+
+	newBase.Diffs = make([]Diff, len(b.Diffs), cap(b.Diffs))
+
+	for _, diff := range b.Diffs {
+		if diff.Offset >= pos {
+			diff.Offset += size
+		}
+		newBase.Diffs = append(newBase.Diffs, diff)
+	}
+
+	if len(newBase.bytes) > pos {
+		newBase.Diffs = append(newBase.Diffs,
+			Diff{Offset: pos + size, bytes: newBase.bytes[pos:]})
+		newBase.bytes = newBase.bytes[:pos]
+	}
+	newBase.Diffs = append(newBase.Diffs,
+		Diff{Offset: pos, bytes: make([]byte, size)})
+
+	return newBase
 }

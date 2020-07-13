@@ -111,3 +111,16 @@ func (node Files) ValueInfo(i int) base.ValueInfo {
 func (node Files) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
+
+func (node Files) Root() Root {
+	return toRoot(node.Base)
+}
+
+type FilesWithErr struct {
+	*Files
+	Err error
+}
+
+func FilesSingle(node *Files, e error) FilesWithErr {
+	return FilesWithErr{Files: node, Err: e}
+}

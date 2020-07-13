@@ -3,7 +3,11 @@ package base_test
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
+	"strings"
 	"testing"
+	"unsafe"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	query2 "github.com/kazu/fbshelper/example/query2"
@@ -334,6 +338,7 @@ func Test_TraverseInfo(t *testing.T) {
 
 	type Result struct {
 		name   string
+		pNode  *base.CommonNode
 		idx    int
 		parent int
 		child  int
@@ -347,21 +352,169 @@ func Test_TraverseInfo(t *testing.T) {
 		results = append(results,
 			Result{
 				name:   node.Name,
+				pNode:  node,
 				idx:    idx,
 				parent: parent,
 				child:  child,
 				size:   size,
 			})
 	}
-	cond := func(pos, parent, child int) bool {
+	var pos int
+	cond := func(parent, child, size int) bool {
 		//return parent <= pos && pos <= child
 		return true
 	}
+	q := query2.Open(bytes.NewReader(buf), 512)
+	pos = q.Index().IndexString().Size().Node.Pos
+
+	q.TraverseInfo(pos, recFn, cond)
+	assert.True(t, len(results) > 0)
+	for _, result := range results {
+		fmt.Printf("%+v\n", result)
+	}
+}
+
+func dump(tree *base.Tree) string {
+	if tree.Parent != nil {
+		return fmt.Sprintf("{Type:\t%s,\tPos:\t%d\tParentPos:\t%d}\n",
+			tree.Node.Name,
+			tree.Pos(),
+			tree.Parent.Pos(),
+		)
+	}
+	return fmt.Sprintf("{Type:\t%s,\tPos:\t%d}\n",
+		tree.Node.Name,
+		tree.Pos(),
+	)
+}
+func dumpTrees(trees []*base.Tree) string {
+
+	var b strings.Builder
+	for _, tree := range trees {
+		fmt.Fprint(&b, dump(tree))
+	}
+	return b.String()
+}
+
+func dumpAll(i int, tree *base.Tree, w io.Writer) {
+	/*if i > 10 {
+		return
+	}*/
+	for j := 0; j < i*2; j++ {
+		io.WriteString(w, "\t")
+	}
+	fmt.Fprintf(w, "%s", dump(tree))
+	for _, child := range tree.Childs {
+		dumpAll(i+1, child, w)
+	}
+}
+
+func Test_AllTree(t *testing.T) {
+	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+		})
+	})
+
+	type Tree = base.Tree
 
 	q := query2.Open(bytes.NewReader(buf), 512)
-	q.TraverseInfo(109, recFn, cond)
-	assert.True(t, len(results) > 0)
+	tree := q.AllTree()
 
+	//var b strings.Builder
+
+	dumpAll(0, tree, os.Stdout)
+	assert.Equal(t, 3, len(tree.Childs))
+
+}
+
+func Test_FindTree(t *testing.T) {
+	type Tree = base.Tree
+
+	checkFn := func(pos int, tree *Tree) bool {
+		return tree.Parent != nil && tree.Parent.Pos() <= pos && pos <= tree.Pos()
+	}
+
+	tests := []struct {
+		Pos         int
+		ResultLen   int
+		ResultCheck func(int, *Tree) bool
+	}{
+		{31, 3, checkFn},
+		{40, 1, checkFn},
+		{44, 3, checkFn},
+		{48, 2, checkFn},
+		{50, 1, checkFn},
+		{60, 3, checkFn},
+		{70, 2, checkFn},
+		{76, 4, checkFn},
+		{80, 8, checkFn},
+		{88, 6, checkFn},
+		{126, 1, checkFn},
+	}
+
+	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+		})
+	})
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("test pos=%d", tt.Pos), func(t *testing.T) {
+			q := query2.Open(bytes.NewReader(buf), 512)
+			results := make([]*Tree, 0)
+			resultCh := q.FindTree(func(t *Tree) bool {
+				return t.Parent != nil && t.Parent.Pos() <= tt.Pos && tt.Pos <= t.Pos()
+			})
+			for {
+				t, ok := <-resultCh
+				if !ok {
+					break
+				}
+				results = append(results, t)
+				// debug only
+				//fmt.Print(dump(t))
+			}
+			assert.Equal(t, tt.ResultLen, len(results), fmt.Sprintf("pos=%d results=%s", tt.Pos, dumpTrees(results)))
+			for _, tree := range results {
+				assert.True(t, tt.ResultCheck(tt.Pos, tree))
+			}
+		})
+	}
+
+}
+
+func Test_DirectSturct(t *testing.T) {
+
+	type FileTest struct {
+		FileId        uint64
+		Offset        int64
+		Size          int64
+		OffsetOfValue int32
+		ValueSize     int32
+	}
+	a := FileTest{
+		FileId:        1,
+		Offset:        2,
+		Size:          3,
+		OffsetOfValue: 4,
+		ValueSize:     5,
+	}
+
+	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+		})
+	})
+	root := query2.OpenByBuf(buf)
+
+	_ = buf
+	//fmt.Printf("top=0x%p fileId=0x%p ValueSize=0x%p \n", &a, &(a.FileId), &(a.ValueSize))
+	b := (*FileTest)(unsafe.Pointer(&buf[80]))
+	elm, _ := root.Index().IndexString().Maps().Last()
+	diff := int(unsafe.Offsetof(a.ValueSize)) //int(unsafe.Pointer(&a.ValueSize)) - int(unsafe.Pointer(&a.FileId))
+	assert.Equal(t, elm.Value().ValueSize().Node.Pos-elm.Value().FileId().Node.Pos, diff)
+	assert.Equal(t, elm.Value().FileId().Uint64(), b.FileId)
 }
 
 func Test_SliceBasicType(t *testing.T) {
@@ -449,4 +602,55 @@ func Test_MakeRootFileNoVersion(t *testing.T) {
 	assert.Equal(t, int64(0), root.Version().Int64())
 	assert.Equal(t, []byte("aaa"), root.Index().File().Name().Bytes())
 	assert.Equal(t, int64(123), root.Index().File().Id().Int64())
+}
+
+func Test_InsertBuf(t *testing.T) {
+	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+		})
+	})
+
+	//root := query2.OpenByBuf(buf)
+	root := query2.Open(bytes.NewReader(buf), 512)
+	root_old := root
+	last := query2.InvertedMapStringSingle(root.Index().IndexString().Maps().Last())
+	olastPos := last.Key().Node.Pos
+	oRecordPos := last.Value().Node.Pos
+
+	first := query2.InvertedMapStringSingle(root.Index().IndexString().Maps().First())
+	oLen := root.Len()
+	first.InsertBuf(126, 8)
+	root = first.Root()
+	last = query2.InvertedMapStringSingle(root.Index().IndexString().Maps().Last())
+
+	assert.Equal(t, oLen, root.Len()-8)
+	assert.Equal(t, olastPos, last.Key().Node.Pos-8)
+	assert.Equal(t, oRecordPos, last.Value().Node.Pos-8)
+
+	check := func(t *testing.T, args ...*query2.Root) {
+		size := len(args)
+		results := make([][]interface{}, 4)
+		for i := range results {
+			results[i] = make([]interface{}, size)
+		}
+
+		for i, root := range args {
+			results[0][i] = root.Version().Int32()
+			results[1][i] = root.Index().IndexString().Size().Int32()
+			results[2][i] =
+				query2.InvertedMapStringSingle(
+					root.Index().IndexString().Maps().First(),
+				).Value().FileId().Uint64()
+			results[3][i] =
+				query2.InvertedMapStringSingle(
+					root.Index().IndexString().Maps().Last(),
+				).Value().FileId().Uint64()
+		}
+		for i := range results {
+			assert.Equal(t, results[i][0], results[i][1], i)
+		}
+	}
+
+	check(t, &root_old, &root)
 }

@@ -1,10 +1,13 @@
 package base
 
 import (
+	"fmt"
 	"io"
+	"os"
 	"reflect"
 
 	flatbuffers "github.com/google/flatbuffers/go"
+	"github.com/kazu/loncha"
 	//. "github.com/kazu/fbshelper/query/error"
 )
 
@@ -209,7 +212,23 @@ func (node *CommonNode) CountOfField() int {
 	return len(node.IdxToType)
 }
 
+func (node *CommonNode) clearValueInfoOnDirty() {
+	err := loncha.Delete(&node.dirties, func(i int) bool {
+		return (node.dirties[i].Pos == node.Node.Pos) ||
+			(node.NodeList.ValueInfo.Pos > 0 && node.dirties[i].Pos == node.NodeList.ValueInfo.Pos)
+	})
+	if err != nil {
+		return
+	}
+	for i := range node.ValueInfos {
+		node.ValueInfos[i].Pos = 0
+	}
+}
+
 func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
+
+	node.clearValueInfoOnDirty()
+
 	result := &NodeList{}
 	grp := node.IdxToTypeGroup[idx]
 
@@ -708,7 +727,12 @@ func (node *CommonNode) TraverseInfo(pos int, fn TraverseRec, condFn TraverseCon
 func (node *CommonNode) TraverseInfoSlice(pos int, fn TraverseRec, condFn TraverseCond) {
 
 	var v interface{}
-	for _, cNode := range node.All() {
+	for i, cNode := range node.All() {
+
+		if condFn(node.NodeList.ValueInfo.Pos, cNode.Node.Pos, -1) {
+			fn(node, i, node.NodeList.ValueInfo.Pos, cNode.Node.Pos, -1)
+		}
+
 		v = cNode
 		if vv, ok := v.(Searcher); ok {
 			vv.TraverseInfo(pos, fn, condFn)
@@ -735,4 +759,233 @@ NO_NODE:
 
 func (node *CommonNode) Count() int {
 	return int(node.NodeList.ValueInfo.VLen)
+}
+
+type Tree struct {
+	Node   *CommonNode
+	Parent *Tree
+	Childs []*Tree
+}
+
+func (t Tree) Pos() int {
+
+	if t.Node.NodeList.ValueInfo.Pos > 0 {
+		return t.Node.NodeList.ValueInfo.Pos
+	}
+	return t.Node.Node.Pos
+}
+
+func (node *CommonNode) AllTree() *Tree {
+
+	type Result struct {
+		name   string
+		pNode  *CommonNode
+		idx    int
+		parent int
+		child  int
+		size   int
+	}
+
+	results := []Result{}
+
+	recFn := func(node *CommonNode, idx, parent, child, size int) {
+		results = append(results,
+			Result{
+				name:   node.Name,
+				pNode:  node,
+				idx:    idx,
+				parent: parent,
+				child:  child,
+				size:   size,
+			})
+	}
+
+	cond := func(parent, child, size int) bool { return true }
+	node.TraverseInfo(0, recFn, cond)
+
+	trees := make([]*Tree, 0, len(results)+1)
+	trees = append(trees, &Tree{Node: node})
+
+	for _, result := range results {
+		tree := &Tree{}
+		if result.pNode.NodeList.ValueInfo.Pos > 0 {
+			tree.Node, _ = result.pNode.At(result.idx)
+		} else {
+			tree.Node = result.pNode.FieldAt(result.idx)
+		}
+		trees = append(trees, tree)
+	}
+
+	for i := range results {
+		j, e := loncha.IndexOf(trees, func(idx int) bool {
+			if trees[idx].Node.NodeList.ValueInfo.Pos > 0 {
+				return trees[idx].Node.NodeList.ValueInfo.Pos == results[i].parent
+			}
+			return trees[idx].Node.Node.Pos == results[i].parent
+		})
+		if e != nil {
+			fmt.Fprintf(os.Stderr, "NOT FOUND parent=%d\n", results[i].parent)
+			continue
+		}
+		trees[j].Childs = append(trees[j].Childs, trees[i+1])
+		trees[i+1].Parent = trees[j]
+	}
+
+	return trees[0]
+
+}
+
+type TreeCond func(*Tree) bool
+
+func findtree(tree *Tree, cond TreeCond, out chan *Tree) {
+
+	for _, child := range tree.Childs {
+		if cond(child) {
+			out <- child
+		}
+		findtree(child, cond, out)
+	}
+
+}
+
+func (node *CommonNode) FindTree(cond TreeCond) <-chan *Tree {
+
+	ch := make(chan *Tree, 10)
+	tree := node.AllTree()
+
+	go func() {
+		findtree(tree, cond, ch)
+		close(ch)
+	}()
+
+	return ch
+
+}
+
+func (node *CommonNode) root() *CommonNode {
+	common := &CommonNode{}
+	common.NodeList = &NodeList{}
+	common.Node = NewNode(node.Base, int(flatbuffers.GetUOffsetT(node.R(0))))
+	common.Name = RootName
+	common.FetchIndex()
+	return common
+}
+
+func (node *CommonNode) InsertBuf(pos, size int) {
+
+	root := node.root()
+
+	ch := root.FindTree(func(t *Tree) bool {
+		return t.Parent != nil && t.Parent.Pos() <= pos && pos <= t.Pos()
+	})
+	newBase := node.Base.insertBuf(pos, size)
+
+	for {
+		cTree, ok := <-ch
+		if !ok {
+			break
+		}
+		tree := cTree.Parent
+		//oldBase := tree.Node.Base
+		tree.Node.Base = newBase
+		idx, err := loncha.IndexOf(tree.Childs, func(i int) bool {
+			return tree.Childs[i] == cTree
+		})
+		if err != nil {
+			Log(LOG_ERROR, func() LogArgs {
+				return F("invalid Tree e=%s\n", err.Error())
+			})
+			continue
+		}
+		tree.Node.movePos(idx, pos, size)
+		// fIXME
+		// oldBase.Diffs = newBase.Diffs
+		// oldBase.bytes = newBase.bytes
+		// oldBase.dirties = newBase.dirties
+		// tree.Node.Base = oldBase
+		// node.Base = oldBase
+	}
+	if node.IsList() {
+		if node.NodeList.ValueInfo.Pos <= pos {
+			node.NodeList.ValueInfo.Pos += size
+		}
+	} else if node.Node.Pos <= pos {
+		node.Node.Pos += size
+	}
+	node.Base = newBase
+	return
+}
+
+func (node *CommonNode) movePosOnList(i, pos, size int) {
+
+	if !node.IsList() {
+		Log(LOG_ERROR, func() LogArgs {
+			return F("movePosOnList: Invalid Node=%s idx=%d\n", node.Name, i)
+		})
+		return
+	}
+
+	if i >= int(node.NodeList.ValueInfo.VLen) || i < 0 {
+		Log(LOG_ERROR, func() LogArgs {
+			return F("movePosOnList: Invalid Index Node=%s idx=%d\n", node.Name, i)
+		})
+		return
+	}
+
+	tName := node.Name[2:]
+	grp := GetTypeGroup(tName)
+	ptr := int(node.NodeList.ValueInfo.Pos) + i*4
+
+	if IsFieldBasicType(grp) {
+		Log(LOG_ERROR, func() LogArgs {
+			return F("movePosOnList: BasicType must not be moved Node=%s idx=%d\n", node.Name, i)
+		})
+		return
+	} else {
+		nextOff := flatbuffers.GetUint32(node.R(ptr))
+		nextOff += uint32(size)
+		flatbuffers.WriteUint32(node.U(ptr, SizeOfuint32), nextOff)
+	}
+
+	node.Base.dirties = append(node.Base.dirties, Dirty{Pos: node.NodeList.ValueInfo.Pos})
+
+}
+
+func (node *CommonNode) movePos(idx, pos, size int) {
+	if node.IsList() {
+		node.movePosOnList(idx, pos, size)
+		return
+	}
+
+	if IsStructName[node.Name] {
+		// FIXME: checking struct
+		return
+	}
+	grp := node.IdxToTypeGroup[idx]
+
+	if IsFieldStruct(grp) || IsFieldBasicType(grp) {
+		// FIXME: 即値なのでなにもできない?しない
+	} else if IsFieldUnion(grp) || IsFieldTable(grp) || IsFieldSlice(grp) || IsFieldBytes(grp) {
+		// FIXME: VTable[idx] is 0 pattern
+		pos := node.Node.Pos + int(node.VTable[idx])
+
+		nextOff := flatbuffers.GetUint32(node.R(pos))
+		nextOff += uint32(size)
+		flatbuffers.WriteUint32(node.U(pos, SizeOfuint32), nextOff)
+		node.ValueInfos[idx].Pos += size
+	} else {
+		Log(LOG_ERROR, func() LogArgs {
+			return F("MovePos: Invalid Node=%s idx=%d\n", node.Name, idx)
+		})
+	}
+	node.Base.dirties = append(node.Base.dirties, Dirty{Pos: node.Node.Pos})
+
+}
+
+func (node *CommonNode) IsRoot() bool {
+
+	if RootName == node.Name {
+		return true
+	}
+	return false
 }

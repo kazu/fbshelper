@@ -111,3 +111,16 @@ func (node NumList) ValueInfo(i int) base.ValueInfo {
 func (node NumList) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
+
+func (node NumList) Root() Root {
+	return toRoot(node.Base)
+}
+
+type NumListWithErr struct {
+	*NumList
+	Err error
+}
+
+func NumListSingle(node *NumList, e error) NumListWithErr {
+	return NumListWithErr{NumList: node, Err: e}
+}

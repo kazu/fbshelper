@@ -111,3 +111,16 @@ func (node Record) ValueInfo(i int) base.ValueInfo {
 func (node Record) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
+
+func (node Record) Root() Root {
+	return toRoot(node.Base)
+}
+
+type RecordWithErr struct {
+	*Record
+	Err error
+}
+
+func RecordSingle(node *Record, e error) RecordWithErr {
+	return RecordWithErr{Record: node, Err: e}
+}

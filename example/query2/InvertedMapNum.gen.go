@@ -111,3 +111,16 @@ func (node InvertedMapNum) ValueInfo(i int) base.ValueInfo {
 func (node InvertedMapNum) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
+
+func (node InvertedMapNum) Root() Root {
+	return toRoot(node.Base)
+}
+
+type InvertedMapNumWithErr struct {
+	*InvertedMapNum
+	Err error
+}
+
+func InvertedMapNumSingle(node *InvertedMapNum, e error) InvertedMapNumWithErr {
+	return InvertedMapNumWithErr{InvertedMapNum: node, Err: e}
+}

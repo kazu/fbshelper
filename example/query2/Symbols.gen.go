@@ -111,3 +111,16 @@ func (node Symbols) ValueInfo(i int) base.ValueInfo {
 func (node Symbols) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
+
+func (node Symbols) Root() Root {
+	return toRoot(node.Base)
+}
+
+type SymbolsWithErr struct {
+	*Symbols
+	Err error
+}
+
+func SymbolsSingle(node *Symbols, e error) SymbolsWithErr {
+	return SymbolsWithErr{Symbols: node, Err: e}
+}

@@ -111,3 +111,16 @@ func (node IndexString) ValueInfo(i int) base.ValueInfo {
 func (node IndexString) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
+
+func (node IndexString) Root() Root {
+	return toRoot(node.Base)
+}
+
+type IndexStringWithErr struct {
+	*IndexString
+	Err error
+}
+
+func IndexStringSingle(node *IndexString, e error) IndexStringWithErr {
+	return IndexStringWithErr{IndexString: node, Err: e}
+}

@@ -5,9 +5,8 @@ import (
 	_ "github.com/kazu/fbshelper/query/log"
 )
 
-
 /*
-    must call 1 times per Table/struct(NodeName)
+   must call 1 times per Table/struct(NodeName)
 */
 
 type NodeName struct {
@@ -23,13 +22,12 @@ var NodeName_IdxToTypeGroup map[int]int = map[int]int{}
 var NodeName_IdxToName map[int]string = map[int]string{}
 var NodeName_NameToIdx map[string]int = map[string]int{}
 
-
 var DUMMP_NodeNameIsStruct bool = base.SetNameIsStrunct("NodeName", base.ToBool("IsStruct"))
 
 func SetNodeNameFields(nName, fName, fType string, fNum int) bool {
-	
+
 	base.RequestSettingNameFields(nName, fName, fType, fNum)
-	
+
 	enumFtype, ok := base.NameToType[fType]
 	if ok {
 		NodeNameSetIdxToType(fNum, enumFtype)
@@ -76,19 +74,18 @@ func (node NodeName) commonNode() *base.CommonNode {
 		base.Log(base.LOG_WARN, func() base.LogArgs {
 			return base.F("CommonNode not found NodeName")
 		})
-	}else if len(node.CommonNode.Name) == 0 || len(node.CommonNode.IdxToType) == 0 {
+	} else if len(node.CommonNode.Name) == 0 || len(node.CommonNode.IdxToType) == 0 {
 		node.CommonNode.Name = "NodeName"
 		node.CommonNode.IdxToType = NodeName_IdxToType
 		node.CommonNode.IdxToTypeGroup = NodeName_IdxToTypeGroup
 	}
-	return node.CommonNode 
+	return node.CommonNode
 }
 func (node NodeName) SearchInfo(pos int, fn base.RecFn, condFn base.CondFn) {
 
 	node.commonNode().SearchInfo(pos, fn, condFn)
-	
-}
 
+}
 
 func (node NodeName) Info() (info base.Info) {
 
@@ -110,9 +107,19 @@ func (node NodeName) ValueInfo(i int) base.ValueInfo {
 	return node.commonNode().ValueInfo(i)
 }
 
-
-
-func (node NodeName) FieldAt(idx int) (*base.CommonNode) {
+func (node NodeName) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
 
+func (node NodeName) Root() RootType {
+	return toRoot(node.Base)
+}
+
+type NodeNameWithErr struct {
+	*NodeName
+	Err error
+}
+
+func NodeNameSingle(node *NodeName, e error) NodeNameWithErr {
+	return NodeNameWithErr{NodeName: node, Err: e}
+}
