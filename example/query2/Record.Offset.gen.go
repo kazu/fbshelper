@@ -19,7 +19,7 @@ var (
 var DUMMY_Record_Offset bool = SetRecordFields("Record", "Offset", "Int64", Record_Offset_1)
 
 func (node Record) Offset() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(Record_Offset_1)
 
 	result.Name = common.Name

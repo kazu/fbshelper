@@ -14,7 +14,7 @@ type IndexNum struct {
 	*base.CommonNode
 }
 
-func NewIndexNum() *IndexNum {
+func emptyIndexNum() *IndexNum {
 	return &IndexNum{CommonNode: &base.CommonNode{}}
 }
 

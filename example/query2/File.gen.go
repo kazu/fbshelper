@@ -14,7 +14,7 @@ type File struct {
 	*base.CommonNode
 }
 
-func NewFile() *File {
+func emptyFile() *File {
 	return &File{CommonNode: &base.CommonNode{}}
 }
 

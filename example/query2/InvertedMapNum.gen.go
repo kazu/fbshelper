@@ -14,7 +14,7 @@ type InvertedMapNum struct {
 	*base.CommonNode
 }
 
-func NewInvertedMapNum() *InvertedMapNum {
+func emptyInvertedMapNum() *InvertedMapNum {
 	return &InvertedMapNum{CommonNode: &base.CommonNode{}}
 }
 

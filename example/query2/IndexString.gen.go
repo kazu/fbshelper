@@ -14,7 +14,7 @@ type IndexString struct {
 	*base.CommonNode
 }
 
-func NewIndexString() *IndexString {
+func emptyIndexString() *IndexString {
 	return &IndexString{CommonNode: &base.CommonNode{}}
 }
 

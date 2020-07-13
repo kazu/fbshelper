@@ -25,11 +25,11 @@ type CommonNode = base.CommonNode
 
 type CommonNodeList = base.CommonNode
 
-func NewCommonNode() *base.CommonNode {
+func emptyCommonNode() *base.CommonNode {
 	return &base.CommonNode{}
 }
 
-func NewCommonNodeList() *CommonNodeList {
+func emptyCommonNodeList() *CommonNodeList {
 	return &CommonNodeList{}
 }
 
@@ -70,7 +70,7 @@ func (node RootType) Next() RootType {
 	newBase := node.Base.NextBase(start)
 
 	root := RootType{}
-	root.CommonNode = NewCommonNode()
+	root.CommonNode = emptyCommonNode()
 	root.NodeList = &base.NodeList{}
 	root.Node = base.NewNode(newBase, int(flatbuffers.GetUOffsetT(newBase.R(0))))
 	return root

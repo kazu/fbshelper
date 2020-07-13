@@ -12,7 +12,7 @@ type FileList struct { // genny
 
 // File genny
 
-func NewFileList() *FileList {
+func emptyFileList() *FileList {
 	return &FileList{CommonNode: &base.CommonNode{}}
 }
 

@@ -22,7 +22,7 @@ var (
 var DUMMY_NodeName_FieldName bool = SetNodeNameFields("NodeName", "FieldName", "FieldType", NodeName_FieldName_FieldNum)
 
 func (node NodeName) FieldName() (result *ResultType) {
-	result = NewResultType()
+	result = emptyResultType()
 	common := node.FieldAt(NodeName_FieldName_FieldNum)
 
 	result.Name = common.Name

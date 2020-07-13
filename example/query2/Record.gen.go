@@ -14,7 +14,7 @@ type Record struct {
 	*base.CommonNode
 }
 
-func NewRecord() *Record {
+func emptyRecord() *Record {
 	return &Record{CommonNode: &base.CommonNode{}}
 }
 

@@ -19,7 +19,7 @@ var (
 var DUMMY_Root_Version bool = SetRootFields("Root", "Version", "Int32", Root_Version_0)
 
 func (node Root) Version() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(Root_Version_0)
 
 	result.Name = common.Name

@@ -14,7 +14,7 @@ type InvertedMapString struct {
 	*base.CommonNode
 }
 
-func NewInvertedMapString() *InvertedMapString {
+func emptyInvertedMapString() *InvertedMapString {
 	return &InvertedMapString{CommonNode: &base.CommonNode{}}
 }
 

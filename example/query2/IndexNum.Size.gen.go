@@ -19,7 +19,7 @@ var (
 var DUMMY_IndexNum_Size bool = SetIndexNumFields("IndexNum", "Size", "Int32", IndexNum_Size_0)
 
 func (node IndexNum) Size() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(IndexNum_Size_0)
 
 	result.Name = common.Name

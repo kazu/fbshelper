@@ -110,8 +110,9 @@ fbs.Files().First().Unmarshal(&f)
 - [x] change text/template to genny
 - [x] support writing
       - [x] Set() basic type
+      - [x] insert buffer
       - [ ] NewFbsNode()
       - [ ] Set() table/struct/union 
 - [ ] marshal
 - [ ] unmarshal nested Table/Struct
-- [ ] no generate list without using as list
+- [ ] no generate list in node not using as list

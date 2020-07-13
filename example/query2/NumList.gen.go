@@ -14,7 +14,7 @@ type NumList struct {
 	*base.CommonNode
 }
 
-func NewNumList() *NumList {
+func emptyNumList() *NumList {
 	return &NumList{CommonNode: &base.CommonNode{}}
 }
 

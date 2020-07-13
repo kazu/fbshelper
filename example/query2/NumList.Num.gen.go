@@ -19,7 +19,7 @@ var (
 var DUMMY_NumList_Num bool = SetNumListFields("NumList", "Num", "[]int32", NumList_Num_0)
 
 func (node NumList) Num() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(NumList_Num_0)
 
 	result.Name = common.Name

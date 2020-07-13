@@ -19,7 +19,7 @@ var (
 var DUMMY_Record_OffsetOfValue bool = SetRecordFields("Record", "OffsetOfValue", "Int32", Record_OffsetOfValue_3)
 
 func (node Record) OffsetOfValue() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(Record_OffsetOfValue_3)
 
 	result.Name = common.Name

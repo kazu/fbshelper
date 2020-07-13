@@ -8,7 +8,7 @@ type ListType struct { // genny
 
 // NodeName genny
 
-func NewListType() *ListType {
+func emptyListType() *ListType {
 	return &ListType{CommonNode: &base.CommonNode{}}
 }
 

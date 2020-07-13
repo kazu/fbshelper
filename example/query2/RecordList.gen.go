@@ -12,7 +12,7 @@ type RecordList struct { // genny
 
 // Record genny
 
-func NewRecordList() *RecordList {
+func emptyRecordList() *RecordList {
 	return &RecordList{CommonNode: &base.CommonNode{}}
 }
 

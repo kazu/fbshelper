@@ -14,7 +14,7 @@ type Symbols struct {
 	*base.CommonNode
 }
 
-func NewSymbols() *Symbols {
+func emptySymbols() *Symbols {
 	return &Symbols{CommonNode: &base.CommonNode{}}
 }
 

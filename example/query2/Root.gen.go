@@ -14,7 +14,7 @@ type Root struct {
 	*base.CommonNode
 }
 
-func NewRoot() *Root {
+func emptyRoot() *Root {
 	return &Root{CommonNode: &base.CommonNode{}}
 }
 

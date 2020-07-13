@@ -12,7 +12,7 @@ type InvertedMapNumList struct { // genny
 
 // InvertedMapNum genny
 
-func NewInvertedMapNumList() *InvertedMapNumList {
+func emptyInvertedMapNumList() *InvertedMapNumList {
 	return &InvertedMapNumList{CommonNode: &base.CommonNode{}}
 }
 

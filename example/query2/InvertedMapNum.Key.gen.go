@@ -19,7 +19,7 @@ var (
 var DUMMY_InvertedMapNum_Key bool = SetInvertedMapNumFields("InvertedMapNum", "Key", "Int64", InvertedMapNum_Key_0)
 
 func (node InvertedMapNum) Key() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(InvertedMapNum_Key_0)
 
 	result.Name = common.Name

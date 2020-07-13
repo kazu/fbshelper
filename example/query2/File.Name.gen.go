@@ -19,7 +19,7 @@ var (
 var DUMMY_File_Name bool = SetFileFields("File", "Name", "[]byte", File_Name_1)
 
 func (node File) Name() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(File_Name_1)
 
 	result.Name = common.Name

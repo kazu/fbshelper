@@ -19,7 +19,7 @@ var (
 var DUMMY_Root_IndexType bool = SetRootFields("Root", "IndexType", "Byte", Root_IndexType_1)
 
 func (node Root) IndexType() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(Root_IndexType_1)
 
 	result.Name = common.Name

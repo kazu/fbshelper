@@ -12,7 +12,7 @@ type IndexNumList struct { // genny
 
 // IndexNum genny
 
-func NewIndexNumList() *IndexNumList {
+func emptyIndexNumList() *IndexNumList {
 	return &IndexNumList{CommonNode: &base.CommonNode{}}
 }
 

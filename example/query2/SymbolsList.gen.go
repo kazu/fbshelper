@@ -12,7 +12,7 @@ type SymbolsList struct { // genny
 
 // Symbols genny
 
-func NewSymbolsList() *SymbolsList {
+func emptySymbolsList() *SymbolsList {
 	return &SymbolsList{CommonNode: &base.CommonNode{}}
 }
 

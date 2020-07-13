@@ -16,6 +16,6 @@ type AliasName struct {
 	*b.CommonNode
 }
 
-func NewResultType() *ResultType {
+func emptyResultType() *ResultType {
 	return &ResultType{CommonNode: &base.CommonNode{}}
 }

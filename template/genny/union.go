@@ -12,7 +12,7 @@ type UnionName struct {
 	*base.CommonNode
 }
 
-func NewUnionName() *UnionName {
+func emptyUnionName() *UnionName {
 	result := &UnionName{CommonNode: &base.CommonNode{}}
 	result.Name = "UnionName"
 	return result

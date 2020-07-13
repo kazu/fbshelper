@@ -13,7 +13,7 @@ type NodeName struct {
 	*base.CommonNode
 }
 
-func NewNodeName() *NodeName {
+func emptyNodeName() *NodeName {
 	return &NodeName{CommonNode: &base.CommonNode{}}
 }
 

@@ -8,7 +8,7 @@ import (
 
 func Test_searchInfo(t *testing.T) {
 
-	a := NewNodeName()
+	a := emptyNodeName()
 	//NodeNameFieldsNumInit()
 	cond := func(pos int, info b.Info) bool {
 		return info.Pos <= pos && (info.Pos+info.Size) > pos

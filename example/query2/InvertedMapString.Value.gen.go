@@ -19,7 +19,7 @@ var (
 var DUMMY_InvertedMapString_Value bool = SetInvertedMapStringFields("InvertedMapString", "Value", "Record", InvertedMapString_Value_1)
 
 func (node InvertedMapString) Value() (result *Record) {
-	result = NewRecord()
+	result = emptyRecord()
 	common := node.FieldAt(InvertedMapString_Value_1)
 
 	result.Name = common.Name
