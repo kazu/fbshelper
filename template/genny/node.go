@@ -123,3 +123,16 @@ type NodeNameWithErr struct {
 func NodeNameSingle(node *NodeName, e error) NodeNameWithErr {
 	return NodeNameWithErr{NodeName: node, Err: e}
 }
+
+func NewNodeName() *NodeName {
+	node := emptyNodeName()
+	node.NodeList = &base.NodeList{}
+	node.Name = "NodeName"
+	node.Init()
+
+	return node
+}
+
+func (node NodeName) FieldGroups() map[int]int {
+	return NodeName_IdxToTypeGroup
+}

@@ -989,3 +989,47 @@ func (node *CommonNode) IsRoot() bool {
 	}
 	return false
 }
+
+type NodeName string
+
+func (node *CommonNode) Init() error {
+
+	node.IdxToType = All_IdxToType[node.Name]
+	node.IdxToTypeGroup = All_IdxToTypeGroup[node.Name]
+
+	grp := GetTypeGroup("NodeName")
+	cntOfField := len(node.IdxToTypeGroup)
+
+	vLen := 0
+	tLen := 0
+	tLenExt := 0
+
+	if IsStructName["NodeName"] {
+		for i := 0; i < cntOfField; i++ {
+			tLen += TypeToSize[node.IdxToType[i]]
+		}
+	} else if IsFieldSlice(grp) {
+		tLen += 4
+	} else {
+		vLen += 4 + cntOfField*2
+		tLen += 4
+		for i := 0; i < cntOfField; i++ {
+			grp := node.IdxToTypeGroup[i]
+			if IsFieldBasicType(grp) {
+				tLenExt += TypeToSize[node.IdxToType[i]]
+			} else {
+				tLenExt += 4
+			}
+		}
+	}
+
+	node.Node = NewNode2(NewBase(make([]byte, tLen+vLen, tLen+vLen+tLenExt)), vLen, true)
+
+	flatbuffers.WriteUint32(node.R(node.Node.Pos), uint32(vLen))
+
+	if vLen > 0 {
+		flatbuffers.WriteUint16(node.R(0), uint16(vLen))
+		flatbuffers.WriteUint16(node.R(2), uint16(tLen))
+	}
+	return nil
+}
