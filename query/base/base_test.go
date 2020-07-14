@@ -37,6 +37,18 @@ func MakeRootFileFbs(id uint64, name string, index_at int64) []byte {
 	return b.FinishedBytes()
 }
 
+func MakeRootRecordFbs(id uint64, name string, index_at int64) []byte {
+
+	b := flatbuffers.NewBuilder(0)
+
+	vfs_schema.RootStart(b)
+	vfs_schema.RootAddVersion(b, 1)
+	vfs_schema.RootAddIndexType(b, vfs_schema.IndexFile)
+	vfs_schema.RootAddRecord(b, vfs_schema.CreateRecord(b, id, 12, 34, 56, 78))
+	b.Finish(vfs_schema.RootEnd(b))
+	return b.FinishedBytes()
+}
+
 func MakeRootFileFbsNoVersion(id uint64, name string, index_at int64) []byte {
 
 	b := flatbuffers.NewBuilder(130)
@@ -653,4 +665,55 @@ func Test_InsertBuf(t *testing.T) {
 	}
 
 	check(t, &root_old, &root)
+}
+
+func Test_U(t *testing.T) {
+
+	node := base.NewNode2(base.NewBase(make([]byte, 8)), 0, true)
+
+	buf := node.U(0, 8)
+	buf[0] = 1
+
+	assert.Equal(t, byte(1), node.R(0)[0])
+}
+
+func Test_SetFieldAt_Struct(t *testing.T) {
+
+	buf := MakeRootRecordFbs(12, "root_test1.json", 456)
+	root := query2.OpenByBuf(buf)
+
+	common := &base.CommonNode{}
+	common.NodeList = &base.NodeList{}
+	common.Name = "Uint64"
+	common.Node = base.NewNode2(base.NewBase(make([]byte, 8)), 0, true)
+	common.Node.Size = 8
+	common.SetUint64(13)
+
+	root.Record().SetFieldAt(0, common)
+	assert.Equal(t, uint64(13), root.Record().FileId().Uint64())
+
+}
+
+func Test_NewRootIndexString(t *testing.T) {
+	//root := NewRoot()
+	//root.Version().SetInt32(2)
+	//root.SetVersion(FromInt32(2))
+	//root.SetAt(0, FromInt32(2))/;
+
+	// root = CreateRoot(2, nil)
+
+	// idxStr := NewIndexString()
+	// idxStr.Size().SetInt32(2)
+
+	// idxStr := CreateIndexString(2, nil)
+
+	// invStr := NewInvertedMapString()
+
+	// rec1 := NewRecord()
+	// rec1 = CreateRecord(1, 2, 3, 4, 5)
+
+	// invStr.Value().Set(rec1)
+	// root.Index().IndexString().Set(idxStr)
+	// root.Index().IndexString().InvertedMapString().Maps().Add(invStr)
+
 }

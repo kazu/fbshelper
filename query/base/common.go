@@ -1033,3 +1033,27 @@ func (node *CommonNode) Init() error {
 	}
 	return nil
 }
+
+func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
+
+	if len(node.IdxToTypeGroup) <= idx {
+		return ERR_INVALID_INDEX
+	}
+	//	grp := node.IdxToTypeGroup[idx]
+
+	if IsStructName[node.Name] {
+		pos := node.Node.Pos
+		for i := 0; i < node.CountOfField(); i++ {
+			if i < idx {
+				pos += TypeToSize[node.IdxToType[i]]
+			} else {
+				size := TypeToSize[node.IdxToType[i]]
+				diff := node.D(pos, size)
+				diff.bytes = fNode.R(fNode.Node.Pos)[:fNode.Node.Pos+size]
+				return nil
+			}
+		}
+	}
+
+	return ERR_NO_SUPPORT
+}

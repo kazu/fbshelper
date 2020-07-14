@@ -127,7 +127,7 @@ func NodeNameSingle(node *NodeName, e error) NodeNameWithErr {
 func NewNodeName() *NodeName {
 	node := emptyNodeName()
 	node.NodeList = &base.NodeList{}
-	node.Name = "NodeName"
+	node.CommonNode.Name = "NodeName"
 	node.Init()
 
 	return node

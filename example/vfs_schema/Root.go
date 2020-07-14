@@ -59,8 +59,21 @@ func (rcv *Root) Index(obj *flatbuffers.Table) bool {
 	return false
 }
 
+func (rcv *Root) Record(obj *Record) *Record {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	if o != 0 {
+		x := o + rcv._tab.Pos
+		if obj == nil {
+			obj = new(Record)
+		}
+		obj.Init(rcv._tab.Bytes, x)
+		return obj
+	}
+	return nil
+}
+
 func RootStart(builder *flatbuffers.Builder) {
-	builder.StartObject(3)
+	builder.StartObject(4)
 }
 func RootAddVersion(builder *flatbuffers.Builder, version int32) {
 	builder.PrependInt32Slot(0, version, 0)
@@ -70,6 +83,9 @@ func RootAddIndexType(builder *flatbuffers.Builder, indexType Index) {
 }
 func RootAddIndex(builder *flatbuffers.Builder, index flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(index), 0)
+}
+func RootAddRecord(builder *flatbuffers.Builder, record flatbuffers.UOffsetT) {
+	builder.PrependStructSlot(3, flatbuffers.UOffsetT(record), 0)
 }
 func RootEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

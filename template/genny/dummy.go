@@ -19,3 +19,5 @@ type AliasName struct {
 func emptyResultType() *ResultType {
 	return &ResultType{CommonNode: &base.CommonNode{}}
 }
+
+const FieldNum int = 0
