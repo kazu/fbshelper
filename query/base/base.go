@@ -223,7 +223,7 @@ func (b *Base) R(off int) []byte {
 	return b.bytes[off:]
 }
 
-func (b *Base) U(off, size int) []byte {
+func (b *Base) D(off, size int) *Diff {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
 		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
@@ -235,13 +235,13 @@ func (b *Base) U(off, size int) []byte {
 		}
 		diffbefore := b.Diffs[sn]
 		//MENTION: should increase cap ?
-		diff := Diff{Offset: off, bytes: make([]byte, size)}
+		diff := Diff{Offset: off}
 		diffafter := Diff{Offset: off + size, bytes: diffbefore.bytes[off-diffbefore.Offset+size:]}
 		diffbefore.bytes = diffbefore.bytes[:off+size]
 		b.Diffs[sn] = diffbefore
 		b.Diffs = append(b.Diffs, diff, diffafter)
 
-		return diff.bytes
+		return &b.Diffs[len(b.Diffs)-2]
 	}
 
 	if len(b.bytes[off:]) < size {
@@ -249,8 +249,9 @@ func (b *Base) U(off, size int) []byte {
 		//FIXME IMVALID state ?
 	}
 	//MENTION: should increase cap ?
-	diff := Diff{Offset: off, bytes: make([]byte, size)}
+	diff := Diff{Offset: off}
 	b.Diffs = append(b.Diffs, diff)
+	idx := len(b.Diffs) - 1
 
 	if cap(b.bytes[off:]) > size {
 		diffafter := Diff{Offset: off + size, bytes: b.bytes[off+size:]}
@@ -259,6 +260,13 @@ func (b *Base) U(off, size int) []byte {
 		b.Diffs = append(b.Diffs, diffafter)
 	}
 
+	return &b.Diffs[idx]
+}
+
+func (b *Base) U(off, size int) []byte {
+
+	diff := b.D(off, size)
+	diff.bytes = make([]byte, size)
 	return diff.bytes
 }
 
