@@ -42,7 +42,7 @@ func MakeRootRecordFbs(id uint64, name string, index_at int64) []byte {
 	b := flatbuffers.NewBuilder(0)
 
 	vfs_schema.RootStart(b)
-	vfs_schema.RootAddVersion(b, 1)
+	vfs_schema.RootAddVersion(b, 0)
 	vfs_schema.RootAddIndexType(b, vfs_schema.IndexFile)
 	vfs_schema.RootAddRecord(b, vfs_schema.CreateRecord(b, id, 12, 34, 56, 78))
 	b.Finish(vfs_schema.RootEnd(b))
@@ -677,20 +677,28 @@ func Test_U(t *testing.T) {
 	assert.Equal(t, byte(1), node.R(0)[0])
 }
 
-func Test_SetFieldAt_Struct(t *testing.T) {
+func Test_SetFieldAt(t *testing.T) {
 
 	buf := MakeRootRecordFbs(12, "root_test1.json", 456)
 	root := query2.OpenByBuf(buf)
 
-	common := &base.CommonNode{}
-	common.NodeList = &base.NodeList{}
-	common.Name = "Uint64"
-	common.Node = base.NewNode2(base.NewBase(make([]byte, 8)), 0, true)
-	common.Node.Size = 8
+	common := query2.FromUint64(13)
 	common.SetUint64(13)
 
 	root.Record().SetFieldAt(0, common)
 	assert.Equal(t, uint64(13), root.Record().FileId().Uint64())
+
+	e := root.SetFieldAt(2, common)
+	assert.Error(t, e)
+
+	version := query2.FromUint32(1)
+	version.SetUint32(1)
+	oVersion := root.Version().Uint32()
+
+	root.SetFieldAt(0, version)
+
+	assert.Equal(t, uint32(0), oVersion)
+	assert.Equal(t, uint32(1), root.Version().Uint32())
 
 }
 

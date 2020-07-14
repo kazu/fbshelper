@@ -709,6 +709,10 @@ func (node *CommonNode) TraverseInfo(pos int, fn TraverseRec, condFn TraverseCon
 		if IsFieldSlice(g) {
 			nPos = next.NodeList.ValueInfo.Pos
 		} else {
+			if next.Node == nil {
+				// empty node
+				continue
+			}
 			nPos = next.Node.Pos
 		}
 
@@ -772,6 +776,9 @@ func (t Tree) Pos() int {
 	if t.Node.NodeList.ValueInfo.Pos > 0 {
 		return t.Node.NodeList.ValueInfo.Pos
 	}
+	if t.Node.Node == nil {
+		return -1
+	}
 	return t.Node.Node.Pos
 }
 
@@ -821,7 +828,7 @@ func (node *CommonNode) AllTree() *Tree {
 			if trees[idx].Node.NodeList.ValueInfo.Pos > 0 {
 				return trees[idx].Node.NodeList.ValueInfo.Pos == results[i].parent
 			}
-			return trees[idx].Node.Node.Pos == results[i].parent
+			return trees[idx].Node.Node != nil && (trees[idx].Node.Node.Pos == results[i].parent)
 		})
 		if e != nil {
 			fmt.Fprintf(os.Stderr, "NOT FOUND parent=%d\n", results[i].parent)
@@ -876,7 +883,10 @@ func (node *CommonNode) InsertBuf(pos, size int) {
 	root := node.root()
 
 	ch := root.FindTree(func(t *Tree) bool {
-		return t.Parent != nil && t.Parent.Pos() <= pos && pos <= t.Pos()
+		return t.Parent != nil &&
+			t.Node.Node != nil &&
+			t.Parent.Node.Node != nil &&
+			t.Parent.Pos() <= pos && pos <= t.Pos()
 	})
 	newBase := node.Base.insertBuf(pos, size)
 
@@ -906,10 +916,10 @@ func (node *CommonNode) InsertBuf(pos, size int) {
 		// node.Base = oldBase
 	}
 	if node.IsList() {
-		if node.NodeList.ValueInfo.Pos <= pos {
+		if node.NodeList.ValueInfo.Pos > pos {
 			node.NodeList.ValueInfo.Pos += size
 		}
-	} else if node.Node.Pos <= pos {
+	} else if node.Node.Pos > pos {
 		node.Node.Pos += size
 	}
 	node.Base = newBase
@@ -1052,6 +1062,38 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 				diff.bytes = fNode.R(fNode.Node.Pos)[:fNode.Node.Pos+size]
 				return nil
 			}
+		}
+	}
+
+	g := node.IdxToTypeGroup[idx]
+
+	if IsFieldBasicType(g) {
+		size := TypeToSize[node.IdxToType[idx]]
+		if node.VTable[idx] == 0 {
+			node.InsertBuf(node.Node.Pos+int(node.TLen), size)
+			vPos := node.Node.Pos - int(flatbuffers.GetUOffsetT(node.R(node.Node.Pos)))
+
+			// write VTable[idx]
+			flatbuffers.WriteVOffsetT(node.U(vPos+4+idx*2, 2), flatbuffers.VOffsetT(node.TLen))
+			// Write TLen in VTable
+			flatbuffers.WriteVOffsetT(node.U(vPos+2, 2), flatbuffers.VOffsetT(node.TLen+uint16(size)))
+
+			if len(node.R(node.Node.Pos+int(node.TLen))) == size {
+				wPos := node.Node.Pos + int(node.TLen)
+				node.C(wPos, size, fNode.R(fNode.Node.Pos)[:fNode.Node.Pos+size])
+			} else if len(node.R(node.Node.Pos+int(node.TLen))) > size {
+				diff := node.D(node.Node.Pos+int(node.TLen), size)
+				diff.bytes = fNode.R(fNode.Node.Pos)[:fNode.Node.Pos+size]
+			} else {
+				Log(LOG_ERROR, func() LogArgs {
+					return F("SetFieldAt: invalid buffer state %s.Field(%d)\n", node.Name, idx)
+				})
+			}
+			node.VTable = nil
+			node.vtable()
+			return nil
+		} else {
+			node.C(node.Node.Pos+int(node.VTable[idx]), size, fNode.R(fNode.Node.Pos)[:fNode.Node.Pos+size])
 		}
 	}
 

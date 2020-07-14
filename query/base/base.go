@@ -223,6 +223,21 @@ func (b *Base) R(off int) []byte {
 	return b.bytes[off:]
 }
 
+func (b *Base) C(off, size int, src []byte) error {
+
+	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
+		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
+	})
+	if e == nil && sn >= 0 && b.Diffs[sn].Offset == off && len(b.Diffs[sn].bytes) == size {
+		b.Diffs[sn].bytes = src[:size]
+		return nil
+	}
+
+	diff := b.D(off, size)
+	diff.bytes = src[:size]
+	return nil
+}
+
 func (b *Base) D(off, size int) *Diff {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
@@ -649,11 +664,11 @@ func (b *Base) insertBuf(pos, size int) *Base {
 
 	newBase.Diffs = make([]Diff, len(b.Diffs), cap(b.Diffs))
 
-	for _, diff := range b.Diffs {
+	for i, diff := range b.Diffs {
 		if diff.Offset >= pos {
 			diff.Offset += size
 		}
-		newBase.Diffs = append(newBase.Diffs, diff)
+		newBase.Diffs[i] = diff
 	}
 
 	if len(newBase.bytes) > pos {
