@@ -66,6 +66,8 @@ func MakeRootFileFbsNoVersion(id uint64, name string, index_at int64) []byte {
 	//vfs_schema.RootAddVersion(b, 1)
 	vfs_schema.RootAddIndexType(b, vfs_schema.IndexFile)
 	vfs_schema.RootAddIndex(b, fbFile)
+	vfs_schema.RootAddRecord(b, vfs_schema.CreateRecord(b, id, 12, 34, 56, 78))
+
 	b.Finish(vfs_schema.RootEnd(b))
 	return b.FinishedBytes()
 }
@@ -78,6 +80,8 @@ func MakeRootNumList(fn func(b *flatbuffers.Builder) flatbuffers.UOffsetT) []byt
 	vfs_schema.RootAddVersion(b, 1)
 	vfs_schema.RootAddIndexType(b, vfs_schema.IndexNumList)
 	vfs_schema.RootAddIndex(b, numList)
+	vfs_schema.RootAddRecord(b, vfs_schema.CreateRecord(b, 666, 12, 34, 56, 78))
+
 	b.Finish(vfs_schema.RootEnd(b))
 	return b.FinishedBytes()
 }
@@ -105,6 +109,8 @@ func MakeRootIndexString(fn func(b *flatbuffers.Builder) flatbuffers.UOffsetT) [
 	vfs_schema.RootAddVersion(b, 1)
 	vfs_schema.RootAddIndexType(b, vfs_schema.IndexIndexString)
 	vfs_schema.RootAddIndex(b, fbIndex)
+	vfs_schema.RootAddRecord(b, vfs_schema.CreateRecord(b, 666, 12, 34, 56, 78))
+
 	b.Finish(vfs_schema.RootEnd(b))
 	return b.FinishedBytes()
 
@@ -149,6 +155,8 @@ func MakeRootRecord(key uint64) []byte {
 	vfs_schema.RootAddVersion(b, 1)
 	vfs_schema.RootAddIndexType(b, vfs_schema.IndexInvertedMapNum)
 	vfs_schema.RootAddIndex(b, iMapNum)
+	vfs_schema.RootAddRecord(b, vfs_schema.CreateRecord(b, 666, 12, 34, 56, 78))
+
 	b.Finish(vfs_schema.RootEnd(b))
 
 	return b.FinishedBytes()
@@ -436,7 +444,7 @@ func Test_AllTree(t *testing.T) {
 	//var b strings.Builder
 
 	dumpAll(0, tree, os.Stdout)
-	assert.Equal(t, 3, len(tree.Childs))
+	assert.Equal(t, 4, len(tree.Childs))
 
 }
 
@@ -452,17 +460,17 @@ func Test_FindTree(t *testing.T) {
 		ResultLen   int
 		ResultCheck func(int, *Tree) bool
 	}{
-		{31, 3, checkFn},
-		{40, 1, checkFn},
-		{44, 3, checkFn},
-		{48, 2, checkFn},
-		{50, 1, checkFn},
+		{31, 7, checkFn},
+		{40, 6, checkFn},
+		{44, 5, checkFn},
+		{48, 5, checkFn},
+		{50, 4, checkFn},
 		{60, 3, checkFn},
-		{70, 2, checkFn},
-		{76, 4, checkFn},
-		{80, 8, checkFn},
-		{88, 6, checkFn},
-		{126, 1, checkFn},
+		{70, 1, checkFn},
+		{76, 3, checkFn},
+		{80, 2, checkFn},
+		{88, 1, checkFn},
+		{126, 5, checkFn},
 	}
 
 	buf := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -519,10 +527,10 @@ func Test_DirectSturct(t *testing.T) {
 		})
 	})
 	root := query2.OpenByBuf(buf)
-
+	pos := query2.InvertedMapStringSingle(root.Index().IndexString().Maps().Last()).Value().Node.Pos
 	_ = buf
 	//fmt.Printf("top=0x%p fileId=0x%p ValueSize=0x%p \n", &a, &(a.FileId), &(a.ValueSize))
-	b := (*FileTest)(unsafe.Pointer(&buf[80]))
+	b := (*FileTest)(unsafe.Pointer(&buf[pos]))
 	elm, _ := root.Index().IndexString().Maps().Last()
 	diff := int(unsafe.Offsetof(a.ValueSize)) //int(unsafe.Pointer(&a.ValueSize)) - int(unsafe.Pointer(&a.FileId))
 	assert.Equal(t, elm.Value().ValueSize().Node.Pos-elm.Value().FileId().Node.Pos, diff)
