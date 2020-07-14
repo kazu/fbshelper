@@ -29,3 +29,8 @@ func (node IndexNum) Maps() (result *InvertedMapNumList) {
 
 	return
 }
+
+func (node IndexNum) SetMaps(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(1, v)
+}

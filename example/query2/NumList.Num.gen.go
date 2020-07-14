@@ -29,3 +29,8 @@ func (node NumList) Num() (result *CommonNode) {
 
 	return
 }
+
+func (node NumList) SetNum(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(0, v)
+}

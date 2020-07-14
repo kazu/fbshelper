@@ -124,3 +124,16 @@ type FileWithErr struct {
 func FileSingle(node *File, e error) FileWithErr {
 	return FileWithErr{File: node, Err: e}
 }
+
+func NewFile() *File {
+	node := emptyFile()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "File"
+	node.Init()
+
+	return node
+}
+
+func (node File) FieldGroups() map[int]int {
+	return File_IdxToTypeGroup
+}

@@ -29,3 +29,8 @@ func (node File) Name() (result *CommonNode) {
 
 	return
 }
+
+func (node File) SetName(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(1, v)
+}

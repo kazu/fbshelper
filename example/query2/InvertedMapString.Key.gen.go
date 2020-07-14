@@ -29,3 +29,8 @@ func (node InvertedMapString) Key() (result *CommonNode) {
 
 	return
 }
+
+func (node InvertedMapString) SetKey(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(0, v)
+}

@@ -124,3 +124,16 @@ type IndexStringWithErr struct {
 func IndexStringSingle(node *IndexString, e error) IndexStringWithErr {
 	return IndexStringWithErr{IndexString: node, Err: e}
 }
+
+func NewIndexString() *IndexString {
+	node := emptyIndexString()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "IndexString"
+	node.Init()
+
+	return node
+}
+
+func (node IndexString) FieldGroups() map[int]int {
+	return IndexString_IdxToTypeGroup
+}

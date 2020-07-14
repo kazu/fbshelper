@@ -124,3 +124,16 @@ type RecordWithErr struct {
 func RecordSingle(node *Record, e error) RecordWithErr {
 	return RecordWithErr{Record: node, Err: e}
 }
+
+func NewRecord() *Record {
+	node := emptyRecord()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "Record"
+	node.Init()
+
+	return node
+}
+
+func (node Record) FieldGroups() map[int]int {
+	return Record_IdxToTypeGroup
+}

@@ -11,16 +11,16 @@ genny must be called per Field
 */
 
 var (
-	Root_Index_2 int = base.AtoiNoErr(Atoi("2"))
-	Root_Index   int = Root_Index_2
+	Root_Record_3 int = base.AtoiNoErr(Atoi("3"))
+	Root_Record   int = Root_Record_3
 )
 
 // (field inedx, field type) -> Root_IdxToType
-var DUMMY_Root_Index bool = SetRootFields("Root", "Index", "Index", Root_Index_2)
+var DUMMY_Root_Record bool = SetRootFields("Root", "Record", "Record", Root_Record_3)
 
-func (node Root) Index() (result *Index) {
-	result = emptyIndex()
-	common := node.FieldAt(Root_Index_2)
+func (node Root) Record() (result *Record) {
+	result = emptyRecord()
+	common := node.FieldAt(Root_Record_3)
 
 	result.Name = common.Name
 	result.NodeList = common.NodeList
@@ -30,7 +30,7 @@ func (node Root) Index() (result *Index) {
 	return
 }
 
-func (node Root) SetIndex(v *base.CommonNode) error {
+func (node Root) SetRecord(v *base.CommonNode) error {
 
-	return node.CommonNode.SetFieldAt(2, v)
+	return node.CommonNode.SetFieldAt(3, v)
 }

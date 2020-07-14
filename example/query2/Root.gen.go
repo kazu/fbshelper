@@ -124,3 +124,16 @@ type RootWithErr struct {
 func RootSingle(node *Root, e error) RootWithErr {
 	return RootWithErr{Root: node, Err: e}
 }
+
+func NewRoot() *Root {
+	node := emptyRoot()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "Root"
+	node.Init()
+
+	return node
+}
+
+func (node Root) FieldGroups() map[int]int {
+	return Root_IdxToTypeGroup
+}

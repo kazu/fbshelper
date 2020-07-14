@@ -29,3 +29,8 @@ func (node Files) Files() (result *FileList) {
 
 	return
 }
+
+func (node Files) SetFiles(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(0, v)
+}

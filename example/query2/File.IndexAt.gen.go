@@ -29,3 +29,8 @@ func (node File) IndexAt() (result *CommonNode) {
 
 	return
 }
+
+func (node File) SetIndexAt(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(2, v)
+}

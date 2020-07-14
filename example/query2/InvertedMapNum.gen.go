@@ -124,3 +124,16 @@ type InvertedMapNumWithErr struct {
 func InvertedMapNumSingle(node *InvertedMapNum, e error) InvertedMapNumWithErr {
 	return InvertedMapNumWithErr{InvertedMapNum: node, Err: e}
 }
+
+func NewInvertedMapNum() *InvertedMapNum {
+	node := emptyInvertedMapNum()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "InvertedMapNum"
+	node.Init()
+
+	return node
+}
+
+func (node InvertedMapNum) FieldGroups() map[int]int {
+	return InvertedMapNum_IdxToTypeGroup
+}

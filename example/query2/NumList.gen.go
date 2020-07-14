@@ -124,3 +124,16 @@ type NumListWithErr struct {
 func NumListSingle(node *NumList, e error) NumListWithErr {
 	return NumListWithErr{NumList: node, Err: e}
 }
+
+func NewNumList() *NumList {
+	node := emptyNumList()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "NumList"
+	node.Init()
+
+	return node
+}
+
+func (node NumList) FieldGroups() map[int]int {
+	return NumList_IdxToTypeGroup
+}

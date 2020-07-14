@@ -29,3 +29,8 @@ func (node Root) Version() (result *CommonNode) {
 
 	return
 }
+
+func (node Root) SetVersion(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(0, v)
+}

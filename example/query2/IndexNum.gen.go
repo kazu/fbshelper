@@ -124,3 +124,16 @@ type IndexNumWithErr struct {
 func IndexNumSingle(node *IndexNum, e error) IndexNumWithErr {
 	return IndexNumWithErr{IndexNum: node, Err: e}
 }
+
+func NewIndexNum() *IndexNum {
+	node := emptyIndexNum()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "IndexNum"
+	node.Init()
+
+	return node
+}
+
+func (node IndexNum) FieldGroups() map[int]int {
+	return IndexNum_IdxToTypeGroup
+}

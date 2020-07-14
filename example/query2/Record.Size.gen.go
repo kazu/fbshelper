@@ -29,3 +29,8 @@ func (node Record) Size() (result *CommonNode) {
 
 	return
 }
+
+func (node Record) SetSize(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(2, v)
+}

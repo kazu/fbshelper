@@ -124,3 +124,16 @@ type SymbolWithErr struct {
 func SymbolSingle(node *Symbol, e error) SymbolWithErr {
 	return SymbolWithErr{Symbol: node, Err: e}
 }
+
+func NewSymbol() *Symbol {
+	node := emptySymbol()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "Symbol"
+	node.Init()
+
+	return node
+}
+
+func (node Symbol) FieldGroups() map[int]int {
+	return Symbol_IdxToTypeGroup
+}
