@@ -33,6 +33,8 @@ func MakeRootFileFbs(id uint64, name string, index_at int64) []byte {
 	vfs_schema.RootAddVersion(b, 1)
 	vfs_schema.RootAddIndexType(b, vfs_schema.IndexFile)
 	vfs_schema.RootAddIndex(b, fbFile)
+	vfs_schema.RootAddRecord(b, vfs_schema.CreateRecord(b, id, 12, 34, 56, 78))
+
 	b.Finish(vfs_schema.RootEnd(b))
 	return b.FinishedBytes()
 }
@@ -685,28 +687,89 @@ func Test_U(t *testing.T) {
 	assert.Equal(t, byte(1), node.R(0)[0])
 }
 
+func Test_BaseCopy(t *testing.T) {
+
+	obuf1 := []byte{1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4}
+	obuf2 := []byte{5, 6, 7, 0, 5, 6, 7, 0, 5, 6, 7, 0, 5, 6, 7, 0}
+
+	tests := []struct {
+		SrcOff  int
+		SrcSize int
+		DstOff  int
+		Extend  int
+	}{
+		{4, 6, 6, 6},
+		{0, 16, 0, 16},  // add to front
+		{0, 16, 16, 16}, // add to last
+		{4, 4, 4, 0},    // overwrite
+		{4, 4, 0, 0},    // overwrite front
+		{4, 4, 12, 0},   // overwrite back
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("Base.Copy(%v)", tt), func(t *testing.T) {
+			buf1 := make([]byte, len(obuf1))
+			buf2 := make([]byte, len(obuf2))
+			copy(buf1, obuf1)
+			copy(buf2, obuf2)
+
+			node := base.NewNode2(base.NewBase(buf1), 0, true)
+			node2 := base.NewNode2(base.NewBase(buf2), 0, true)
+
+			node.Copy(node2.Base, tt.SrcOff, tt.SrcSize, tt.DstOff, tt.Extend)
+
+			assert.Equal(t, node.R(tt.DstOff)[0], node2.R(tt.SrcOff)[0])
+			assert.Equal(t, node.R(tt.DstOff + 3)[0], node2.R(tt.SrcOff + 3)[0],
+				fmt.Sprintf("node.R(%d)=%v  node2.R(%d)=%v ", tt.DstOff+3, node.R(tt.DstOff+3), tt.SrcOff+5, node2.R(tt.SrcOff+5)))
+			assert.Equal(t, len(obuf1)+tt.Extend, node.LenBuf())
+
+		})
+
+	}
+
+}
+
 func Test_SetFieldAt(t *testing.T) {
 
-	buf := MakeRootRecordFbs(12, "root_test1.json", 456)
+	buf := MakeRootFileFbsNoVersion(12, "root_test1.json", 456)
+
 	root := query2.OpenByBuf(buf)
 
 	common := query2.FromUint64(13)
 	common.SetUint64(13)
 
 	root.Record().SetFieldAt(0, common)
-	assert.Equal(t, uint64(13), root.Record().FileId().Uint64())
+	assert.Equal(t, uint64(13), root.Record().FileId().Uint64(), "edit Root.Record.FileId")
 
 	e := root.SetFieldAt(2, common)
 	assert.Error(t, e)
 
-	version := query2.FromUint32(1)
-	version.SetUint32(1)
-	oVersion := root.Version().Uint32()
-
+	version := query2.FromInt32(1)
+	version.SetInt32(1)
+	oVersion := root.Version().Int32()
 	root.SetFieldAt(0, version)
 
-	assert.Equal(t, uint32(0), oVersion)
-	assert.Equal(t, uint32(1), root.Version().Uint32())
+	assert.Equal(t, int32(0), oVersion)
+	assert.Equal(t, int32(1), root.Version().Int32(), "edit Root.Version")
+
+	oRoot := query2.OpenByBuf(buf)
+	nFile := query2.NewFile()
+
+	fbsUint64 := query2.FromUint64(13)
+	fbsUint64.SetUint64(13)
+	fbsInt64 := query2.FromInt64(55)
+	fbsInt64.SetInt64(55)
+
+	nFile.SetFieldAt(0, fbsUint64)
+	nFile.SetFieldAt(2, fbsInt64)
+
+	assert.Equal(t, root.Index().File().Id().Uint64(), oRoot.Index().File().Id().Uint64())
+
+	root.SetFieldAt(2, nFile.CommonNode)
+
+	assert.NotEqual(t, oRoot.Index().File().Id().Uint64(), root.Index().File().Id().Uint64())
+	assert.Equal(t, fbsUint64.Uint64(), root.Index().File().Id().Uint64())
+	assert.Equal(t, fbsInt64.Int64(), root.Index().File().IndexAt().Int64())
 
 }
 

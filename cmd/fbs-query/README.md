@@ -109,10 +109,14 @@ fbs.Files().First().Unmarshal(&f)
 - [x] support basic type slice ( []int, ... )
 - [x] change text/template to genny
 - [x] support writing
-      - [x] Set() basic type
+      - [x] Set()
+        - [x] basic type field
+        - [x] Union/table
+        - [ ] struct
+        - [ ] slice
+        - [ ] merge
       - [x] insert buffer
       - [ ] NewFbsNode()
-      - [ ] Set() table/struct/union 
 - [ ] marshal
 - [ ] unmarshal nested Table/Struct
 - [ ] no generate list in node not using as list

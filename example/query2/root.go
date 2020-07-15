@@ -67,7 +67,7 @@ func toRoot(b *base.Base) Root {
 func (node Root) Next() Root {
 	start := node.Len()
 
-	if node.LenBuf()+4 < start {
+	if node.LenBuf() < start {
 		return node
 	}
 

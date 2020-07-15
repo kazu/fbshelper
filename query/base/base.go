@@ -238,6 +238,41 @@ func (b *Base) C(off, size int, src []byte) error {
 	return nil
 }
 
+func (b *Base) Copy(src *Base, srcOff, size, dstOff, extend int) {
+
+	if len(b.bytes) > dstOff {
+		diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
+		b.Diffs = append(b.Diffs, diff)
+		b.bytes = b.bytes[:dstOff]
+	}
+
+	for i, diff := range b.Diffs {
+		if diff.Offset >= dstOff {
+			diff.Offset += extend
+		}
+		b.Diffs[i] = diff
+	}
+
+	if len(src.bytes) > srcOff {
+		nSize := len(src.bytes[srcOff:])
+		if nSize > size {
+			nSize = size
+		}
+
+		diff := Diff{Offset: dstOff, bytes: src.bytes[srcOff : srcOff+nSize]}
+		b.Diffs = append(b.Diffs, diff)
+	}
+	for _, diff := range src.Diffs {
+		if diff.Offset >= srcOff {
+			nDiff := diff
+			nDiff.Offset -= srcOff
+			nDiff.Offset += dstOff
+			b.Diffs = append(b.Diffs, nDiff)
+		}
+	}
+	return
+}
+
 func (b *Base) D(off, size int) *Diff {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
@@ -245,9 +280,19 @@ func (b *Base) D(off, size int) *Diff {
 	})
 
 	if e == nil && sn >= 0 {
+		// if b.Diffs[sn].Offset+len(b.Diffs[sn].bytes) < off+size {
+		// 	Log(LOG_ERROR, func() LogArgs {
+		// 		return F("D(%d,%d) Invalid diff=%d\n",
+		// 			off, size, )
+		// 	})
+		// }else
 		if b.Diffs[sn].Offset+len(b.Diffs[sn].bytes) <= off+size {
-			//FIXME INVALID state
+			diff := Diff{Offset: off}
+			b.Diffs = append(b.Diffs, diff)
+			idx := len(b.Diffs) - 1
+			return &b.Diffs[idx]
 		}
+
 		diffbefore := b.Diffs[sn]
 		//MENTION: should increase cap ?
 		diff := Diff{Offset: off}
@@ -310,10 +355,15 @@ func (b *Base) LenBuf() int {
 	if len(b.Diffs) < 1 {
 		return len(b.bytes)
 	}
-	if len(b.bytes) < b.Diffs[len(b.Diffs)-1].Offset+len(b.Diffs[len(b.Diffs)-1].bytes) {
-		return b.Diffs[len(b.Diffs)-1].Offset + len(b.Diffs[len(b.Diffs)-1].bytes)
+
+	max := len(b.bytes)
+	for i := range b.Diffs {
+		if b.Diffs[i].Offset+len(b.Diffs[i].bytes) > max {
+			max = b.Diffs[i].Offset + len(b.Diffs[i].bytes)
+		}
 	}
-	return len(b.bytes)
+
+	return max
 
 }
 
@@ -391,23 +441,24 @@ func (info ValueInfo) IsNotReady() bool {
 
 // ValueInfoPos ... fetching vtable position infomation
 func (node *Node) ValueInfoPos(vIdx int) ValueInfo {
-	if node.VTable[vIdx] == 0 {
-		node.ValueInfos[vIdx].Pos = -1
-		node.ValueInfos[vIdx].Size = -1
-		return node.ValueInfos[vIdx]
+	if len(node.ValueInfos) <= vIdx {
+		node.ValueInfos = append(node.ValueInfos, make([]ValueInfo, vIdx+1-len(node.ValueInfos))...)
 	}
-	node.ValueInfos[vIdx].Pos = node.Pos + int(node.VTable[vIdx])
+	node.ValueInfos[vIdx].Pos = node.VirtualTable(vIdx)
+
 	return node.ValueInfos[vIdx]
 }
 
 // ValueInfoPosBytes ... etching vtable position infomation for []byte
 func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
-	if node.VTable[vIdx] == 0 {
-		node.ValueInfos[vIdx].Pos = -1
-		node.ValueInfos[vIdx].Size = -1
+
+	pos := node.VirtualTable(vIdx)
+	if pos == node.Pos {
+		node.ValueInfos[vIdx].Pos = 0
+		node.ValueInfos[vIdx].Size = 0
 		return node.ValueInfos[vIdx]
 	}
-	pos := node.Pos + int(node.VTable[vIdx])
+
 	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
 	sLen := flatbuffers.GetUint32(node.R(pos + sLenOff))
 
@@ -420,13 +471,9 @@ func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
 
 // ValueInfoPosTable ... etching vtable position infomation for flatbuffers table
 func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
-	if node.VTable[vIdx] == 0 {
-		node.ValueInfos[vIdx].Pos = -1
-		node.ValueInfos[vIdx].Size = -1
-		return node.ValueInfos[vIdx]
-	}
 
-	pos := node.Pos + int(node.VTable[vIdx])
+	// FIXME: empty vtable(vIdx)?
+	pos := node.VirtualTable(vIdx)
 	start := int(flatbuffers.GetUint32(node.R(pos))) + pos
 
 	node.ValueInfos[vIdx].Pos = start
@@ -436,12 +483,13 @@ func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
 
 // ValueInfoPosList ... etching vtable position infomation for flatbuffers vector
 func (node *Node) ValueInfoPosList(vIdx int) ValueInfo {
-	if node.VTable[vIdx] == 0 {
-		node.ValueInfos[vIdx].Pos = -1
-		node.ValueInfos[vIdx].Size = -1
+
+	vPos := node.VirtualTable(vIdx)
+	if vPos == node.Pos {
+		node.ValueInfos[vIdx].Pos = 0
+		node.ValueInfos[vIdx].Size = 0
 		return node.ValueInfos[vIdx]
 	}
-	vPos := node.Pos + int(node.VTable[vIdx])
 	vLenOff := int(flatbuffers.GetUint32(node.R(vPos)))
 	vLen := flatbuffers.GetUint32(node.R(vPos + vLenOff))
 	start := vPos + vLenOff + flatbuffers.SizeUOffsetT
@@ -680,4 +728,29 @@ func (b *Base) insertBuf(pos, size int) *Base {
 		Diff{Offset: pos, bytes: make([]byte, size)})
 
 	return newBase
+}
+
+func (node *Node) VirtualTable(idx int) int {
+
+	voff := flatbuffers.GetUint32(node.R(node.Pos))
+	vPos := node.Pos - int(voff)
+	tOffset := flatbuffers.GetUint16(node.R(int(vPos) + 4 + idx*2))
+	return node.Pos + int(tOffset)
+}
+
+func (node *Node) TableLen() int {
+	voff := flatbuffers.GetUint32(node.R(node.Pos))
+	vPos := node.Pos - int(voff)
+	return int(flatbuffers.GetUint16(node.R(int(vPos) + 2)))
+}
+
+func (node *Node) VirtualTableLen() int {
+	voff := flatbuffers.GetUint32(node.R(node.Pos))
+	vPos := node.Pos - int(voff)
+	return int(flatbuffers.GetUint16(node.R(int(vPos))))
+}
+
+func (node *Node) Table(idx int) int {
+	pos := node.VirtualTable(idx)
+	return pos + int(flatbuffers.GetUint32(node.R(pos)))
 }
