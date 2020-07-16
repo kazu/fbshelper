@@ -367,6 +367,18 @@ func (b *Base) LenBuf() int {
 	return max
 
 }
+func (b *Base) Merge() {
+
+	nbytes := make([]byte, b.LenBuf())
+
+	copy(nbytes, b.bytes)
+	for i := range b.Diffs {
+		copy(nbytes[b.Diffs[i].Offset:], b.Diffs[i].bytes)
+	}
+	b.bytes = nbytes
+	b.Diffs = []Diff{}
+
+}
 
 // RawBufInfo ... capacity/length infomation of Base's buffer
 type RawBufInfo struct {
@@ -467,6 +479,7 @@ func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
 
 	node.ValueInfos[vIdx].Pos = start
 	node.ValueInfos[vIdx].Size = int(sLen)
+	node.ValueInfos[vIdx].VLen = sLen
 	return node.ValueInfos[vIdx]
 }
 

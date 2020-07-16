@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	flatbuffers "github.com/google/flatbuffers/go"
+	query "github.com/kazu/fbshelper/example/query2"
 	query2 "github.com/kazu/fbshelper/example/query2"
 	"github.com/kazu/fbshelper/example/vfs_schema"
 	"github.com/kazu/fbshelper/query/base"
@@ -760,16 +761,21 @@ func Test_SetFieldAt(t *testing.T) {
 	nFile.SetFieldAt(2, fbsInt64)
 	nFile.SetFieldAt(1, base.FromBytes([]byte("file-bytes")))
 
+	name := nFile.Name()
+	name.SetAt(0, query.FromByte([]byte("Z")[0]))
+	name.Base.Merge()
+	nFile.SetName(name)
+
 	assert.Equal(t, root.Index().File().Id().Uint64(), oRoot.Index().File().Id().Uint64())
 	assert.Equal(t, uint64(13), nFile.Id().Uint64())
-	assert.Equal(t, []byte("file-bytes"), nFile.Name().Bytes())
+	assert.Equal(t, []byte("Zile-bytes"), nFile.Name().Bytes())
 
 	root.SetFieldAt(2, nFile.CommonNode)
 
 	assert.NotEqual(t, oRoot.Index().File().Id().Uint64(), root.Index().File().Id().Uint64())
 	assert.Equal(t, fbsUint64.Uint64(), root.Index().File().Id().Uint64())
 	assert.Equal(t, fbsInt64.Int64(), root.Index().File().IndexAt().Int64())
-	assert.Equal(t, []byte("file-bytes"), root.Index().File().Name().Bytes())
+	assert.Equal(t, []byte("Zile-bytes"), root.Index().File().Name().Bytes())
 }
 
 func Test_NewRootIndexString(t *testing.T) {

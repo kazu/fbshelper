@@ -265,10 +265,12 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 			node.ValueInfoPosBytes(idx)
 		}
 		valInfo := node.ValueInfos[idx]
+		valInfo.VLen = uint32(valInfo.Size)
 
 		nNode := NewNode2(node.Base, node.ValueInfos[idx].Pos, true)
 		nNode.Size = valInfo.Size
 		result.Node = nNode
+		result.ValueInfo = valInfo
 
 	} else if IsFieldSlice(grp) {
 		nodeList := node.ValueList(idx)
@@ -447,6 +449,9 @@ func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
 		return ERR_INVALID_INDEX
 	}
 
+	if node.NodeList.ValueInfo.Pos == 0 {
+		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+	}
 	vlen := int(node.NodeList.ValueInfo.VLen)
 	total := node.NodeList.ValueInfo.Size
 
@@ -468,11 +473,11 @@ func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
 			elm.Base, elm.Node.Pos, elm.Node.Size,
 			ptr, extend)
 
-		vlen += 1
 		total += extend
-
-		flatbuffers.WriteUint32(node.U(node.NodeList.ValueInfo.Pos-4, 4), uint32(vlen))
-
+		if vlen == idx {
+			vlen++
+			flatbuffers.WriteUint32(node.U(node.NodeList.ValueInfo.Pos-4, 4), uint32(vlen))
+		}
 	} else if IsFieldUnion(g) {
 		return ERR_NO_SUPPORT
 	} else if IsFieldTable(g) {
