@@ -101,6 +101,7 @@ func FromBool(v bool) *CommonNode {
 	common.Name = "Bool"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfbool)), 0, true)
 	common.Node.Size = base.SizeOfbool
+	common.SetBool(v)
 	return common
 }
 
@@ -111,6 +112,7 @@ func FromByte(v byte) *CommonNode {
 	common.Name = "Byte"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfbyte)), 0, true)
 	common.Node.Size = base.SizeOfbyte
+	common.SetByte(v)
 	return common
 }
 
@@ -121,6 +123,7 @@ func FromInt8(v int8) *CommonNode {
 	common.Name = "Int8"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfint8)), 0, true)
 	common.Node.Size = base.SizeOfint8
+	common.SetInt8(v)
 	return common
 }
 
@@ -131,6 +134,7 @@ func FromInt16(v int16) *CommonNode {
 	common.Name = "Int16"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfint16)), 0, true)
 	common.Node.Size = base.SizeOfint16
+	common.SetInt16(v)
 	return common
 }
 
@@ -141,6 +145,7 @@ func FromInt32(v int32) *CommonNode {
 	common.Name = "Int32"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfint32)), 0, true)
 	common.Node.Size = base.SizeOfint32
+	common.SetInt32(v)
 	return common
 }
 
@@ -151,6 +156,7 @@ func FromInt64(v int64) *CommonNode {
 	common.Name = "Int64"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfint64)), 0, true)
 	common.Node.Size = base.SizeOfint64
+	common.SetInt64(v)
 	return common
 }
 
@@ -161,6 +167,7 @@ func FromUint8(v uint8) *CommonNode {
 	common.Name = "Uint8"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfuint8)), 0, true)
 	common.Node.Size = base.SizeOfuint8
+	common.SetUint8(v)
 	return common
 }
 
@@ -171,6 +178,7 @@ func FromUint16(v uint16) *CommonNode {
 	common.Name = "Uint16"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfuint16)), 0, true)
 	common.Node.Size = base.SizeOfuint16
+	common.SetUint16(v)
 	return common
 }
 
@@ -181,6 +189,7 @@ func FromUint32(v uint32) *CommonNode {
 	common.Name = "Uint32"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfuint32)), 0, true)
 	common.Node.Size = base.SizeOfuint32
+	common.SetUint32(v)
 	return common
 }
 
@@ -191,6 +200,7 @@ func FromUint64(v uint64) *CommonNode {
 	common.Name = "Uint64"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOfuint64)), 0, true)
 	common.Node.Size = base.SizeOfuint64
+	common.SetUint64(v)
 	return common
 }
 
@@ -201,6 +211,7 @@ func FromFloat32(v float32) *CommonNode {
 	common.Name = "Float32"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOffloat32)), 0, true)
 	common.Node.Size = base.SizeOffloat32
+	common.SetFloat32(v)
 	return common
 }
 
@@ -211,5 +222,6 @@ func FromFloat64(v float64) *CommonNode {
 	common.Name = "Float64"
 	common.Node = base.NewNode2(base.NewBase(make([]byte, base.SizeOffloat64)), 0, true)
 	common.Node.Size = base.SizeOffloat64
+	common.SetFloat64(v)
 	return common
 }

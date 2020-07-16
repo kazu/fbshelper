@@ -736,7 +736,6 @@ func Test_SetFieldAt(t *testing.T) {
 	root := query2.OpenByBuf(buf)
 
 	common := query2.FromUint64(13)
-	common.SetUint64(13)
 
 	root.Record().SetFieldAt(0, common)
 	assert.Equal(t, uint64(13), root.Record().FileId().Uint64(), "edit Root.Record.FileId")
@@ -745,7 +744,6 @@ func Test_SetFieldAt(t *testing.T) {
 	assert.Error(t, e)
 
 	version := query2.FromInt32(1)
-	version.SetInt32(1)
 	oVersion := root.Version().Int32()
 	root.SetFieldAt(0, version)
 
@@ -756,9 +754,7 @@ func Test_SetFieldAt(t *testing.T) {
 	nFile := query2.NewFile()
 
 	fbsUint64 := query2.FromUint64(13)
-	fbsUint64.SetUint64(13)
 	fbsInt64 := query2.FromInt64(55)
-	fbsInt64.SetInt64(55)
 
 	nFile.SetFieldAt(0, fbsUint64)
 	nFile.SetFieldAt(2, fbsInt64)
