@@ -758,15 +758,18 @@ func Test_SetFieldAt(t *testing.T) {
 
 	nFile.SetFieldAt(0, fbsUint64)
 	nFile.SetFieldAt(2, fbsInt64)
+	nFile.SetFieldAt(1, base.FromBytes([]byte("file-bytes")))
 
 	assert.Equal(t, root.Index().File().Id().Uint64(), oRoot.Index().File().Id().Uint64())
+	assert.Equal(t, uint64(13), nFile.Id().Uint64())
+	assert.Equal(t, []byte("file-bytes"), nFile.Name().Bytes())
 
 	root.SetFieldAt(2, nFile.CommonNode)
 
 	assert.NotEqual(t, oRoot.Index().File().Id().Uint64(), root.Index().File().Id().Uint64())
 	assert.Equal(t, fbsUint64.Uint64(), root.Index().File().Id().Uint64())
 	assert.Equal(t, fbsInt64.Int64(), root.Index().File().IndexAt().Int64())
-
+	assert.Equal(t, []byte("file-bytes"), root.Index().File().Name().Bytes())
 }
 
 func Test_NewRootIndexString(t *testing.T) {

@@ -297,11 +297,12 @@ func (b *Base) D(off, size int) *Diff {
 		//MENTION: should increase cap ?
 		diff := Diff{Offset: off}
 		diffafter := Diff{Offset: off + size, bytes: diffbefore.bytes[off-diffbefore.Offset+size:]}
-		diffbefore.bytes = diffbefore.bytes[:off+size]
+		diffbefore.bytes = diffbefore.bytes[:off+size-diffbefore.Offset]
 		b.Diffs[sn] = diffbefore
-		b.Diffs = append(b.Diffs, diff, diffafter)
-
-		return &b.Diffs[len(b.Diffs)-2]
+		b.Diffs = append(b.Diffs[:sn+1],
+			append([]Diff{diffafter}, b.Diffs[sn+1:]...)...)
+		b.Diffs = append(b.Diffs, diff)
+		return &b.Diffs[len(b.Diffs)-1]
 	}
 
 	if len(b.bytes[off:]) < size {

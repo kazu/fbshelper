@@ -322,6 +322,7 @@ func (node *CommonNode) At(i int) (*CommonNode, error) {
 	tName := node.Name[2:]
 	grp := GetTypeGroup(tName)
 
+	// FIXME:  work basictype/struct not 4 byte
 	ptr := int(node.NodeList.ValueInfo.Pos) + i*4
 
 	var nNode *Node
@@ -384,8 +385,9 @@ func (node *CommonNode) InfoSlice() Info {
 
 	grp := GetTypeGroup(tName)
 	if IsFieldBasicType(grp) {
-		ptr := int(node.NodeList.ValueInfo.Pos) + (int(node.NodeList.ValueInfo.VLen)-1)*4
-		vInfo = Info{Pos: ptr, Size: TypeToSize[NameToTypeEnum(tName)]}
+		ptr := int(node.NodeList.ValueInfo.Pos)
+		size := int(node.NodeList.ValueInfo.VLen) * TypeToSize[NameToTypeEnum(tName)]
+		vInfo = Info{Pos: ptr, Size: size}
 	} else if IsFieldBytes(grp) {
 		ptr := int(node.NodeList.ValueInfo.Pos) + (int(node.NodeList.ValueInfo.VLen)-1)*4
 		vInfo = FbsStringInfo(NewNode(node.Base, ptr+int(flatbuffers.GetUint32(node.R(ptr)))))
@@ -437,6 +439,113 @@ NO_NODE:
 		}
 	}
 
+}
+
+func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
+
+	if idx > int(node.NodeList.ValueInfo.VLen) {
+		return ERR_INVALID_INDEX
+	}
+
+	vlen := int(node.NodeList.ValueInfo.VLen)
+	total := node.NodeList.ValueInfo.Size
+
+	g := GetTypeGroup(elm.Name)
+	//ptr := int(node.NodeList.ValueInfo.Pos) + vlen*4
+
+	if IsFieldBasicType(g) || IsFieldStruct(g) {
+		// new element
+		if elm.Node.Size == 0 {
+			elm.Node.Size = elm.Info().Size
+		}
+		ptr := int(node.NodeList.ValueInfo.Pos) + idx*elm.Node.Size
+		//node.insertBuf(node.NodeList.ValueInfo.Pos + total, elm.Node.Size)
+		extend := 0
+		if vlen == idx {
+			extend = elm.Node.Size
+		}
+		node.Copy(
+			elm.Base, elm.Node.Pos, elm.Node.Size,
+			ptr, extend)
+
+		vlen += 1
+		total += extend
+
+		flatbuffers.WriteUint32(node.U(node.NodeList.ValueInfo.Pos-4, 4), uint32(vlen))
+
+	} else if IsFieldUnion(g) {
+		return ERR_NO_SUPPORT
+	} else if IsFieldTable(g) {
+		// new element
+		vSize := elm.CountOfField()*2 + 4
+		oSize := 0
+		var oElm *CommonNode
+		if idx < vlen {
+			oElm, _ = node.At(idx)
+			oSize = oElm.Info().Size
+		}
+		if elm.Node.Size == 0 {
+			elm.Node.Size = elm.Info().Size
+		}
+		ptrIdx := func(idx int) int {
+			return int(node.NodeList.ValueInfo.Pos) + idx*4
+		}
+		ptr := ptrIdx(idx)
+
+		header := make([]byte, 4)
+
+		//flatbuffers.WriteUint32(off, uint32(total-vlen*4+vSize))
+
+		header_extend := 0
+		body_extend := 0
+		if vlen == idx {
+			header_extend = 4
+		}
+
+		if header_extend > 0 {
+			body_extend = elm.Node.Size + vSize
+		} else {
+			body_extend = elm.Node.Size - oSize
+		}
+		if body_extend < 0 {
+			body_extend = 0
+		}
+		dstPos := 0
+		if header_extend > 0 {
+			flatbuffers.WriteUint32(header, uint32(total-vlen*4+vSize))
+			node.InsertBuf(ptr, 4)
+			for i := 0; i < vlen-1; i++ {
+				off := flatbuffers.GetUint32(node.R(ptrIdx(idx)))
+				off += 4
+				flatbuffers.WriteUint32(node.U(ptrIdx(idx), 4), 4)
+			}
+			dstPos = total + header_extend
+		} else {
+			if body_extend > 0 {
+				for i := idx + 1; i < vlen; i++ {
+					off := flatbuffers.GetUint32(node.R(ptrIdx(idx)))
+					off += uint32(body_extend)
+					flatbuffers.WriteUint32(node.U(ptrIdx(idx), 4), off)
+				}
+			}
+			dstPos = oElm.Node.Pos - vSize
+		}
+
+		node.Copy(elm.Base,
+			elm.NodeList.ValueInfo.Pos-vSize, elm.Node.Size+vSize,
+			dstPos, body_extend)
+		return nil
+	}
+
+	return ERR_NO_SUPPORT
+}
+
+func (node *CommonNode) InitList() error {
+
+	// write vLen == 0
+	node.Node = NewNode2(NewBase(make([]byte, 4)), 4, true)
+	node.NodeList.ValueInfo.Pos = 4
+	return nil
 }
 
 func Open(r io.Reader, cap int) (node *CommonNode) {
@@ -1132,7 +1241,36 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 
 	g := node.IdxToTypeGroup[idx]
 
-	if IsFieldBasicType(g) {
+	if IsFieldSlice(g) {
+		size := 4
+		if fNode.Node.Size <= 0 {
+			fNode.Node.Size = fNode.InfoSlice().Size //fNode.ValueInfo(idx).Size
+			if fNode.Node.Size <= 0 {
+				panic("!!!")
+			}
+		}
+
+		oFieldSize := node.ValueInfo(idx).Size
+		if node.VirtualTable(idx) == node.Node.Pos {
+			// update VTable in buffer. wPos is postion in table,
+			wPos := node.insertVTable(idx, size)
+			// write offset to vLen (list start)
+			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(4))
+			// insert space (vLen + data )
+			//node.InsertBuf(wPos+4, 4 + fNode.Node.Size)
+			node.VTable = nil
+			node.vtable()
+		}
+		extend := fNode.Node.Size - oFieldSize
+		dstPos := node.Table(idx)
+		node.Copy(fNode.Base,
+			fNode.NodeList.ValueInfo.Pos-4, fNode.NodeList.ValueInfo.Size+4,
+			dstPos, extend)
+
+		return nil
+		//node.Copy(fNode.Base, fNode.ValueInfo.Pos-vSize, fNode.Node.Size+vSize, dstPos, extend)
+
+	} else if IsFieldBasicType(g) {
 		size := TypeToSize[node.IdxToType[idx]]
 		if len(node.VTable) == 0 {
 			node.vtable()
@@ -1149,8 +1287,6 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		node.vtable()
 		return nil
 
-	} else if IsFieldSlice(g) {
-		return ERR_NO_SUPPORT
 	} else if IsFieldUnion(g) || IsFieldTable(g) {
 		size := 4
 
@@ -1163,7 +1299,9 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		vSize := fNode.CountOfField()*2 + 4
 		oFieldSize := node.ValueInfo(idx).Size
 		if node.VTable[idx] == 0 {
+			// update VTable in buffer.
 			wPos := node.insertVTable(idx, size)
+			// write tlen in Vtable
 			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(vSize)+2) // +2 require ?
 			node.InsertBuf(wPos+4, vSize+fNode.Node.Size)
 			node.C(wPos+4, vSize+fNode.Node.Size, fNode.R(fNode.Node.Pos - vSize)[:fNode.Node.Pos+size])
@@ -1182,4 +1320,21 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		return nil
 	}
 	return ERR_NO_SUPPORT
+}
+
+func FromBytes(bytes []byte) *CommonNode {
+
+	buf := make([]byte, len(bytes)+4)
+	flatbuffers.WriteUint32(buf, uint32(len(bytes)))
+	copy(buf[4:], bytes)
+
+	common := &CommonNode{}
+	common.NodeList = &NodeList{}
+	common.Name = "[]byte"
+	common.Node = NewNode2(NewBase(buf), 4, true)
+	common.NodeList.ValueInfo.Pos = 4
+	common.NodeList.ValueInfo.VLen = uint32(len(bytes))
+	common.NodeList.ValueInfo.Size = len(bytes)
+
+	return common
 }
