@@ -2,7 +2,7 @@ package query
 
 import (
 	"github.com/kazu/fbshelper/query/base"
-	_ "github.com/kazu/fbshelper/query/log"
+	"github.com/kazu/fbshelper/query/log"
 )
 
 /*
@@ -71,8 +71,8 @@ func NodeNameGetTypeGroup(s string) (result int) {
 
 func (node NodeName) commonNode() *base.CommonNode {
 	if node.CommonNode == nil {
-		base.Log(base.LOG_WARN, func() base.LogArgs {
-			return base.F("CommonNode not found NodeName")
+		log.Log(log.LOG_WARN, func() log.LogArgs {
+			return log.F("CommonNode not found NodeName")
 		})
 	} else if len(node.CommonNode.Name) == 0 || len(node.CommonNode.IdxToType) == 0 {
 		node.CommonNode.Name = "NodeName"
@@ -111,10 +111,6 @@ func (node NodeName) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
 
-func (node NodeName) Root() RootType {
-	return toRoot(node.Base)
-}
-
 type NodeNameWithErr struct {
 	*NodeName
 	Err error
@@ -135,4 +131,12 @@ func NewNodeName() *NodeName {
 
 func (node NodeName) FieldGroups() map[int]int {
 	return NodeName_IdxToTypeGroup
+}
+
+func (node NodeName) Root() (RootType, error) {
+	if !node.InRoot() {
+		return RootType{}, log.ERR_NO_INCLUDE_ROOT
+	}
+	root := toRoot(node.Base)
+	return root, nil
 }

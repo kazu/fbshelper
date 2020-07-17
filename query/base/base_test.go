@@ -644,7 +644,7 @@ func Test_InsertBuf(t *testing.T) {
 	first := query2.InvertedMapStringSingle(root.Index().IndexString().Maps().First())
 	oLen := root.Len()
 	first.InsertBuf(126, 8)
-	root = first.Root()
+	root, _ = first.Root()
 	last = query2.InvertedMapStringSingle(root.Index().IndexString().Maps().Last())
 
 	assert.Equal(t, oLen, root.Len()-8)

@@ -4,7 +4,10 @@
 
 package query
 
-import "github.com/kazu/fbshelper/query/base"
+import (
+	"github.com/kazu/fbshelper/query/base"
+	"github.com/kazu/fbshelper/query/log"
+)
 
 /*
 must call 1 times per Table / struct ( NumList ) ;
@@ -72,8 +75,8 @@ func NumListGetTypeGroup(s string) (result int) {
 
 func (node NumList) commonNode() *base.CommonNode {
 	if node.CommonNode == nil {
-		base.Log(base.LOG_WARN, func() base.LogArgs {
-			return base.F("CommonNode not found NumList")
+		log.Log(log.LOG_WARN, func() log.LogArgs {
+			return log.F("CommonNode not found NumList")
 		})
 	} else if len(node.CommonNode.Name) == 0 || len(node.CommonNode.IdxToType) == 0 {
 		node.CommonNode.Name = "NumList"
@@ -112,10 +115,6 @@ func (node NumList) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
 
-func (node NumList) Root() Root {
-	return toRoot(node.Base)
-}
-
 type NumListWithErr struct {
 	*NumList
 	Err error
@@ -136,4 +135,12 @@ func NewNumList() *NumList {
 
 func (node NumList) FieldGroups() map[int]int {
 	return NumList_IdxToTypeGroup
+}
+
+func (node NumList) Root() (Root, error) {
+	if !node.InRoot() {
+		return Root{}, log.ERR_NO_INCLUDE_ROOT
+	}
+	root := toRoot(node.Base)
+	return root, nil
 }

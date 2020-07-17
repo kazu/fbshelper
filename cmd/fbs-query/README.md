@@ -113,8 +113,8 @@ fbs.Files().First().Unmarshal(&f)
         - [x] basic type field
         - [x] Union/table
         - [ ] struct
-        - [ ] slice
-        - [ ] merge
+        - [x] slice
+        - [x] merge
       - [x] insert buffer
       - [ ] NewFbsNode()
 - [ ] marshal
