@@ -563,7 +563,7 @@ func (node *Node) ValueBytes(vIdx int) []byte {
 
 }
 
-func (node *Node) ValueTable(vIdx int) *Node {
+func (node *Node) OldValueTable(vIdx int) *Node {
 	if node.ValueInfos[vIdx].Pos < 1 {
 		node.ValueInfoPosTable(vIdx)
 	}
@@ -571,12 +571,21 @@ func (node *Node) ValueTable(vIdx int) *Node {
 	return NewNode(node.Base, node.ValueInfos[vIdx].Pos)
 }
 
-func (node *Node) ValueStruct(vIdx int) *Node {
-	if node.ValueInfos[vIdx].Pos < 1 {
-		node.ValueInfoPos(vIdx)
-	}
+func (node *Node) ValueTable(vIdx int) *Node {
+	return NewNode(node.Base,
+		node.Table(vIdx))
+}
 
-	return NewNode2(node.Base, node.ValueInfos[vIdx].Pos, true)
+func (node *Node) ValueStruct(vIdx int) *Node {
+	// if node.ValueInfos[vIdx].Pos < 1 {
+	// 	node.ValueInfoPos(vIdx)
+	// }
+
+	// return NewNode2(node.Base, node.ValueInfos[vIdx].Pos, true)
+
+	//return node.VirtualTable(vIdx)
+	return NewNode2(node.Base, node.VirtualTable(vIdx), true)
+
 }
 
 func (node *Node) ValueList(vIdx int) NodeList {

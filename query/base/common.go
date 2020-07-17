@@ -73,11 +73,12 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 		node.ValueInfos[idx].Size = node.FieldAt(idx).Info().Size
 
 	} else if IsFieldUnion(grp) {
-		if node.ValueInfos[idx].IsNotReady() {
-			node.ValueInfoPosTable(idx)
-		}
+		var info ValueInfo
+		info.Pos = node.Table(idx)
+
 		if node.CanFollow(idx) {
-			node.ValueInfos[idx].Size = node.FollowUnion(idx).Info().Size
+			info.Size = node.FollowUnion(idx).Info().Size
+			return info
 		}
 
 	} else if IsFieldBytes(grp) {
@@ -93,11 +94,11 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 		node.ValueInfos[idx].Size = node.FieldAt(idx).InfoSlice().Size
 
 	} else if IsFieldTable(grp) {
-		if node.ValueInfos[idx].IsNotReady() {
-			node.ValueInfoPosTable(idx)
-		}
+		var info ValueInfo
 
-		node.ValueInfos[idx].Size = node.FieldAt(idx).Info().Size
+		info.Pos = node.Table(idx)
+		info.Size = node.FieldAt(idx).Info().Size
+		return info
 
 	} else if IsFieldBasicType(grp) {
 		if node.ValueInfos[idx].IsNotReady() {
@@ -250,7 +251,7 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 		goto RESULT
 	}
 
-	if node.VirtualTable(idx) == node.Node.Pos {
+	if node.VirtualTableIsZero(idx) {
 		goto RESULT
 	}
 
@@ -1405,6 +1406,11 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		return nil
 	}
 	return ERR_NO_SUPPORT
+}
+
+func (node *CommonNode) VirtualTableIsZero(idx int) bool {
+
+	return node.VirtualTable(idx) == node.Node.Pos
 }
 
 func FromBytes(bytes []byte) *CommonNode {
