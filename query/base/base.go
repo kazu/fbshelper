@@ -120,11 +120,10 @@ type Root struct {
 // ValueInfos is information of pointted fields
 type Node struct {
 	*Base
-	Pos        int
-	Size       int
-	VTable     []uint16
-	TLen       uint16
-	ValueInfos []ValueInfo
+	Pos    int
+	Size   int
+	VTable []uint16
+	TLen   uint16
 }
 
 // NodeList is struct for Vector(list) Node
@@ -453,7 +452,6 @@ func (n *Node) vtable() {
 	for cur := vPos + 4; cur < vPos+vLen; cur += 2 {
 		n.VTable = append(n.VTable, uint16(flatbuffers.GetVOffsetT(n.R(cur))))
 	}
-	n.ValueInfos = make([]ValueInfo, len(n.VTable))
 }
 
 // FbsString ... return []bytes for string data
@@ -489,18 +487,6 @@ func (node *Node) ValueInfoPosBytes(vIdx int) (info ValueInfo) {
 	info = node.ValueInfoPosList(vIdx)
 	info.Size = int(info.VLen)
 	return info
-}
-
-// ValueInfoPosTable ... etching vtable position infomation for flatbuffers table
-func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
-
-	// FIXME: empty vtable(vIdx)?
-	pos := node.VirtualTable(vIdx)
-	start := int(flatbuffers.GetUint32(node.R(pos))) + pos
-
-	node.ValueInfos[vIdx].Pos = start
-
-	return node.ValueInfos[vIdx]
 }
 
 // ValueInfoPosList ... etching vtable position infomation for flatbuffers vector

@@ -57,10 +57,6 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 	}
 
 	grp := node.IdxToTypeGroup[idx]
-	// if len(node.ValueInfos) < node.CountOfField() {
-	// 	node.ValueInfos = append(node.ValueInfos,
-	// 		make([]ValueInfo, node.CountOfField()-len(node.ValueInfos))...)
-	// }
 
 	if IsFieldStruct(grp) {
 		info.Pos = node.VirtualTable(idx)
@@ -205,9 +201,6 @@ func (node *CommonNode) clearValueInfoOnDirty() {
 	})
 	if err != nil {
 		return
-	}
-	for i := range node.ValueInfos {
-		node.ValueInfos[i].Pos = 0
 	}
 }
 
