@@ -483,35 +483,12 @@ func (info ValueInfo) IsNotReady() bool {
 
 }
 
-// ValueInfoPos ... fetching vtable position infomation
-func (node *Node) ValueInfoPos(vIdx int) ValueInfo {
-	if len(node.ValueInfos) <= vIdx {
-		node.ValueInfos = append(node.ValueInfos, make([]ValueInfo, vIdx+1-len(node.ValueInfos))...)
-	}
-	node.ValueInfos[vIdx].Pos = node.VirtualTable(vIdx)
-
-	return node.ValueInfos[vIdx]
-}
-
 // ValueInfoPosBytes ... etching vtable position infomation for []byte
-func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
+func (node *Node) ValueInfoPosBytes(vIdx int) (info ValueInfo) {
 
-	pos := node.VirtualTable(vIdx)
-	if pos == node.Pos {
-		node.ValueInfos[vIdx].Pos = 0
-		node.ValueInfos[vIdx].Size = 0
-		return node.ValueInfos[vIdx]
-	}
-
-	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
-	sLen := flatbuffers.GetUint32(node.R(pos + sLenOff))
-
-	start := pos + sLenOff + flatbuffers.SizeUOffsetT
-
-	node.ValueInfos[vIdx].Pos = start
-	node.ValueInfos[vIdx].Size = int(sLen)
-	node.ValueInfos[vIdx].VLen = sLen
-	return node.ValueInfos[vIdx]
+	info = node.ValueInfoPosList(vIdx)
+	info.Size = int(info.VLen)
+	return info
 }
 
 // ValueInfoPosTable ... etching vtable position infomation for flatbuffers table
@@ -530,6 +507,9 @@ func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
 func (node *Node) ValueInfoPosList(vIdx int) (info ValueInfo) {
 
 	vPos := node.VirtualTable(vIdx)
+	if node.VirtualTableIsZero(vIdx) {
+		return info
+	}
 
 	vLenOff := int(flatbuffers.GetUint32(node.R(vPos)))
 	vLen := flatbuffers.GetUint32(node.R(vPos + vLenOff))
@@ -759,6 +739,11 @@ func (b *Base) insertSpace(pos, size int, isCreate bool) *Base {
 			Diff{Offset: pos, bytes: make([]byte, size)})
 	}
 	return newBase
+}
+
+func (node *Node) VirtualTableIsZero(idx int) bool {
+
+	return node.VirtualTable(idx) == node.Pos
 }
 
 func (node *Node) VirtualTable(idx int) int {

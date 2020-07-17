@@ -243,13 +243,11 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 		result.Node = node.ValueTable(idx)
 
 	} else if IsFieldBytes(grp) {
-		if node.ValueInfos[idx].Pos < 1 {
-			node.ValueInfoPosBytes(idx)
-		}
-		valInfo := node.ValueInfos[idx]
+
+		valInfo := node.ValueInfoPosBytes(idx)
 		valInfo.VLen = uint32(valInfo.Size)
 
-		nNode := NewNode2(node.Base, node.ValueInfos[idx].Pos, true)
+		nNode := NewNode2(node.Base, valInfo.Pos, true)
 		nNode.Size = valInfo.Size
 		result.Node = nNode
 		result.ValueInfo = valInfo
@@ -1165,7 +1163,6 @@ func (node *CommonNode) movePos(idx, pos, size int) {
 
 		nextOff += uint32(size)
 		flatbuffers.WriteUint32(node.U(cPos, SizeOfuint32), nextOff)
-		node.ValueInfos[idx].Pos += size
 	} else {
 		Log(LOG_ERROR, func() LogArgs {
 			return F("MovePos: Invalid Node=%s idx=%d\n", node.Name, idx)
@@ -1384,11 +1381,6 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		return nil
 	}
 	return ERR_NO_SUPPORT
-}
-
-func (node *CommonNode) VirtualTableIsZero(idx int) bool {
-
-	return node.VirtualTable(idx) == node.Node.Pos
 }
 
 func FromBytes(bytes []byte) *CommonNode {
