@@ -19,7 +19,7 @@ var (
 var DUMMY_IndexNum_Size bool = SetIndexNumFields("IndexNum", "Size", "Int32", IndexNum_Size_0)
 
 func (node IndexNum) Size() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(IndexNum_Size_0)
 
 	result.Name = common.Name
@@ -28,4 +28,9 @@ func (node IndexNum) Size() (result *CommonNode) {
 	result.IdxToTypeGroup = common.IdxToTypeGroup
 
 	return
+}
+
+func (node IndexNum) SetSize(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(0, v)
 }

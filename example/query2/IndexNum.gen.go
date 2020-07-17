@@ -4,7 +4,10 @@
 
 package query
 
-import "github.com/kazu/fbshelper/query/base"
+import (
+	"github.com/kazu/fbshelper/query/base"
+	"github.com/kazu/fbshelper/query/log"
+)
 
 /*
 must call 1 times per Table / struct ( IndexNum ) ;
@@ -14,7 +17,7 @@ type IndexNum struct {
 	*base.CommonNode
 }
 
-func NewIndexNum() *IndexNum {
+func emptyIndexNum() *IndexNum {
 	return &IndexNum{CommonNode: &base.CommonNode{}}
 }
 
@@ -72,8 +75,8 @@ func IndexNumGetTypeGroup(s string) (result int) {
 
 func (node IndexNum) commonNode() *base.CommonNode {
 	if node.CommonNode == nil {
-		base.Log(base.LOG_WARN, func() base.LogArgs {
-			return base.F("CommonNode not found IndexNum")
+		log.Log(log.LOG_WARN, func() log.LogArgs {
+			return log.F("CommonNode not found IndexNum")
 		})
 	} else if len(node.CommonNode.Name) == 0 || len(node.CommonNode.IdxToType) == 0 {
 		node.CommonNode.Name = "IndexNum"
@@ -110,4 +113,34 @@ func (node IndexNum) ValueInfo(i int) base.ValueInfo {
 
 func (node IndexNum) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
+}
+
+type IndexNumWithErr struct {
+	*IndexNum
+	Err error
+}
+
+func IndexNumSingle(node *IndexNum, e error) IndexNumWithErr {
+	return IndexNumWithErr{IndexNum: node, Err: e}
+}
+
+func NewIndexNum() *IndexNum {
+	node := emptyIndexNum()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "IndexNum"
+	node.Init()
+
+	return node
+}
+
+func (node IndexNum) FieldGroups() map[int]int {
+	return IndexNum_IdxToTypeGroup
+}
+
+func (node IndexNum) Root() (Root, error) {
+	if !node.InRoot() {
+		return Root{}, log.ERR_NO_INCLUDE_ROOT
+	}
+	root := toRoot(node.Base)
+	return root, nil
 }

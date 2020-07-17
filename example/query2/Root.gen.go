@@ -4,7 +4,10 @@
 
 package query
 
-import "github.com/kazu/fbshelper/query/base"
+import (
+	"github.com/kazu/fbshelper/query/base"
+	"github.com/kazu/fbshelper/query/log"
+)
 
 /*
 must call 1 times per Table / struct ( Root ) ;
@@ -14,7 +17,7 @@ type Root struct {
 	*base.CommonNode
 }
 
-func NewRoot() *Root {
+func emptyRoot() *Root {
 	return &Root{CommonNode: &base.CommonNode{}}
 }
 
@@ -72,8 +75,8 @@ func RootGetTypeGroup(s string) (result int) {
 
 func (node Root) commonNode() *base.CommonNode {
 	if node.CommonNode == nil {
-		base.Log(base.LOG_WARN, func() base.LogArgs {
-			return base.F("CommonNode not found Root")
+		log.Log(log.LOG_WARN, func() log.LogArgs {
+			return log.F("CommonNode not found Root")
 		})
 	} else if len(node.CommonNode.Name) == 0 || len(node.CommonNode.IdxToType) == 0 {
 		node.CommonNode.Name = "Root"
@@ -110,4 +113,34 @@ func (node Root) ValueInfo(i int) base.ValueInfo {
 
 func (node Root) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
+}
+
+type RootWithErr struct {
+	*Root
+	Err error
+}
+
+func RootSingle(node *Root, e error) RootWithErr {
+	return RootWithErr{Root: node, Err: e}
+}
+
+func NewRoot() *Root {
+	node := emptyRoot()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "Root"
+	node.Init()
+
+	return node
+}
+
+func (node Root) FieldGroups() map[int]int {
+	return Root_IdxToTypeGroup
+}
+
+func (node Root) Root() (Root, error) {
+	if !node.InRoot() {
+		return Root{}, log.ERR_NO_INCLUDE_ROOT
+	}
+	root := toRoot(node.Base)
+	return root, nil
 }

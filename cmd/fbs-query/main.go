@@ -91,7 +91,9 @@ func MakeGenGennies(parser *fbsparser.Parser, dir string, opt GennyOpt) (result 
 
 		fmt.Fprintf(b, GennyLineTemplate, iPath, oPath)
 		fmt.Fprintf(b, ` "NodeName=%s`, info.Name)
+		fmt.Fprintf(b, ` RootType=%s`, RootName)
 		fmt.Fprintf(b, ` IsStruct=%v"`, IsStruct(info.Name))
+
 		fmt.Fprintf(b, "\n")
 
 		iPath = filepath.Join(tdir, "list.go")

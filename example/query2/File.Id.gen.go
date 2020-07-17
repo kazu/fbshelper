@@ -19,7 +19,7 @@ var (
 var DUMMY_File_Id bool = SetFileFields("File", "Id", "Uint64", File_Id_0)
 
 func (node File) Id() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(File_Id_0)
 
 	result.Name = common.Name
@@ -28,4 +28,9 @@ func (node File) Id() (result *CommonNode) {
 	result.IdxToTypeGroup = common.IdxToTypeGroup
 
 	return
+}
+
+func (node File) SetId(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(0, v)
 }

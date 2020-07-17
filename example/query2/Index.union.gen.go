@@ -14,7 +14,7 @@ type Index struct {
 	*base.CommonNode
 }
 
-func NewIndex() *Index {
+func emptyIndex() *Index {
 	result := &Index{CommonNode: &base.CommonNode{}}
 	result.Name = "Index"
 	return result

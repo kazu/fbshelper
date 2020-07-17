@@ -19,7 +19,7 @@ var (
 var DUMMY_Record_ValueSize bool = SetRecordFields("Record", "ValueSize", "Int32", Record_ValueSize_4)
 
 func (node Record) ValueSize() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(Record_ValueSize_4)
 
 	result.Name = common.Name
@@ -28,4 +28,9 @@ func (node Record) ValueSize() (result *CommonNode) {
 	result.IdxToTypeGroup = common.IdxToTypeGroup
 
 	return
+}
+
+func (node Record) SetValueSize(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(4, v)
 }

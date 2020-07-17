@@ -19,7 +19,7 @@ var (
 var DUMMY_Record_Offset bool = SetRecordFields("Record", "Offset", "Int64", Record_Offset_1)
 
 func (node Record) Offset() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(Record_Offset_1)
 
 	result.Name = common.Name
@@ -28,4 +28,9 @@ func (node Record) Offset() (result *CommonNode) {
 	result.IdxToTypeGroup = common.IdxToTypeGroup
 
 	return
+}
+
+func (node Record) SetOffset(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(1, v)
 }

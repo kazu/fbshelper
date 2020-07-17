@@ -19,7 +19,7 @@ var (
 var DUMMY_Symbols_Symbols bool = SetSymbolsFields("Symbols", "Symbols", "[]Symbol", Symbols_Symbols_0)
 
 func (node Symbols) Symbols() (result *SymbolList) {
-	result = NewSymbolList()
+	result = emptySymbolList()
 	common := node.FieldAt(Symbols_Symbols_0)
 
 	result.Name = common.Name
@@ -28,4 +28,9 @@ func (node Symbols) Symbols() (result *SymbolList) {
 	result.IdxToTypeGroup = common.IdxToTypeGroup
 
 	return
+}
+
+func (node Symbols) SetSymbols(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(0, v)
 }

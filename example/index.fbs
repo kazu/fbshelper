@@ -49,6 +49,7 @@ struct Record {
 table Root {
     version:int;
     index:Index;
+    record:Record;
 }
 
 table Files {

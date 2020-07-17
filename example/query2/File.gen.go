@@ -4,7 +4,10 @@
 
 package query
 
-import "github.com/kazu/fbshelper/query/base"
+import (
+	"github.com/kazu/fbshelper/query/base"
+	"github.com/kazu/fbshelper/query/log"
+)
 
 /*
 must call 1 times per Table / struct ( File ) ;
@@ -14,7 +17,7 @@ type File struct {
 	*base.CommonNode
 }
 
-func NewFile() *File {
+func emptyFile() *File {
 	return &File{CommonNode: &base.CommonNode{}}
 }
 
@@ -72,8 +75,8 @@ func FileGetTypeGroup(s string) (result int) {
 
 func (node File) commonNode() *base.CommonNode {
 	if node.CommonNode == nil {
-		base.Log(base.LOG_WARN, func() base.LogArgs {
-			return base.F("CommonNode not found File")
+		log.Log(log.LOG_WARN, func() log.LogArgs {
+			return log.F("CommonNode not found File")
 		})
 	} else if len(node.CommonNode.Name) == 0 || len(node.CommonNode.IdxToType) == 0 {
 		node.CommonNode.Name = "File"
@@ -110,4 +113,34 @@ func (node File) ValueInfo(i int) base.ValueInfo {
 
 func (node File) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
+}
+
+type FileWithErr struct {
+	*File
+	Err error
+}
+
+func FileSingle(node *File, e error) FileWithErr {
+	return FileWithErr{File: node, Err: e}
+}
+
+func NewFile() *File {
+	node := emptyFile()
+	node.NodeList = &base.NodeList{}
+	node.CommonNode.Name = "File"
+	node.Init()
+
+	return node
+}
+
+func (node File) FieldGroups() map[int]int {
+	return File_IdxToTypeGroup
+}
+
+func (node File) Root() (Root, error) {
+	if !node.InRoot() {
+		return Root{}, log.ERR_NO_INCLUDE_ROOT
+	}
+	root := toRoot(node.Base)
+	return root, nil
 }

@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	// this is cap size of Base's buffef([]byte)
+	// DEFAULT_BUF_CAP .. cap size of Base's buffef([]byte)
 	DEFAULT_BUF_CAP = 512
-	// this is cap size of Base's buffer via CreateNode
+	// DEFAULT_NODE_BUF_CAP ... cap size of Base's buffer via CreateNode
 	DEFAULT_NODE_BUF_CAP = 64
 )
 
@@ -26,13 +26,14 @@ var (
 )
 
 var (
-	ERR_MUST_POINTER  error = log.ERR_MUST_POINTER
-	ERR_INVALID_TYPE  error = log.ERR_INVALID_TYPE
-	ERR_NOT_FOUND     error = log.ERR_NOT_FOUND
-	ERR_READ_BUFFER   error = log.ERR_READ_BUFFER
-	ERR_MORE_BUFFER   error = log.ERR_MORE_BUFFER
-	ERR_NO_SUPPORT    error = log.ERR_NO_SUPPORT
-	ERR_INVALID_INDEX error = log.ERR_INVALID_INDEX
+	ERR_MUST_POINTER    error = log.ERR_MUST_POINTER
+	ERR_INVALID_TYPE    error = log.ERR_INVALID_TYPE
+	ERR_NOT_FOUND       error = log.ERR_NOT_FOUND
+	ERR_READ_BUFFER     error = log.ERR_READ_BUFFER
+	ERR_MORE_BUFFER     error = log.ERR_MORE_BUFFER
+	ERR_NO_SUPPORT      error = log.ERR_NO_SUPPORT
+	ERR_INVALID_INDEX   error = log.ERR_INVALID_INDEX
+	ERR_NO_INCLUDE_ROOT error = log.ERR_NO_INCLUDE_ROOT
 )
 
 type LogLevel = log.LogLevel
@@ -92,9 +93,15 @@ func Log(l LogLevel, fn LogFn) {
 // read from r and store bytes.
 // Diffs has jounals for writing
 type Base struct {
-	r     io.Reader
-	bytes []byte
-	Diffs []Diff
+	r       io.Reader
+	bytes   []byte
+	RDiffs  []Diff
+	Diffs   []Diff
+	dirties []Dirty
+}
+
+type Dirty struct {
+	Pos int
 }
 
 // Diff is journal for create/update
@@ -186,11 +193,15 @@ func (b *Base) NextBase(skip int) *Base {
 		bytes: b.bytes,
 	}
 	newBase.bytes = newBase.bytes[skip:]
-	if cap(newBase.bytes) < DEFAULT_BUF_CAP {
-		newBase.Diffs = append(newBase.Diffs, Diff{Offset: cap(newBase.bytes), bytes: make([]byte, 0, DEFAULT_BUF_CAP)})
-	}
 	if cap(b.bytes) > skip {
 		b.bytes = b.bytes[:skip]
+	}
+
+	if len(b.bytes) <= skip && len(b.RDiffs) > 0 {
+		//FIXME: impelement
+		Log(LOG_WARN, func() LogArgs {
+			return F("NextBase(): require RDiff. but not implemented\n")
+		})
 	}
 
 	return newBase
@@ -204,6 +215,9 @@ func (b *Base) HasIoReader() bool {
 // R ... is access buffer data
 // Base cannot access byte buffer directly.
 func (b *Base) R(off int) []byte {
+	if len(b.Diffs) == 0 {
+		return b.readerR(off)
+	}
 
 	n, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
 		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
@@ -211,6 +225,19 @@ func (b *Base) R(off int) []byte {
 	if e == nil && n >= 0 {
 		return b.Diffs[n].bytes[(off - b.Diffs[n].Offset):]
 	}
+
+	return b.bytes[off:]
+}
+
+func (b *Base) readerR(off int) []byte {
+
+	n, e := loncha.LastIndexOf(b.RDiffs, func(i int) bool {
+		return b.RDiffs[i].Offset <= off && off < (b.RDiffs[i].Offset+len(b.RDiffs[i].bytes))
+	})
+	if e == nil && n >= 0 {
+		return b.RDiffs[n].bytes[(off - b.RDiffs[n].Offset):]
+	}
+
 	if off+32 >= len(b.bytes) {
 		b.expandBuf(off - len(b.bytes) + 32)
 	}
@@ -218,54 +245,133 @@ func (b *Base) R(off int) []byte {
 	return b.bytes[off:]
 }
 
-func (b *Base) U(off, size int) []byte {
+func (b *Base) C(off, size int, src []byte) error {
+
+	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
+		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
+	})
+	if e == nil && sn >= 0 && b.Diffs[sn].Offset == off && len(b.Diffs[sn].bytes) == size {
+		b.Diffs[sn].bytes = src[:size]
+		return nil
+	}
+
+	diff := b.D(off, size)
+	diff.bytes = src[:size]
+	return nil
+}
+
+func (b *Base) Copy(src *Base, srcOff, size, dstOff, extend int) {
+
+	if len(b.bytes) > dstOff {
+		diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
+		b.Diffs = append(b.Diffs, diff)
+		b.bytes = b.bytes[:dstOff]
+	}
+
+	for i, diff := range b.Diffs {
+		if diff.Offset >= dstOff {
+			diff.Offset += extend
+		}
+		b.Diffs[i] = diff
+	}
+
+	if len(src.bytes) > srcOff {
+		nSize := len(src.bytes[srcOff:])
+		if nSize > size {
+			nSize = size
+		}
+
+		diff := Diff{Offset: dstOff, bytes: src.bytes[srcOff : srcOff+nSize]}
+		b.Diffs = append(b.Diffs, diff)
+	}
+	for _, diff := range src.Diffs {
+		if diff.Offset >= srcOff {
+			nDiff := diff
+			nDiff.Offset -= srcOff
+			nDiff.Offset += dstOff
+			b.Diffs = append(b.Diffs, nDiff)
+		}
+	}
+	return
+}
+
+func (b *Base) D(off, size int) *Diff {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
 		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
 	})
 
 	if e == nil && sn >= 0 {
+		// if b.Diffs[sn].Offset+len(b.Diffs[sn].bytes) < off+size {
+		// 	Log(LOG_ERROR, func() LogArgs {
+		// 		return F("D(%d,%d) Invalid diff=%d\n",
+		// 			off, size, )
+		// 	})
+		// }else
 		if b.Diffs[sn].Offset+len(b.Diffs[sn].bytes) <= off+size {
-			//FIXME INVALID state
+			diff := Diff{Offset: off}
+			b.Diffs = append(b.Diffs, diff)
+			idx := len(b.Diffs) - 1
+			return &b.Diffs[idx]
 		}
+
 		diffbefore := b.Diffs[sn]
 		//MENTION: should increase cap ?
-		diff := Diff{Offset: off, bytes: make([]byte, size)}
+		diff := Diff{Offset: off}
 		diffafter := Diff{Offset: off + size, bytes: diffbefore.bytes[off-diffbefore.Offset+size:]}
-		diffbefore.bytes = diffbefore.bytes[:off+size]
+		diffbefore.bytes = diffbefore.bytes[:off+size-diffbefore.Offset]
 		b.Diffs[sn] = diffbefore
-		b.Diffs = append(b.Diffs, diff, diffafter)
-
-		return diff.bytes
+		b.Diffs = append(b.Diffs[:sn+1],
+			append([]Diff{diffafter}, b.Diffs[sn+1:]...)...)
+		b.Diffs = append(b.Diffs, diff)
+		return &b.Diffs[len(b.Diffs)-1]
 	}
 
-	if len(b.bytes[off:]) < size {
-		//b.expandBuf(off - len(b.bytes) + 32)
-		//FIXME IMVALID state ?
+	if len(b.bytes) > off {
+		diff := Diff{Offset: off, bytes: b.bytes[off:]}
+		b.Diffs = append(b.Diffs, diff)
+		b.bytes = b.bytes[:off]
 	}
+
 	//MENTION: should increase cap ?
-	diff := Diff{Offset: off, bytes: make([]byte, size)}
+	diff := Diff{Offset: off}
 	b.Diffs = append(b.Diffs, diff)
+	idx := len(b.Diffs) - 1
 
-	if cap(b.bytes[off:]) > size {
-		diffafter := Diff{Offset: off + size, bytes: b.bytes[off+size:]}
-		b.bytes = b.bytes[:off+size]
-		b.Diffs = append(b.Diffs, diffafter)
-	}
+	return &b.Diffs[idx]
+}
 
+func (b *Base) U(off, size int) []byte {
+
+	diff := b.D(off, size)
+	diff.bytes = make([]byte, size)
 	return diff.bytes
 }
 
+// FIXME:  support base.RDiff
 func (b *Base) expandBuf(plus int) error {
 	if !b.HasIoReader() && cap(b.bytes)-len(b.bytes) < plus {
 		return nil
 	}
-	l := len(b.bytes)
-	b.bytes = b.bytes[:l+plus]
 
 	if !b.HasIoReader() {
 		return nil
 	}
+	if cap(b.bytes) < len(b.bytes)+plus {
+		diff := Diff{Offset: len(b.bytes), bytes: make([]byte, 0, DEFAULT_BUF_CAP)}
+		n, err := io.ReadAtLeast(b.r, diff.bytes, plus)
+		if n < plus || err != nil {
+			diff.bytes = diff.bytes[:n]
+			if n > 0 {
+				b.RDiffs = append(b.RDiffs, diff)
+			}
+			return ERR_READ_BUFFER
+		}
+		b.RDiffs = append(b.RDiffs, diff)
+	}
+
+	l := len(b.bytes)
+	b.bytes = b.bytes[:l+plus]
 
 	n, err := io.ReadAtLeast(b.r, b.bytes[l:], plus)
 	if n < plus || err != nil {
@@ -281,10 +387,27 @@ func (b *Base) LenBuf() int {
 	if len(b.Diffs) < 1 {
 		return len(b.bytes)
 	}
-	if len(b.bytes) < b.Diffs[len(b.Diffs)-1].Offset+len(b.Diffs[len(b.Diffs)-1].bytes) {
-		return b.Diffs[len(b.Diffs)-1].Offset + len(b.Diffs[len(b.Diffs)-1].bytes)
+
+	max := len(b.bytes)
+	for i := range b.Diffs {
+		if b.Diffs[i].Offset+len(b.Diffs[i].bytes) > max {
+			max = b.Diffs[i].Offset + len(b.Diffs[i].bytes)
+		}
 	}
-	return len(b.bytes)
+
+	return max
+
+}
+func (b *Base) Merge() {
+
+	nbytes := make([]byte, b.LenBuf())
+
+	copy(nbytes, b.bytes)
+	for i := range b.Diffs {
+		copy(nbytes[b.Diffs[i].Offset:], b.Diffs[i].bytes)
+	}
+	b.bytes = nbytes
+	b.Diffs = []Diff{}
 
 }
 
@@ -362,23 +485,24 @@ func (info ValueInfo) IsNotReady() bool {
 
 // ValueInfoPos ... fetching vtable position infomation
 func (node *Node) ValueInfoPos(vIdx int) ValueInfo {
-	if node.VTable[vIdx] == 0 {
-		node.ValueInfos[vIdx].Pos = -1
-		node.ValueInfos[vIdx].Size = -1
-		return node.ValueInfos[vIdx]
+	if len(node.ValueInfos) <= vIdx {
+		node.ValueInfos = append(node.ValueInfos, make([]ValueInfo, vIdx+1-len(node.ValueInfos))...)
 	}
-	node.ValueInfos[vIdx].Pos = node.Pos + int(node.VTable[vIdx])
+	node.ValueInfos[vIdx].Pos = node.VirtualTable(vIdx)
+
 	return node.ValueInfos[vIdx]
 }
 
 // ValueInfoPosBytes ... etching vtable position infomation for []byte
 func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
-	if node.VTable[vIdx] == 0 {
-		node.ValueInfos[vIdx].Pos = -1
-		node.ValueInfos[vIdx].Size = -1
+
+	pos := node.VirtualTable(vIdx)
+	if pos == node.Pos {
+		node.ValueInfos[vIdx].Pos = 0
+		node.ValueInfos[vIdx].Size = 0
 		return node.ValueInfos[vIdx]
 	}
-	pos := node.Pos + int(node.VTable[vIdx])
+
 	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
 	sLen := flatbuffers.GetUint32(node.R(pos + sLenOff))
 
@@ -386,18 +510,15 @@ func (node *Node) ValueInfoPosBytes(vIdx int) ValueInfo {
 
 	node.ValueInfos[vIdx].Pos = start
 	node.ValueInfos[vIdx].Size = int(sLen)
+	node.ValueInfos[vIdx].VLen = sLen
 	return node.ValueInfos[vIdx]
 }
 
 // ValueInfoPosTable ... etching vtable position infomation for flatbuffers table
 func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
-	if node.VTable[vIdx] == 0 {
-		node.ValueInfos[vIdx].Pos = -1
-		node.ValueInfos[vIdx].Size = -1
-		return node.ValueInfos[vIdx]
-	}
 
-	pos := node.Pos + int(node.VTable[vIdx])
+	// FIXME: empty vtable(vIdx)?
+	pos := node.VirtualTable(vIdx)
 	start := int(flatbuffers.GetUint32(node.R(pos))) + pos
 
 	node.ValueInfos[vIdx].Pos = start
@@ -407,12 +528,13 @@ func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
 
 // ValueInfoPosList ... etching vtable position infomation for flatbuffers vector
 func (node *Node) ValueInfoPosList(vIdx int) ValueInfo {
-	if node.VTable[vIdx] == 0 {
-		node.ValueInfos[vIdx].Pos = -1
-		node.ValueInfos[vIdx].Size = -1
+
+	vPos := node.VirtualTable(vIdx)
+	if vPos == node.Pos {
+		node.ValueInfos[vIdx].Pos = 0
+		node.ValueInfos[vIdx].Size = 0
 		return node.ValueInfos[vIdx]
 	}
-	vPos := node.Pos + int(node.VTable[vIdx])
 	vLenOff := int(flatbuffers.GetUint32(node.R(vPos)))
 	vLen := flatbuffers.GetUint32(node.R(vPos + vLenOff))
 	start := vPos + vLenOff + flatbuffers.SizeUOffsetT
@@ -524,53 +646,170 @@ type FieldsDefile struct {
 }
 
 func (node *Node) Byte() byte {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetByte(node.R(node.Pos))
 }
 
 func (node *Node) Bool() bool {
+	if node == nil {
+		return false
+	}
+
 	return flatbuffers.GetBool(node.R(node.Pos))
 }
 
 func (node *Node) Uint8() uint8 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetUint8(node.R(node.Pos))
 }
 
 func (node *Node) Uint16() uint16 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetUint16(node.R(node.Pos))
 }
 
 func (node *Node) Uint32() uint32 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetUint32(node.R(node.Pos))
 }
 
 func (node *Node) Uint64() uint64 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetUint64(node.R(node.Pos))
 }
 
 func (node *Node) Int8() int8 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetInt8(node.R(node.Pos))
 }
 
 func (node *Node) Int16() int16 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetInt16(node.R(node.Pos))
 }
 
 func (node *Node) Int32() int32 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetInt32(node.R(node.Pos))
 }
 
 func (node *Node) Int64() int64 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetInt64(node.R(node.Pos))
 }
 
 func (node *Node) Float32() float32 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetFloat32(node.R(node.Pos))
 }
 
 func (node *Node) Float64() float64 {
+	if node == nil {
+		return 0
+	}
+
 	return flatbuffers.GetFloat64(node.R(node.Pos))
 }
 
 func (node *Node) Bytes() []byte {
+	if node == nil {
+		return nil
+	}
 	return node.R(node.Pos)[:node.Size]
+}
+func (b *Base) insertBuf(pos, size int) *Base {
+	return b.insertSpace(pos, size, true)
+}
+func (b *Base) insertSpace(pos, size int, isCreate bool) *Base {
+
+	newBase := &Base{
+		r:     b.r,
+		bytes: b.bytes,
+	}
+
+	newBase.Diffs = make([]Diff, len(b.Diffs), cap(b.Diffs))
+
+	copy(newBase.Diffs, b.Diffs)
+
+	for i, diff := range newBase.Diffs {
+		if diff.Offset < pos && diff.Offset+len(diff.bytes) > pos {
+			newBase.Diffs = append(newBase.Diffs[:i],
+				append([]Diff{
+					Diff{Offset: diff.Offset, bytes: diff.bytes[:pos-diff.Offset]},
+					Diff{Offset: pos, bytes: diff.bytes[pos-diff.Offset:]}},
+					b.Diffs[i+1:]...)...)
+		}
+	}
+
+	for i := range newBase.Diffs {
+		if newBase.Diffs[i].Offset >= pos {
+			newBase.Diffs[i].Offset += size
+		}
+	}
+
+	if len(newBase.bytes) > pos {
+		newBase.Diffs = append(newBase.Diffs,
+			Diff{Offset: pos + size, bytes: newBase.bytes[pos:]})
+		newBase.bytes = newBase.bytes[:pos]
+	}
+	if isCreate {
+		newBase.Diffs = append(newBase.Diffs,
+			Diff{Offset: pos, bytes: make([]byte, size)})
+	}
+	return newBase
+}
+
+func (node *Node) VirtualTable(idx int) int {
+
+	voff := flatbuffers.GetUint32(node.R(node.Pos))
+	vPos := node.Pos - int(voff)
+	tOffset := flatbuffers.GetUint16(node.R(int(vPos) + 4 + idx*2))
+	return node.Pos + int(tOffset)
+}
+
+func (node *Node) TableLen() int {
+	voff := flatbuffers.GetUint32(node.R(node.Pos))
+	vPos := node.Pos - int(voff)
+	return int(flatbuffers.GetUint16(node.R(int(vPos) + 2)))
+}
+
+func (node *Node) VirtualTableLen() int {
+	voff := flatbuffers.GetUint32(node.R(node.Pos))
+	vPos := node.Pos - int(voff)
+	return int(flatbuffers.GetUint16(node.R(int(vPos))))
+}
+
+func (node *Node) Table(idx int) int {
+	pos := node.VirtualTable(idx)
+	return pos + int(flatbuffers.GetUint32(node.R(pos)))
 }

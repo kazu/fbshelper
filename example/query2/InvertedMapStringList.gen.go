@@ -11,8 +11,12 @@ type InvertedMapStringList struct { // genny
 }
 
 // InvertedMapString genny
-
 func NewInvertedMapStringList() *InvertedMapStringList {
+
+	return emptyInvertedMapStringList()
+}
+
+func emptyInvertedMapStringList() *InvertedMapStringList {
 	return &InvertedMapStringList{CommonNode: &base.CommonNode{}}
 }
 

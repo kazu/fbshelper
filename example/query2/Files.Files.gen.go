@@ -19,7 +19,7 @@ var (
 var DUMMY_Files_Files bool = SetFilesFields("Files", "Files", "[]File", Files_Files_0)
 
 func (node Files) Files() (result *FileList) {
-	result = NewFileList()
+	result = emptyFileList()
 	common := node.FieldAt(Files_Files_0)
 
 	result.Name = common.Name
@@ -28,4 +28,9 @@ func (node Files) Files() (result *FileList) {
 	result.IdxToTypeGroup = common.IdxToTypeGroup
 
 	return
+}
+
+func (node Files) SetFiles(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(0, v)
 }

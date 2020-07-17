@@ -7,8 +7,12 @@ type ListType struct { // genny
 }
 
 // NodeName genny
-
 func NewListType() *ListType {
+
+	return emptyListType()
+}
+
+func emptyListType() *ListType {
 	return &ListType{CommonNode: &base.CommonNode{}}
 }
 

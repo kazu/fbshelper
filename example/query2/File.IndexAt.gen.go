@@ -19,7 +19,7 @@ var (
 var DUMMY_File_IndexAt bool = SetFileFields("File", "IndexAt", "Int64", File_IndexAt_2)
 
 func (node File) IndexAt() (result *CommonNode) {
-	result = NewCommonNode()
+	result = emptyCommonNode()
 	common := node.FieldAt(File_IndexAt_2)
 
 	result.Name = common.Name
@@ -28,4 +28,9 @@ func (node File) IndexAt() (result *CommonNode) {
 	result.IdxToTypeGroup = common.IdxToTypeGroup
 
 	return
+}
+
+func (node File) SetIndexAt(v *base.CommonNode) error {
+
+	return node.CommonNode.SetFieldAt(2, v)
 }

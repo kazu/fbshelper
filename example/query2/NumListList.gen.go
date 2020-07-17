@@ -11,8 +11,12 @@ type NumListList struct { // genny
 }
 
 // NumList genny
-
 func NewNumListList() *NumListList {
+
+	return emptyNumListList()
+}
+
+func emptyNumListList() *NumListList {
 	return &NumListList{CommonNode: &base.CommonNode{}}
 }
 

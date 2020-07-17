@@ -352,3 +352,11 @@ func ApplyRequestNameFields() {
 
 	return
 }
+
+var RootName string = ""
+
+func SetRootName(s string) {
+	if len(RootName) == 0 {
+		RootName = s
+	}
+}
