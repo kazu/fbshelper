@@ -527,48 +527,19 @@ func (node *Node) ValueInfoPosTable(vIdx int) ValueInfo {
 }
 
 // ValueInfoPosList ... etching vtable position infomation for flatbuffers vector
-func (node *Node) ValueInfoPosList(vIdx int) ValueInfo {
+func (node *Node) ValueInfoPosList(vIdx int) (info ValueInfo) {
 
 	vPos := node.VirtualTable(vIdx)
-	if vPos == node.Pos {
-		node.ValueInfos[vIdx].Pos = 0
-		node.ValueInfos[vIdx].Size = 0
-		return node.ValueInfos[vIdx]
-	}
+
 	vLenOff := int(flatbuffers.GetUint32(node.R(vPos)))
 	vLen := flatbuffers.GetUint32(node.R(vPos + vLenOff))
 	start := vPos + vLenOff + flatbuffers.SizeUOffsetT
 
-	node.ValueInfos[vIdx].Pos = int(start)
-	node.ValueInfos[vIdx].VLen = vLen
+	info.Pos = int(start)
+	info.VLen = vLen
 
-	return node.ValueInfos[vIdx]
+	return info
 
-}
-
-func (node *Node) ValueNormal(vIdx int) []byte {
-	if node.ValueInfos[vIdx].Pos < 1 {
-		node.ValueInfoPos(vIdx)
-	}
-	return node.R(node.ValueInfos[vIdx].Pos)
-}
-
-func (node *Node) ValueBytes(vIdx int) []byte {
-	if node.ValueInfos[vIdx].Pos < 1 {
-		node.ValueInfoPosBytes(vIdx)
-	}
-	valInfo := node.ValueInfos[vIdx]
-
-	return node.R(valInfo.Pos)[:valInfo.Size]
-
-}
-
-func (node *Node) OldValueTable(vIdx int) *Node {
-	if node.ValueInfos[vIdx].Pos < 1 {
-		node.ValueInfoPosTable(vIdx)
-	}
-
-	return NewNode(node.Base, node.ValueInfos[vIdx].Pos)
 }
 
 func (node *Node) ValueTable(vIdx int) *Node {
@@ -577,25 +548,17 @@ func (node *Node) ValueTable(vIdx int) *Node {
 }
 
 func (node *Node) ValueStruct(vIdx int) *Node {
-	// if node.ValueInfos[vIdx].Pos < 1 {
-	// 	node.ValueInfoPos(vIdx)
-	// }
 
-	// return NewNode2(node.Base, node.ValueInfos[vIdx].Pos, true)
-
-	//return node.VirtualTable(vIdx)
 	return NewNode2(node.Base, node.VirtualTable(vIdx), true)
 
 }
 
 func (node *Node) ValueList(vIdx int) NodeList {
 
-	if node.ValueInfos[vIdx].Pos < 1 {
-		node.ValueInfoPosList(vIdx)
-	}
+	info := node.ValueInfoPosList(vIdx)
 
 	return NodeList{Node: NewNode(node.Base, node.Pos),
-		ValueInfo: node.ValueInfos[vIdx]}
+		ValueInfo: info}
 }
 
 type UnmarshalFn func(string, reflect.Value) error
