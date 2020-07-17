@@ -11,6 +11,10 @@ type RootList struct { // genny
 }
 
 // Root genny
+func NewRootList() *RootList {
+
+	return emptyRootList()
+}
 
 func emptyRootList() *RootList {
 	return &RootList{CommonNode: &base.CommonNode{}}

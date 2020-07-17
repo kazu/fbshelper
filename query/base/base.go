@@ -94,6 +94,7 @@ func Log(l LogLevel, fn LogFn) {
 type Base struct {
 	r       io.Reader
 	bytes   []byte
+	RDiffs  []Diff
 	Diffs   []Diff
 	dirties []Dirty
 }
@@ -191,11 +192,15 @@ func (b *Base) NextBase(skip int) *Base {
 		bytes: b.bytes,
 	}
 	newBase.bytes = newBase.bytes[skip:]
-	if cap(newBase.bytes) < DEFAULT_BUF_CAP {
-		newBase.Diffs = append(newBase.Diffs, Diff{Offset: cap(newBase.bytes), bytes: make([]byte, 0, DEFAULT_BUF_CAP)})
-	}
 	if cap(b.bytes) > skip {
 		b.bytes = b.bytes[:skip]
+	}
+
+	if len(b.bytes) <= skip && len(b.RDiffs) > 0 {
+		//FIXME: impelement
+		Log(LOG_WARN, func() LogArgs {
+			return F("NextBase(): require RDiff. but not implemented\n")
+		})
 	}
 
 	return newBase
@@ -209,6 +214,9 @@ func (b *Base) HasIoReader() bool {
 // R ... is access buffer data
 // Base cannot access byte buffer directly.
 func (b *Base) R(off int) []byte {
+	if len(b.Diffs) == 0 {
+		return b.readerR(off)
+	}
 
 	n, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
 		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
@@ -216,6 +224,19 @@ func (b *Base) R(off int) []byte {
 	if e == nil && n >= 0 {
 		return b.Diffs[n].bytes[(off - b.Diffs[n].Offset):]
 	}
+
+	return b.bytes[off:]
+}
+
+func (b *Base) readerR(off int) []byte {
+
+	n, e := loncha.LastIndexOf(b.RDiffs, func(i int) bool {
+		return b.RDiffs[i].Offset <= off && off < (b.RDiffs[i].Offset+len(b.RDiffs[i].bytes))
+	})
+	if e == nil && n >= 0 {
+		return b.RDiffs[n].bytes[(off - b.RDiffs[n].Offset):]
+	}
+
 	if off+32 >= len(b.bytes) {
 		b.expandBuf(off - len(b.bytes) + 32)
 	}
@@ -305,21 +326,16 @@ func (b *Base) D(off, size int) *Diff {
 		return &b.Diffs[len(b.Diffs)-1]
 	}
 
-	if len(b.bytes[off:]) < size {
-		//b.expandBuf(off - len(b.bytes) + 32)
-		//FIXME IMVALID state ?
+	if len(b.bytes) > off {
+		diff := Diff{Offset: off, bytes: b.bytes[off:]}
+		b.Diffs = append(b.Diffs, diff)
+		b.bytes = b.bytes[:off]
 	}
+
 	//MENTION: should increase cap ?
 	diff := Diff{Offset: off}
 	b.Diffs = append(b.Diffs, diff)
 	idx := len(b.Diffs) - 1
-
-	if cap(b.bytes[off:]) > size {
-		diffafter := Diff{Offset: off + size, bytes: b.bytes[off+size:]}
-		// b.bytes = b.bytes[:off+size] bug ?
-		b.bytes = b.bytes[:off]
-		b.Diffs = append(b.Diffs, diffafter)
-	}
 
 	return &b.Diffs[idx]
 }
@@ -331,16 +347,30 @@ func (b *Base) U(off, size int) []byte {
 	return diff.bytes
 }
 
+// FIXME:  support base.RDiff
 func (b *Base) expandBuf(plus int) error {
 	if !b.HasIoReader() && cap(b.bytes)-len(b.bytes) < plus {
 		return nil
 	}
-	l := len(b.bytes)
-	b.bytes = b.bytes[:l+plus]
 
 	if !b.HasIoReader() {
 		return nil
 	}
+	if cap(b.bytes) < len(b.bytes)+plus {
+		diff := Diff{Offset: len(b.bytes), bytes: make([]byte, 0, DEFAULT_BUF_CAP)}
+		n, err := io.ReadAtLeast(b.r, diff.bytes, plus)
+		if n < plus || err != nil {
+			diff.bytes = diff.bytes[:n]
+			if n > 0 {
+				b.RDiffs = append(b.RDiffs, diff)
+			}
+			return ERR_READ_BUFFER
+		}
+		b.RDiffs = append(b.RDiffs, diff)
+	}
+
+	l := len(b.bytes)
+	b.bytes = b.bytes[:l+plus]
 
 	n, err := io.ReadAtLeast(b.r, b.bytes[l:], plus)
 	if n < plus || err != nil {
@@ -716,8 +746,10 @@ func (node *Node) Bytes() []byte {
 	}
 	return node.R(node.Pos)[:node.Size]
 }
-
 func (b *Base) insertBuf(pos, size int) *Base {
+	return b.insertSpace(pos, size, true)
+}
+func (b *Base) insertSpace(pos, size int, isCreate bool) *Base {
 
 	newBase := &Base{
 		r:     b.r,
@@ -726,11 +758,22 @@ func (b *Base) insertBuf(pos, size int) *Base {
 
 	newBase.Diffs = make([]Diff, len(b.Diffs), cap(b.Diffs))
 
-	for i, diff := range b.Diffs {
-		if diff.Offset >= pos {
-			diff.Offset += size
+	copy(newBase.Diffs, b.Diffs)
+
+	for i, diff := range newBase.Diffs {
+		if diff.Offset < pos && diff.Offset+len(diff.bytes) > pos {
+			newBase.Diffs = append(newBase.Diffs[:i],
+				append([]Diff{
+					Diff{Offset: diff.Offset, bytes: diff.bytes[:pos-diff.Offset]},
+					Diff{Offset: pos, bytes: diff.bytes[pos-diff.Offset:]}},
+					b.Diffs[i+1:]...)...)
 		}
-		newBase.Diffs[i] = diff
+	}
+
+	for i := range newBase.Diffs {
+		if newBase.Diffs[i].Offset >= pos {
+			newBase.Diffs[i].Offset += size
+		}
 	}
 
 	if len(newBase.bytes) > pos {
@@ -738,9 +781,10 @@ func (b *Base) insertBuf(pos, size int) *Base {
 			Diff{Offset: pos + size, bytes: newBase.bytes[pos:]})
 		newBase.bytes = newBase.bytes[:pos]
 	}
-	newBase.Diffs = append(newBase.Diffs,
-		Diff{Offset: pos, bytes: make([]byte, size)})
-
+	if isCreate {
+		newBase.Diffs = append(newBase.Diffs,
+			Diff{Offset: pos, bytes: make([]byte, size)})
+	}
 	return newBase
 }
 

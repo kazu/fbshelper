@@ -11,6 +11,10 @@ type FilesList struct { // genny
 }
 
 // Files genny
+func NewFilesList() *FilesList {
+
+	return emptyFilesList()
+}
 
 func emptyFilesList() *FilesList {
 	return &FilesList{CommonNode: &base.CommonNode{}}

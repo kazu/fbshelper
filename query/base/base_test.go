@@ -732,6 +732,7 @@ func Test_BaseCopy(t *testing.T) {
 
 func Test_SetFieldAt(t *testing.T) {
 
+	base.SetLogLevel(base.LOG_DEBUG)
 	buf := MakeRootFileFbsNoVersion(12, "root_test1.json", 456)
 
 	root := query2.OpenByBuf(buf)
@@ -768,14 +769,63 @@ func Test_SetFieldAt(t *testing.T) {
 
 	assert.Equal(t, root.Index().File().Id().Uint64(), oRoot.Index().File().Id().Uint64())
 	assert.Equal(t, uint64(13), nFile.Id().Uint64())
-	assert.Equal(t, []byte("Zile-bytes"), nFile.Name().Bytes())
+	assert.Equal(t, []byte("Zile-bytes"), nFile.Name().Bytes(), "edit File.Name")
 
 	root.SetFieldAt(2, nFile.CommonNode)
 
 	assert.NotEqual(t, oRoot.Index().File().Id().Uint64(), root.Index().File().Id().Uint64())
 	assert.Equal(t, fbsUint64.Uint64(), root.Index().File().Id().Uint64())
 	assert.Equal(t, fbsInt64.Int64(), root.Index().File().IndexAt().Int64())
-	assert.Equal(t, []byte("Zile-bytes"), root.Index().File().Name().Bytes())
+	assert.Equal(t, []byte("Zile-bytes"), root.Index().File().Name().Bytes(), "edit Root.Index.File.Name")
+
+	buf = MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
+			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
+		})
+	})
+
+	root = query2.OpenByBuf(buf)
+
+	cnt := root.Index().IndexString().Maps().Count()
+	_ = cnt
+
+	// insert new element to vector
+	invs := query2.NewInvertedMapString()
+	rec := query2.NewRecord()
+	rec.SetFileId(query2.FromUint64(9))
+	rec.SetOffset(query2.FromInt64(8))
+	rec.SetSize(query2.FromInt64(7))
+	rec.SetOffsetOfValue(query2.FromInt32(6))
+	rec.SetValueSize(query2.FromInt32(5))
+	invs.SetValue(rec.CommonNode)
+	invs.SetKey(base.FromBytes([]byte("inverted")))
+
+	maps := root.Index().IndexString().Maps()
+	query2.RootFromCommon(maps.CommonNode).AllTree().DumpAll(0, os.Stdout)
+	maps.SetAt(cnt, invs.CommonNode)
+
+	// replace new element to vector
+	invs = query2.NewInvertedMapString()
+	rec = query2.NewRecord()
+	rec.SetFileId(query2.FromUint64(19))
+	rec.SetOffset(query2.FromInt64(18))
+	rec.SetSize(query2.FromInt64(17))
+	rec.SetOffsetOfValue(query2.FromInt32(16))
+	rec.SetValueSize(query2.FromInt32(15))
+	invs.SetValue(rec.CommonNode)
+	invs.SetKey(base.FromBytes([]byte("inverted2")))
+
+	maps.SetAt(1, invs.CommonNode)
+
+	root2 := query2.RootFromCommon(maps.CommonNode)
+
+	assert.Equal(t, cnt+1, root2.Index().IndexString().Maps().Count(), "root.IndexString.Maps.Count")
+	assert.Equal(t, cnt+1, 3)
+	assert.Equal(t, []byte("inverted"), query2.InvertedMapStringSingle(root2.Index().IndexString().Maps().At(2)).Key().Bytes())
+	assert.Equal(t, []byte("inverted2"), query2.InvertedMapStringSingle(root2.Index().IndexString().Maps().At(1)).Key().Bytes())
+
+	query2.RootFromCommon(maps.CommonNode).AllTree().DumpAll(0, os.Stdout)
+
 }
 
 func Test_NewRootIndexString(t *testing.T) {

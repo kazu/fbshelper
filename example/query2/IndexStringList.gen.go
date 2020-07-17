@@ -11,6 +11,10 @@ type IndexStringList struct { // genny
 }
 
 // IndexString genny
+func NewIndexStringList() *IndexStringList {
+
+	return emptyIndexStringList()
+}
 
 func emptyIndexStringList() *IndexStringList {
 	return &IndexStringList{CommonNode: &base.CommonNode{}}

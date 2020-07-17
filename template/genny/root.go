@@ -60,6 +60,12 @@ func toRoot(b *base.Base) RootType {
 	return root
 }
 
+func RootFromCommon(c *base.CommonNode) RootType {
+	return RootType{
+		CommonNode: c.RootCommon(),
+	}
+}
+
 func (node RootType) Next() RootType {
 	start := node.Len()
 

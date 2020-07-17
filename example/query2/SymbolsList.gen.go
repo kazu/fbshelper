@@ -11,6 +11,10 @@ type SymbolsList struct { // genny
 }
 
 // Symbols genny
+func NewSymbolsList() *SymbolsList {
+
+	return emptySymbolsList()
+}
 
 func emptySymbolsList() *SymbolsList {
 	return &SymbolsList{CommonNode: &base.CommonNode{}}
