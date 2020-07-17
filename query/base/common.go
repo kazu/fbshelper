@@ -47,65 +47,46 @@ func (node *CommonNode) Info() (info Info) {
 
 func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 
+	info := ValueInfo{Pos: node.Node.Pos, Size: 0}
 	if IsStructName[node.Name] {
-		if len(node.ValueInfos) > idx {
-			return node.ValueInfos[idx]
-		}
-		node.ValueInfos = make([]ValueInfo, 0, node.CountOfField())
-		info := ValueInfo{Pos: node.Node.Pos, Size: 0}
-		for i := 0; i < node.CountOfField(); i++ {
+		for i := 0; i < idx; i++ {
 			info.Pos += info.Size
 			info.Size = TypeToSize[node.IdxToType[i]]
-			node.ValueInfos = append(node.ValueInfos, info)
 		}
+		return info
 	}
 
 	grp := node.IdxToTypeGroup[idx]
-	if len(node.ValueInfos) < node.CountOfField() {
-		node.ValueInfos = append(node.ValueInfos,
-			make([]ValueInfo, node.CountOfField()-len(node.ValueInfos))...)
-	}
+	// if len(node.ValueInfos) < node.CountOfField() {
+	// 	node.ValueInfos = append(node.ValueInfos,
+	// 		make([]ValueInfo, node.CountOfField()-len(node.ValueInfos))...)
+	// }
 
 	if IsFieldStruct(grp) {
-		if node.ValueInfos[idx].IsNotReady() {
-			node.ValueInfoPos(idx)
-		}
-		node.ValueInfos[idx].Size = node.FieldAt(idx).Info().Size
+		info.Pos = node.VirtualTable(idx)
+		info.Size = node.FieldAt(idx).Info().Size
 
 	} else if IsFieldUnion(grp) {
-		var info ValueInfo
 		info.Pos = node.Table(idx)
 
 		if node.CanFollow(idx) {
 			info.Size = node.FollowUnion(idx).Info().Size
-			return info
 		}
 
 	} else if IsFieldBytes(grp) {
-		if node.ValueInfos[idx].IsNotReady() {
-			node.ValueInfoPosBytes(idx)
-		}
+		info = node.ValueInfoPosBytes(idx)
 
 	} else if IsFieldSlice(grp) {
-		if node.ValueInfos[idx].IsNotReady() {
-			node.ValueInfoPosList(idx)
-		}
-
-		node.ValueInfos[idx].Size = node.FieldAt(idx).InfoSlice().Size
+		info = node.ValueInfoPosList(idx)
+		info.Size = node.FieldAt(idx).InfoSlice().Size
 
 	} else if IsFieldTable(grp) {
-		var info ValueInfo
-
 		info.Pos = node.Table(idx)
 		info.Size = node.FieldAt(idx).Info().Size
-		return info
 
 	} else if IsFieldBasicType(grp) {
-		if node.ValueInfos[idx].IsNotReady() {
-			node.ValueInfoPos(idx)
-		}
-
-		node.ValueInfos[idx].Size = TypeToSize[node.IdxToType[idx]]
+		info.Pos = node.VirtualTable(idx)
+		info.Size = TypeToSize[node.IdxToType[idx]]
 
 	} else {
 		Log(LOG_ERROR, func() LogArgs {
@@ -113,7 +94,7 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 		})
 	}
 
-	return node.ValueInfos[idx]
+	return info
 }
 func (node *CommonNode) CanFollow(idx int) bool {
 
@@ -281,10 +262,7 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 		result.Node = node.ValueTable(idx)
 
 	} else if IsFieldBasicType(grp) {
-		if len(node.ValueInfos) <= idx || node.ValueInfos[idx].Pos < 1 {
-			node.ValueInfoPos(idx)
-		}
-		result.Node = NewNode2(node.Base, node.ValueInfos[idx].Pos, true)
+		result.Node = NewNode2(node.Base, node.VirtualTable(idx), true)
 		result.Node.Size = TypeToSize[node.IdxToType[idx]]
 
 	} else {
