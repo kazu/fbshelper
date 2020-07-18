@@ -1283,8 +1283,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 				pos += TypeToSize[node.IdxToType[i]]
 			} else {
 				size := TypeToSize[node.IdxToType[i]]
-				diff := node.D(pos, size)
-				diff.bytes = fNode.R(fNode.Node.Pos)[:fNode.Node.Pos+size]
+				node.Copy(fNode.Base, fNode.Node.Pos, size, pos, 0)
 				return nil
 			}
 		}
@@ -1302,7 +1301,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		}
 
 		oFieldSize := node.ValueInfo(idx).Size
-		if node.VirtualTable(idx) == node.Node.Pos {
+		if node.VirtualTableIsZero(idx) {
 			// update VTable in buffer. wPos is postion in table,
 			wPos := node.insertVTable(idx, size)
 			// write offset to vLen (list start)
