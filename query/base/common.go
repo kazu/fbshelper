@@ -286,8 +286,8 @@ func (node *CommonNode) At(i int) (*CommonNode, error) {
 	if !node.IsList() {
 		return nil, ERR_NO_SUPPORT
 	}
-
-	if i >= int(node.NodeList.ValueInfo.VLen) || i < 0 {
+	if i >= int(node.VLen()) || i < 0 {
+		//if i >= int(node.NodeList.ValueInfo.VLen) || i < 0 {
 		return nil, ERR_INVALID_INDEX
 	}
 
@@ -322,7 +322,7 @@ func (node *CommonNode) First() (*CommonNode, error) {
 }
 
 func (node *CommonNode) Last() (*CommonNode, error) {
-	return node.At(int(node.NodeList.ValueInfo.VLen) - 1)
+	return node.At(int(node.VLen()) - 1)
 }
 
 func (node *CommonNode) Select(fn func(m *CommonNode) bool) []*CommonNode {
@@ -348,6 +348,10 @@ func (node *CommonNode) Find(fn func(m *CommonNode) bool) *CommonNode {
 
 func (node *CommonNode) All() []*CommonNode {
 	return node.Select(func(m *CommonNode) bool { return true })
+}
+
+func (node *CommonNode) VLen() uint32 {
+	return flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos - flatbuffers.SizeUOffsetT))
 }
 
 func (node *CommonNode) InfoSlice() Info {

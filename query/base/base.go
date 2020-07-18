@@ -263,7 +263,7 @@ func (b *Base) Copy(src *Base, srcOff, size, dstOff, extend int) {
 	if len(b.bytes) > dstOff {
 		diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
 		b.Diffs = append(b.Diffs, diff)
-		b.bytes = b.bytes[:dstOff]
+		//b.bytes = b.bytes[:dstOff]
 	}
 
 	for i, diff := range b.Diffs {
@@ -325,10 +325,10 @@ func (b *Base) D(off, size int) *Diff {
 		return &b.Diffs[len(b.Diffs)-1]
 	}
 
-	if len(b.bytes) > off {
-		diff := Diff{Offset: off, bytes: b.bytes[off:]}
+	if len(b.bytes) > off && cap(b.bytes) > off+size {
+		diff := Diff{Offset: off, bytes: b.bytes[off : off+size]}
 		b.Diffs = append(b.Diffs, diff)
-		b.bytes = b.bytes[:off]
+		//b.bytes = b.bytes[:off]
 	}
 
 	//MENTION: should increase cap ?
