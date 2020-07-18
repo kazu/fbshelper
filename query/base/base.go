@@ -120,10 +120,9 @@ type Root struct {
 // ValueInfos is information of pointted fields
 type Node struct {
 	*Base
-	Pos    int
-	Size   int
-	VTable []uint16
-	TLen   uint16
+	Pos  int
+	Size int
+	TLen uint16
 }
 
 // NodeList is struct for Vector(list) Node
@@ -167,7 +166,7 @@ func NewNode(b *Base, pos int) *Node {
 func NewNode2(b *Base, pos int, noLoadVTable bool) *Node {
 	node := &Node{Base: b, Pos: pos, Size: -1}
 	if !noLoadVTable {
-		node.vtable()
+		node.preLoadVtable()
 	}
 	return node
 }
@@ -441,22 +440,24 @@ func (b *Base) BufInfo() (infos BufInfo) {
 }
 
 func (n *Node) vtable() {
-	if len(n.VTable) > 0 {
-		return
-	}
+	n.preLoadVtable()
+}
+
+func (n *Node) preLoadVtable() {
+
 	vOffset := int(flatbuffers.GetUOffsetT(n.R(n.Pos)))
 	vPos := int(n.Pos) - vOffset
 	vLen := int(flatbuffers.GetVOffsetT(n.R(vPos)))
 	n.TLen = uint16(flatbuffers.GetVOffsetT(n.R(vPos + 2)))
 
 	for cur := vPos + 4; cur < vPos+vLen; cur += 2 {
-		n.VTable = append(n.VTable, uint16(flatbuffers.GetVOffsetT(n.R(cur))))
+		flatbuffers.GetVOffsetT(n.R(cur))
 	}
 }
 
 // FbsString ... return []bytes for string data
 func FbsString(node *Node) []byte {
-	pos := node.Pos + int(node.VTable[0])
+	pos := node.VirtualTable(0)
 	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
 	sLen := int(flatbuffers.GetUint32(node.R(pos + sLenOff)))
 	start := pos + sLenOff + flatbuffers.SizeUOffsetT
@@ -466,8 +467,7 @@ func FbsString(node *Node) []byte {
 
 // FbsStringInfo ... return Node Infomation for FbsString
 func FbsStringInfo(node *Node) Info {
-
-	pos := node.Pos + int(node.VTable[0])
+	pos := node.VirtualTable(0)
 	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
 	sLen := flatbuffers.GetUint32(node.R(pos + sLenOff))
 	start := pos + sLenOff + flatbuffers.SizeUOffsetT

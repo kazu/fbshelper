@@ -1139,7 +1139,7 @@ func (node *CommonNode) movePos(idx, pos, size int) {
 		// FIXME: 即値なのでなにもできない?しない
 	} else if IsFieldUnion(grp) || IsFieldTable(grp) || IsFieldSlice(grp) || IsFieldBytes(grp) {
 		// FIXME: VTable[idx] is 0 pattern
-		cPos := node.Node.Pos + int(node.VTable[idx])
+		cPos := node.VirtualTable(idx)
 
 		nextOff := flatbuffers.GetUint32(node.R(cPos))
 		if cPos+int(nextOff) < pos {
@@ -1305,8 +1305,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(4))
 			// insert space (vLen + data )
 			//node.InsertBuf(wPos+4, 4 + fNode.Node.Size)
-			node.VTable = nil
-			node.vtable()
+			node.preLoadVtable()
 		}
 		extend := fNode.Node.Size - oFieldSize
 		dstPos := node.Table(idx)
@@ -1324,10 +1323,11 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		} else {
 			size = TypeToSize[node.IdxToType[idx]]
 		}
-		if len(node.VTable) == 0 {
-			node.vtable()
-		}
-		if node.VTable[idx] > 0 {
+
+		node.preLoadVtable()
+
+		if !node.VirtualTableIsZero(idx) {
+			//if node.VTable[idx] > 0 {
 			node.Copy(fNode.Base,
 				fNode.Node.Pos, size,
 				node.VirtualTable(idx), 0)
@@ -1337,8 +1337,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		wPos := node.insertVTable(idx, size)
 		node.Copy(fNode.Base, fNode.Node.Pos, size, wPos, 0)
 
-		node.VTable = nil
-		node.vtable()
+		node.preLoadVtable()
 		return nil
 
 	} else if IsFieldUnion(g) || IsFieldTable(g) {
@@ -1352,15 +1351,14 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		}
 		vSize := fNode.CountOfField()*2 + 4
 		oFieldSize := node.ValueInfo(idx).Size
-		if node.VTable[idx] == 0 {
+		if node.VirtualTableIsZero(idx) {
 			// update VTable in buffer.
 			wPos := node.insertVTable(idx, size)
 			// write tlen in Vtable
 			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(vSize)+2) // +2 require ?
 			node.InsertBuf(wPos+4, vSize+fNode.Node.Size)
 			node.C(wPos+4, vSize+fNode.Node.Size, fNode.R(fNode.Node.Pos - vSize)[:fNode.Node.Pos+size])
-			node.VTable = nil
-			node.vtable()
+			node.preLoadVtable()
 			return nil
 		}
 		extend := fNode.Node.Size - oFieldSize //node.ValueInfo(idx).Size
