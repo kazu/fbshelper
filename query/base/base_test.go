@@ -832,6 +832,8 @@ func Test_SetFieldAt(t *testing.T) {
 
 func Test_NewRootIndexString(t *testing.T) {
 	log.SetLogLevel(log.LOG_DEBUG)
+
+	var e error
 	root := query2.NewRoot()
 	root.WithHeader()
 

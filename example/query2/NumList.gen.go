@@ -125,6 +125,7 @@ func NumListSingle(node *NumList, e error) NumListWithErr {
 }
 
 func NewNumList() *NumList {
+	base.ApplyRequestNameFields()
 	node := emptyNumList()
 	node.NodeList = &base.NodeList{}
 	node.CommonNode.Name = "NumList"
