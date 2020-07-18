@@ -770,5 +770,8 @@ func (node *Node) VirtualTableLen() int {
 
 func (node *Node) Table(idx int) int {
 	pos := node.VirtualTable(idx)
+	if node.VirtualTableIsZero(idx) {
+		return -1
+	}
 	return pos + int(flatbuffers.GetUint32(node.R(pos)))
 }

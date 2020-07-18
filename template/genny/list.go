@@ -9,7 +9,12 @@ type ListType struct { // genny
 // NodeName genny
 func NewListType() *ListType {
 
-	return emptyListType()
+	list := emptyListType()
+	list.NodeList = &base.NodeList{}
+	list.CommonNode.Name = "[]NodeName"
+
+	list.InitList()
+	return list
 }
 
 func emptyListType() *ListType {

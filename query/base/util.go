@@ -297,11 +297,11 @@ func GetTypeGroup(s string) (result int) {
 	if _, ok := UnionAlias[s]; ok {
 		return FieldTypeUnion
 	}
-	if s[0:6] == "[]byte" {
+	if len(s) >= 6 && s[0:6] == "[]byte" {
 		return FieldTypeSlice | FieldTypeBasic1
 	}
 
-	if s[0:2] == "[]" {
+	if len(s) >= 2 && s[0:2] == "[]" {
 		result |= FieldTypeSlice
 	}
 

@@ -14,6 +14,7 @@ import (
 	query2 "github.com/kazu/fbshelper/example/query2"
 	"github.com/kazu/fbshelper/example/vfs_schema"
 	"github.com/kazu/fbshelper/query/base"
+	log "github.com/kazu/fbshelper/query/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -830,25 +831,58 @@ func Test_SetFieldAt(t *testing.T) {
 }
 
 func Test_NewRootIndexString(t *testing.T) {
-	//root := NewRoot()
+	log.SetLogLevel(log.LOG_DEBUG)
+	root := query2.NewRoot()
+	root.WithHeader()
+
 	//root.Version().SetInt32(2)
-	//root.SetVersion(FromInt32(2))
+	root.SetVersion(query2.FromInt32(2))
+	root.SetIndexType(query2.FromByte(2))
 	//root.SetAt(0, FromInt32(2))/;
 
 	// root = CreateRoot(2, nil)
 
-	// idxStr := NewIndexString()
-	// idxStr.Size().SetInt32(2)
+	idxStr := query2.NewIndexString()
+	idxStr.SetSize(query2.FromInt32(2))
 
-	// idxStr := CreateIndexString(2, nil)
+	inv := query2.NewInvertedMapString()
+	inv.SetKey(base.FromBytes([]byte("inv-str-key")))
 
-	// invStr := NewInvertedMapString()
+	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
 
-	// rec1 := NewRecord()
-	// rec1 = CreateRecord(1, 2, 3, 4, 5)
+	rec := query2.NewRecord()
+	rec.SetFileId(query2.FromUint64(9))
+	rec.SetOffset(query2.FromInt64(8))
+	rec.SetSize(query2.FromInt64(7))
+	rec.SetOffsetOfValue(query2.FromInt32(6))
+	rec.SetValueSize(query2.FromInt32(5))
 
-	// invStr.Value().Set(rec1)
-	// root.Index().IndexString().Set(idxStr)
-	// root.Index().IndexString().InvertedMapString().Maps().Add(invStr)
+	inv.SetValue(rec.CommonNode)
+
+	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
+	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
+
+	// maps := query2.NewInvertedMapStringList()
+	// maps.SetAt(0, inv.CommonNode)
+
+	// //a := query2.InvertedMapStringSingle(maps.At(0))
+	// //assert.Equal(t, []byte("inv-str-key"), a.Key().Bytes())
+
+	// // idxStr.SetMaps(maps.CommonNode)
+
+	// // root.SetIndex(idxStr.CommonNode)
+
+	// // //root, _ = query2.InvertedMapStringSingle(maps.At(0)).Root()
+
+	// // // idxStr := CreateIndexString(2, nil)
+
+	// // // invStr := NewInvertedMapString()
+
+	// // // rec1 := NewRecord()
+	// // // rec1 = CreateRecord(1, 2, 3, 4, 5)
+
+	// // // invStr.Value().Set(rec1)
+	// // // root.Index().IndexString().Set(idxStr)
+	// // // root.Index().IndexString().InvertedMapString().Maps().Add(invStr)
 
 }

@@ -95,6 +95,18 @@ func (node Root) HasNext() bool {
 	return node.LenBuf()+4 < node.Len()
 }
 
+func (node Root) WithHeader() Root {
+	if !node.InRoot() {
+		header := make([]byte, 8)
+		pos := node.Node.Pos + 4
+		flatbuffers.WriteUint32(header, uint32(pos))
+		node.Copy(base.NewBase(header), 0, 8, 0, 8)
+
+		node.Node.Pos += 8
+	}
+	return node
+}
+
 func Atoi(s string) (int, error) {
 
 	n, err := strconv.Atoi(s)
@@ -234,4 +246,8 @@ func FromFloat64(v float64) *CommonNode {
 	common.Node.Size = base.SizeOffloat64
 	common.SetFloat64(v)
 	return common
+}
+
+func init() {
+	base.ApplyRequestNameFields()
 }

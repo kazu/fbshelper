@@ -5,8 +5,10 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 
 	flatbuffers "github.com/google/flatbuffers/go"
+	log "github.com/kazu/fbshelper/query/log"
 	"github.com/kazu/loncha"
 	//. "github.com/kazu/fbshelper/query/error"
 )
@@ -425,6 +427,9 @@ func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
 
 	if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
 		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+	}
+	if node.NodeList.ValueInfo.VLen == 0 {
+		node.NodeList.ValueInfo.Size = 0
 	}
 	vlen := int(node.NodeList.ValueInfo.VLen)
 	total := node.NodeList.ValueInfo.Size
@@ -1139,9 +1144,7 @@ func (node *CommonNode) movePos(idx, pos, size int) {
 	}
 	grp := node.IdxToTypeGroup[idx]
 
-	if IsFieldStruct(grp) || IsFieldBasicType(grp) {
-		// FIXME: 即値なのでなにもできない?しない
-	} else if IsFieldUnion(grp) || IsFieldTable(grp) || IsFieldSlice(grp) || IsFieldBytes(grp) {
+	if IsFieldUnion(grp) || IsFieldTable(grp) || IsFieldSlice(grp) || IsFieldBytes(grp) {
 		// FIXME: VTable[idx] is 0 pattern
 		cPos := node.VirtualTable(idx)
 
@@ -1160,6 +1163,10 @@ func (node *CommonNode) movePos(idx, pos, size int) {
 
 		nextOff += uint32(size)
 		flatbuffers.WriteUint32(node.U(cPos, SizeOfuint32), nextOff)
+	} else if IsFieldStruct(grp) || IsFieldBasicType(grp) {
+		Log(LOG_WARN, func() LogArgs {
+			return F("MovePos: fixme must move Node=%s idx=%d\n", node.Name, idx)
+		})
 	} else {
 		Log(LOG_ERROR, func() LogArgs {
 			return F("MovePos: Invalid Node=%s idx=%d\n", node.Name, idx)
@@ -1222,6 +1229,16 @@ func (node *CommonNode) Init() error {
 }
 
 func (node *CommonNode) insertVTable(idx, size int) int {
+	if node.TLen != uint16(node.TableLen()) {
+		node.TLen = uint16(node.TableLen())
+	}
+	log.Log(log.LOG_DEBUG, func() log.LogArgs {
+		return log.F(
+			"node.insertVTable(%d, %d) before info=\n%s\n",
+			idx, size, node.DumpTableWithVTable(),
+		)
+	})
+
 	node.InsertBuf(node.Node.Pos+int(node.TLen), size)
 	vPos := node.Node.Pos - int(flatbuffers.GetUOffsetT(node.R(node.Node.Pos)))
 
@@ -1237,17 +1254,23 @@ func (node *CommonNode) insertVTable(idx, size int) int {
 			continue
 		}
 		g := node.IdxToTypeGroup[i]
-		if IsFieldBasicType(g) || IsFieldStruct(g) {
+		if !IsFieldSlice(g) && (IsFieldBasicType(g) || IsFieldStruct(g)) {
 			continue
 		}
 
-		if node.Table(i) > wPos {
+		if node.Table(i) >= wPos {
 			// pos := node.VirtualTable(i)
 			// offset := flatbuffers.GetUint32(node.R(pos))
 			// flatbuffers.WriteUint32(node.U(pos, 4), offset+uint32(size))
 			node.movePos(i, wPos, size)
 		}
 	}
+	log.Log(log.LOG_DEBUG, func() log.LogArgs {
+		return log.F(
+			"node.insertVTable(%d, %d) after info=\n%s\n",
+			idx, size, node.DumpTableWithVTable(),
+		)
+	})
 
 	return wPos
 
@@ -1392,4 +1415,47 @@ func FromBytes(bytes []byte) *CommonNode {
 	common.NodeList.ValueInfo.Size = len(bytes)
 
 	return common
+}
+
+func (node *CommonNode) DumpTableWithVTable() string {
+
+	g := GetTypeGroup(node.Name)
+	if IsFieldBasicType(g) || IsFieldStruct(g) || IsFieldSlice(g) {
+		return "{}"
+	}
+
+	var b strings.Builder
+
+	vPos := node.Node.Pos - int(flatbuffers.GetUOffsetT(node.R(node.Node.Pos)))
+	//vPos := node.Node.Pos - int(vOff)
+
+	fmt.Fprintf(&b, "Node=%s\n\tVTable{Pos:\t%d, VLen:\t\t%d, TLen:\t\t%d, \n\t\t",
+		node.Name, vPos, node.VirtualTableLen(), node.TableLen())
+
+	for i := 0; i < node.CountOfField(); i++ {
+		if node.LenBuf() <= vPos+4+i*4 {
+			fmt.Fprintf(&b, "Off(%d):\t\tempty,", i)
+			continue
+		}
+		fmt.Fprintf(&b, "Off(%d):\t\t\t%d\t,  ",
+			i, flatbuffers.GetUint16(node.R(int(vPos)+4+i*2)))
+	}
+	fmt.Fprintf(&b, "}\n\t")
+
+	min := func(i, j int) int {
+		if i < j {
+			return i
+		}
+		return j
+	}
+
+	fmt.Fprintf(&b, " Table{Pos:\t%d, \n\t\t", node.Node.Pos)
+	for i := 0; i < node.CountOfField(); i++ {
+		pos := node.VirtualTable(i)
+		fmt.Fprintf(&b, "At(idx=%d,Pos=%d):\t%v, ",
+			i, pos, node.R(pos)[:min(4, len(node.R(pos)))])
+	}
+	fmt.Fprintf(&b, "}\n")
+	return b.String()
+
 }

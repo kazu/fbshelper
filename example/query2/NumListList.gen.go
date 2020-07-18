@@ -13,7 +13,12 @@ type NumListList struct { // genny
 // NumList genny
 func NewNumListList() *NumListList {
 
-	return emptyNumListList()
+	list := emptyNumListList()
+	list.NodeList = &base.NodeList{}
+	list.CommonNode.Name = "[]NumList"
+
+	list.InitList()
+	return list
 }
 
 func emptyNumListList() *NumListList {
