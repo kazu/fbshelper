@@ -224,6 +224,13 @@ func (b *Base) R(off int) []byte {
 		return b.Diffs[n].bytes[(off - b.Diffs[n].Offset):]
 	}
 
+	if len(b.bytes) < off {
+		Log(LOG_WARN, func() LogArgs {
+			return F("base.R(): remain offset=%d lenBuf()=%d \n",
+				off, b.LenBuf())
+		})
+	}
+
 	return b.bytes[off:]
 }
 
@@ -752,6 +759,11 @@ func (node *Node) VirtualTable(idx int) int {
 
 	voff := flatbuffers.GetUint32(node.R(node.Pos))
 	vPos := node.Pos - int(voff)
+
+	if node.LenBuf() <= int(vPos)+4+idx*2 {
+		return node.Pos
+	}
+
 	tOffset := flatbuffers.GetUint16(node.R(int(vPos) + 4 + idx*2))
 	return node.Pos + int(tOffset)
 }

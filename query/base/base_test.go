@@ -835,15 +835,13 @@ func Test_NewRootIndexString(t *testing.T) {
 	root := query2.NewRoot()
 	root.WithHeader()
 
-	//root.Version().SetInt32(2)
-	root.SetVersion(query2.FromInt32(2))
+	root.SetVersion(query2.FromInt32(3))
 	root.SetIndexType(query2.FromByte(2))
-	//root.SetAt(0, FromInt32(2))/;
-
-	// root = CreateRoot(2, nil)
 
 	idxStr := query2.NewIndexString()
-	idxStr.SetSize(query2.FromInt32(2))
+	idxStr.SetSize(query2.FromInt32(3))
+
+	assert.Equal(t, query2.FromInt32(3).Int32(), idxStr.Size().Int32())
 
 	inv := query2.NewInvertedMapString()
 	inv.SetKey(base.FromBytes([]byte("inv-str-key")))
@@ -862,27 +860,33 @@ func Test_NewRootIndexString(t *testing.T) {
 	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
 	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
 
-	// maps := query2.NewInvertedMapStringList()
-	// maps.SetAt(0, inv.CommonNode)
+	maps := query2.NewInvertedMapStringList()
+	maps.SetAt(0, inv.CommonNode)
 
-	// //a := query2.InvertedMapStringSingle(maps.At(0))
-	// //assert.Equal(t, []byte("inv-str-key"), a.Key().Bytes())
+	inv, e = maps.At(0)
 
-	// // idxStr.SetMaps(maps.CommonNode)
+	assert.NoError(t, e)
+	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
+	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
 
-	// // root.SetIndex(idxStr.CommonNode)
+	idxStr.SetMaps(maps.CommonNode)
 
-	// // //root, _ = query2.InvertedMapStringSingle(maps.At(0)).Root()
+	inv, e = idxStr.Maps().At(0)
 
-	// // // idxStr := CreateIndexString(2, nil)
+	assert.NoError(t, e)
+	assert.Equal(t, query2.FromInt32(3).Int32(), idxStr.Size().Int32())
+	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
+	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
 
-	// // // invStr := NewInvertedMapString()
+	root.SetIndex(idxStr.CommonNode)
 
-	// // // rec1 := NewRecord()
-	// // // rec1 = CreateRecord(1, 2, 3, 4, 5)
+	idx := root.Index().IndexString()
+	idxStr = &idx
+	inv, e = idxStr.Maps().At(0)
 
-	// // // invStr.Value().Set(rec1)
-	// // // root.Index().IndexString().Set(idxStr)
-	// // // root.Index().IndexString().InvertedMapString().Maps().Add(invStr)
+	assert.NoError(t, e)
+	assert.Equal(t, query2.FromInt32(3).Int32(), idxStr.Size().Int32())
+	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
+	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
 
 }

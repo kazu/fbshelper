@@ -103,7 +103,8 @@ func (node *CommonNode) FollowUnion(idx int) *CommonNode {
 	idxOfAlias := node.FieldAt(idx-1).Byte() - 1
 	if int(idxOfAlias) >= len(UnionAlias[All_IdxToName[node.Name][idx]]) {
 		Log(LOG_WARN, func() LogArgs {
-			return F("Invalid union=%s aliases=%+v idx=%d\n",
+			return F(
+				"Invalid union=%s aliases=%+v idx=%d\n",
 				node.Name, All_IdxToName[node.Name], idxOfAlias)
 		})
 		return nil
@@ -816,7 +817,7 @@ func (node *CommonNode) TraverseInfo(pos int, fn TraverseRec, condFn TraverseCon
 		if IsFieldSlice(g) {
 			nPos = next.NodeList.ValueInfo.Pos
 		} else {
-			if next.Node == nil {
+			if next == nil || next.Node == nil {
 				// empty node
 				continue
 			}
