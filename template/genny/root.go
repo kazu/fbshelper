@@ -243,7 +243,3 @@ func FromFloat64(v float64) *CommonNode {
 	common.SetFloat64(v)
 	return common
 }
-
-func init() {
-	base.ApplyRequestNameFields()
-}

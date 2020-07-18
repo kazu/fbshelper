@@ -121,6 +121,7 @@ func NodeNameSingle(node *NodeName, e error) NodeNameWithErr {
 }
 
 func NewNodeName() *NodeName {
+	base.ApplyRequestNameFields()
 	node := emptyNodeName()
 	node.NodeList = &base.NodeList{}
 	node.CommonNode.Name = "NodeName"

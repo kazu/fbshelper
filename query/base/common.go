@@ -1384,8 +1384,9 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 			wPos := node.insertVTable(idx, size)
 			// write tlen in Vtable
 			node.InsertBuf(wPos+4, vSize+fNode.Node.Size)
-			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(vSize)+2) // +2 require ?
-			node.C(wPos+4, vSize+fNode.Node.Size, fNode.R(fNode.Node.Pos - vSize)[:fNode.Node.Pos+size])
+			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(vSize)+4) // +2 require ?
+			node.Copy(fNode.Base, fNode.Node.Pos-vSize, fNode.Node.Size+vSize,
+				wPos+4, fNode.Node.Size+vSize)
 			node.preLoadVtable()
 			return nil
 		}
