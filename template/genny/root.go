@@ -94,7 +94,7 @@ func (node RootType) HasNext() bool {
 func (node RootType) WithHeader() RootType {
 	if !node.InRoot() {
 		header := make([]byte, 8)
-		pos := node.Node.Pos + 4
+		pos := node.Node.Pos + 8
 		flatbuffers.WriteUint32(header, uint32(pos))
 		node.Copy(base.NewBase(header), 0, 8, 0, 8)
 

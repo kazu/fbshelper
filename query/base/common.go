@@ -1323,7 +1323,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 			}
 		}
 
-		oFieldSize := node.ValueInfo(idx).Size
+		var oFieldSize int = 0
 		if node.VirtualTableIsZero(idx) {
 			// update VTable in buffer. wPos is postion in table,
 			wPos := node.insertVTable(idx, size)
@@ -1332,6 +1332,8 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 			// insert space (vLen + data )
 			//node.InsertBuf(wPos+4, 4 + fNode.Node.Size)
 			node.preLoadVtable()
+		} else {
+			oFieldSize = node.ValueInfo(idx).Size
 		}
 		extend := fNode.Node.Size - oFieldSize
 		dstPos := node.Table(idx)
@@ -1381,8 +1383,8 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 			// update VTable in buffer.
 			wPos := node.insertVTable(idx, size)
 			// write tlen in Vtable
-			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(vSize)+2) // +2 require ?
 			node.InsertBuf(wPos+4, vSize+fNode.Node.Size)
+			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(vSize)+2) // +2 require ?
 			node.C(wPos+4, vSize+fNode.Node.Size, fNode.R(fNode.Node.Pos - vSize)[:fNode.Node.Pos+size])
 			node.preLoadVtable()
 			return nil
