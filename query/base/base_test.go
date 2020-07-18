@@ -818,6 +818,7 @@ func Test_SetFieldAt(t *testing.T) {
 	maps.SetAt(1, invs.CommonNode)
 
 	root2 := query2.RootFromCommon(maps.CommonNode)
+	root2.Dedup()
 
 	assert.Equal(t, cnt+1, root2.Index().IndexString().Maps().Count(), "root.IndexString.Maps.Count")
 	assert.Equal(t, cnt+1, 3)

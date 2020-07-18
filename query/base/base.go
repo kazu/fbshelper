@@ -409,6 +409,22 @@ func (b *Base) Merge() {
 
 }
 
+func (b *Base) Dedup() {
+
+	loncha.Delete(&b.Diffs, func(i int) bool {
+		n, err := loncha.LastIndexOf(b.Diffs, func(j int) bool {
+			return i < j &&
+				b.Diffs[j].Offset <= b.Diffs[i].Offset &&
+				b.Diffs[j].Offset+len(b.Diffs[j].bytes) >= b.Diffs[i].Offset+len(b.Diffs[i].bytes)
+		})
+		if err == nil && n > 0 {
+			ok := true
+			_ = ok
+		}
+		return err == nil && n > 0
+	})
+}
+
 // RawBufInfo ... capacity/length infomation of Base's buffer
 type RawBufInfo struct {
 	Len int
