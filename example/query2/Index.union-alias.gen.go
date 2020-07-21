@@ -22,6 +22,13 @@ func (node Index) IndexNum() IndexNum {
 	return result
 }
 
+func IndexFromIndexNum(v *IndexNum) *Index {
+	result := &Index{}
+	result.CommonNode = v.CommonNode
+	result.FetchIndex()
+	return result
+}
+
 /*
 genny must be called per Index ;
 */
@@ -34,6 +41,13 @@ func (node Index) IndexString() IndexString {
 	result.CommonNode = &CommonNode{}
 	result.NodeList = node.NodeList
 	result.CommonNode.Name = "IndexString"
+	result.FetchIndex()
+	return result
+}
+
+func IndexFromIndexString(v *IndexString) *Index {
+	result := &Index{}
+	result.CommonNode = v.CommonNode
 	result.FetchIndex()
 	return result
 }
@@ -54,6 +68,13 @@ func (node Index) File() File {
 	return result
 }
 
+func IndexFromFile(v *File) *Index {
+	result := &Index{}
+	result.CommonNode = v.CommonNode
+	result.FetchIndex()
+	return result
+}
+
 /*
 genny must be called per Index ;
 */
@@ -66,6 +87,13 @@ func (node Index) InvertedMapNum() InvertedMapNum {
 	result.CommonNode = &CommonNode{}
 	result.NodeList = node.NodeList
 	result.CommonNode.Name = "InvertedMapNum"
+	result.FetchIndex()
+	return result
+}
+
+func IndexFromInvertedMapNum(v *InvertedMapNum) *Index {
+	result := &Index{}
+	result.CommonNode = v.CommonNode
 	result.FetchIndex()
 	return result
 }
@@ -86,6 +114,13 @@ func (node Index) InvertedMapString() InvertedMapString {
 	return result
 }
 
+func IndexFromInvertedMapString(v *InvertedMapString) *Index {
+	result := &Index{}
+	result.CommonNode = v.CommonNode
+	result.FetchIndex()
+	return result
+}
+
 /*
 genny must be called per Index ;
 */
@@ -98,6 +133,13 @@ func (node Index) NumList() NumList {
 	result.CommonNode = &CommonNode{}
 	result.NodeList = node.NodeList
 	result.CommonNode.Name = "NumList"
+	result.FetchIndex()
+	return result
+}
+
+func IndexFromNumList(v *NumList) *Index {
+	result := &Index{}
+	result.CommonNode = v.CommonNode
 	result.FetchIndex()
 	return result
 }

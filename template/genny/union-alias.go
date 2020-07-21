@@ -19,3 +19,10 @@ func (node UnionName) AliasName() AliasName {
 	result.FetchIndex()
 	return result
 }
+
+func UnionNameFromAliasName(v *AliasName) *UnionName {
+	result := &UnionName{}
+	result.CommonNode = v.CommonNode
+	result.FetchIndex()
+	return result
+}

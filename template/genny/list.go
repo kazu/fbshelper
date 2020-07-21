@@ -27,6 +27,10 @@ func (node ListType) At(i int) (result *NodeName, e error) {
 	return
 }
 
+func (node ListType) SetAt(i int, v *NodeName) error {
+	return node.CommonNode.SetAt(i, v.CommonNode)
+}
+
 func (node ListType) First() (result *NodeName, e error) {
 	return node.At(0)
 }

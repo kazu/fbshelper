@@ -803,7 +803,7 @@ func Test_SetFieldAt(t *testing.T) {
 
 	maps := root.Index().IndexString().Maps()
 	query2.RootFromCommon(maps.CommonNode).AllTree().DumpAll(0, os.Stdout)
-	maps.SetAt(cnt, invs.CommonNode)
+	maps.SetAt(cnt, invs)
 
 	// replace new element to vector
 	invs = query2.NewInvertedMapString()
@@ -816,7 +816,7 @@ func Test_SetFieldAt(t *testing.T) {
 	invs.SetValue(rec.CommonNode)
 	invs.SetKey(base.FromBytes([]byte("inverted2")))
 
-	maps.SetAt(1, invs.CommonNode)
+	maps.SetAt(1, invs)
 
 	root2 := query2.RootFromCommon(maps.CommonNode)
 	root2.Dedup()
@@ -863,7 +863,7 @@ func Test_NewRootIndexString(t *testing.T) {
 	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
 
 	maps := query2.NewInvertedMapStringList()
-	maps.SetAt(0, inv.CommonNode)
+	maps.SetAt(0, inv)
 
 	inv, e = maps.At(0)
 
