@@ -23,3 +23,7 @@ func emptyResultType() *ResultType {
 const FieldNum int = 0
 
 const SizeOfBasicType int = 4
+
+func NewResultType() *ResultType {
+	return emptyResultType()
+}

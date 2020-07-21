@@ -70,8 +70,15 @@ func MakeGenGennies(parser *fbsparser.Parser, dir string, opt GennyOpt) (result 
 			return "", e
 		}
 	}
+	tmpHead := `
+	package main
+	import (
+		_ "github.com/cheekybits/genny"
+	)
+	
+	`
 
-	fmt.Fprintf(b, "package main\n\n")
+	fmt.Fprintf(b, "%s\n\n", tmpHead)
 	tdir = "../genny/"
 	odir = "../"
 

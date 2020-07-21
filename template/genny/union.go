@@ -21,3 +21,7 @@ func emptyUnionName() *UnionName {
 func (node UnionName) Member(i int) interface{} {
 	return nil
 }
+
+func NewUnionName() *UnionName {
+	return emptyUnionName()
+}
