@@ -21,6 +21,11 @@ var DUMMY_Root_Record bool = SetRootFields("Root", "Record", "Record", Root_Reco
 func (node Root) Record() (result *Record) {
 	result = emptyRecord()
 	common := node.FieldAt(Root_Record_3)
+	if common.Node == nil {
+		result = NewRecord()
+		node.SetFieldAt(Root_Record_3, result.SelfAsCommonNode())
+		common = node.FieldAt(Root_Record_3)
+	}
 
 	result.Name = common.Name
 	result.NodeList = common.NodeList

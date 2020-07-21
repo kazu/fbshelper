@@ -21,6 +21,11 @@ var DUMMY_IndexNum_Maps bool = SetIndexNumFields("IndexNum", "Maps", "[]Inverted
 func (node IndexNum) Maps() (result *InvertedMapNumList) {
 	result = emptyInvertedMapNumList()
 	common := node.FieldAt(IndexNum_Maps_1)
+	if common.Node == nil {
+		result = NewInvertedMapNumList()
+		node.SetFieldAt(IndexNum_Maps_1, result.SelfAsCommonNode())
+		common = node.FieldAt(IndexNum_Maps_1)
+	}
 
 	result.Name = common.Name
 	result.NodeList = common.NodeList

@@ -281,7 +281,18 @@ func (node *CommonNode) FetchIndex() {
 }
 
 func (node *CommonNode) IsList() bool {
-	return node.NodeList.ValueInfo.VLen > 0
+	if node.Name == "" && node.NodeList.ValueInfo.VLen > 0 {
+		return true
+	}
+	if node.Name[0:2] == "[]" {
+		return true
+	}
+	// if node.NodeList.ValueInfo.VLen > 0 {
+	// 	return true
+	// }
+	return false
+	//FIXME ?
+	//return node.VLen() > 0
 }
 
 func (node *CommonNode) At(i int) (*CommonNode, error) {
@@ -301,7 +312,7 @@ func (node *CommonNode) At(i int) (*CommonNode, error) {
 	ptr := int(node.NodeList.ValueInfo.Pos) + i*4
 
 	var nNode *Node
-	if IsFieldBasicType(grp) {
+	if IsFieldBasicType(grp) || IsFieldStruct(grp) {
 		nNode = NewNode2(node.Base, ptr, true)
 	} else {
 		nNode = NewNode(node.Base, ptr+int(flatbuffers.GetUint32(node.R(ptr))))
@@ -376,6 +387,9 @@ func (node *CommonNode) InfoSlice() Info {
 		}
 	}
 	info.VLen = flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos - 4))
+	if info.VLen == 0 {
+		info.Size = 0
+	}
 	if info.Pos+info.Size < vInfo.Pos+vInfo.Size {
 		info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
 	}
@@ -440,7 +454,7 @@ func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
 
 	if IsFieldBasicType(g) || IsFieldStruct(g) {
 		// new element
-		if elm.Node.Size == 0 {
+		if elm.Node.Size <= 0 {
 			elm.Node.Size = elm.Info().Size
 		}
 		ptr := int(node.NodeList.ValueInfo.Pos) + idx*elm.Node.Size
@@ -458,6 +472,7 @@ func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
 			vlen++
 			flatbuffers.WriteUint32(node.U(node.NodeList.ValueInfo.Pos-4, 4), uint32(vlen))
 		}
+		return nil
 	} else if IsFieldUnion(g) {
 		return ERR_NO_SUPPORT
 	} else if IsFieldTable(g) {
@@ -831,6 +846,11 @@ func (node *CommonNode) TraverseInfo(pos int, fn TraverseRec, condFn TraverseCon
 		if IsFieldSlice(g) {
 			next.TraverseInfoSlice(pos, fn, condFn)
 		} else {
+			if IsFieldUnion(g) || IsFieldTable(g) {
+				if node.VirtualTable(i) == node.Table(i) {
+					continue
+				}
+			}
 			next.TraverseInfo(pos, fn, condFn)
 		}
 	}
@@ -1031,6 +1051,13 @@ func (node *CommonNode) RootCommon() *CommonNode {
 func (node *CommonNode) InRoot() bool {
 
 	pos := int(flatbuffers.GetVOffsetT(node.R(0)))
+	if len(node.R(pos)) < 4 {
+		return false
+	}
+	if node.Node.Pos < 8 {
+		return false
+	}
+
 	return pos != int(flatbuffers.GetUOffsetT(node.R(pos)))
 
 }
@@ -1319,7 +1346,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		size := 4
 		if fNode.Node.Size <= 0 {
 			fNode.Node.Size = fNode.InfoSlice().Size //fNode.ValueInfo(idx).Size
-			if fNode.Node.Size <= 0 {
+			if fNode.Node.Size < 0 {
 				panic("!!!")
 			}
 		}
@@ -1462,4 +1489,8 @@ func (node *CommonNode) DumpTableWithVTable() string {
 	fmt.Fprintf(&b, "}\n")
 	return b.String()
 
+}
+
+func (node *CommonNode) SelfAsCommonNode() *CommonNode {
+	return node
 }

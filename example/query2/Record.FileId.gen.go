@@ -21,6 +21,11 @@ var DUMMY_Record_FileId bool = SetRecordFields("Record", "FileId", "Uint64", Rec
 func (node Record) FileId() (result *CommonNode) {
 	result = emptyCommonNode()
 	common := node.FieldAt(Record_FileId_0)
+	if common.Node == nil {
+		result = NewCommonNode()
+		node.SetFieldAt(Record_FileId_0, result.SelfAsCommonNode())
+		common = node.FieldAt(Record_FileId_0)
+	}
 
 	result.Name = common.Name
 	result.NodeList = common.NodeList
