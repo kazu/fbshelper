@@ -892,3 +892,88 @@ func Test_NewRootIndexString(t *testing.T) {
 	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
 
 }
+
+type MyWriter struct {
+	Buf []byte
+}
+
+func (w *MyWriter) Write(p []byte) (n int, e error) {
+
+	w.Buf = append(w.Buf, p...)
+	return len(p), nil
+}
+
+func (w *MyWriter) WriteAt(p []byte, offset int64) (n int, e error) {
+	oldlen := len(w.Buf)
+	if len(w.Buf) < int(offset)+len(p) {
+		w.Buf = w.Buf[:int(offset)+len(p)]
+	}
+	off := int(offset)
+	//w.Buf[off : off+len(p)] = p
+	copy(w.Buf[off:off+len(p)], p)
+
+	if oldlen < int(offset)+len(p) && len(w.Buf) > int(offset)+len(p) {
+		fmt.Println("???")
+	}
+
+	return len(p), nil
+}
+
+func Test_CommonList(t *testing.T) {
+
+	//files := query2.NewFiles()
+	flist := query2.NewFileList()
+
+	for i := 0; i < 3; i++ {
+		file := query2.NewFile()
+		file.SetId(query2.FromUint64(10 + uint64(i)))
+		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
+		file.SetName(base.FromBytes([]byte("namedayo")))
+		flist.SetAt(i, file)
+	}
+
+	flist.Merge()
+	w := &MyWriter{}
+	w.Buf = make([]byte, 0, 4096)
+
+	cl := base.CommonList{}
+	cl.CommonNode = flist.CommonNode
+
+	cl.SetDataWriter(w)
+	cl.WriteDataAll()
+	cnt := cl.Count()
+
+	for i := 0; i < 3; i++ {
+		file := query2.NewFile()
+		file.SetId(query2.FromUint64(20 + uint64(i)))
+		file.SetIndexAt(query2.FromInt64(3000 + int64(i)))
+		file.SetName(base.FromBytes([]byte("namedayoadd")))
+		cl.SetAt(cnt+i, file.CommonNode)
+	}
+
+	cl.Merge()
+	flist = query2.NewFileList()
+
+	flist.NodeList.ValueInfo = cl.NodeList.ValueInfo
+	newBytes := cl.Base.R(0)[:cl.LenBuf()]
+	newBytes = append(newBytes, w.Buf...)
+	flist.Base = base.NewBase(newBytes)
+	flist.Node.Pos = cl.Node.Pos
+
+	assert.Equal(t, 6, flist.Count())
+	file, _ := flist.At(3)
+
+	assert.True(t, len(w.Buf) > 10)
+	assert.Equal(t, uint64(20), file.Id().Uint64())
+	assert.Equal(t, []byte("namedayoadd"), file.Name().Bytes())
+
+}
+
+// func Test_EmptyRoot(t *testing.T) {
+
+// 	//sym := query2.NewSymbol()
+// 	root := query2.NewRoot()
+// 	a := root.FieldAt(2)
+// 	_ = a
+
+// }
