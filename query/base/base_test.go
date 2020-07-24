@@ -312,9 +312,9 @@ func Test_QueryNext(t *testing.T) {
 	assert.False(t, root2.HasNext())
 	len1 := root.LenBuf()
 
-	rBufInfo := root.BufInfo()
-	r2BufInfo := root2.BufInfo()
-	_, _ = rBufInfo, r2BufInfo
+	// rBufInfo := root.BufInfo()
+	// r2BufInfo := root2.BufInfo()
+	// _, _ = rBufInfo, r2BufInfo
 	assert.Equal(t, len(buf), len1)
 
 }
@@ -969,11 +969,28 @@ func Test_CommonList(t *testing.T) {
 
 }
 
-// func Test_EmptyRoot(t *testing.T) {
+type Lazy func() interface{}
 
-// 	//sym := query2.NewSymbol()
-// 	root := query2.NewRoot()
-// 	a := root.FieldAt(2)
-// 	_ = a
+func Test_LazyLog(t *testing.T) {
 
-// }
+	b := 0
+
+	a := Lazy{
+		b += 1
+		return 1 + 1
+	}
+	Log(false, "aaaa %d ", a)
+
+	assert.Equal(t, 0, b)
+}
+
+//type Infn func() interface{}
+func Log(run bool, s string, fns ...(func() interface{})) {
+	if run {
+		args := []interface{}{}
+		for _, fn := range fns {
+			args = append(args, fn())
+		}
+		fmt.Printf(s, args...)
+	}
+}

@@ -197,16 +197,6 @@ func (node *CommonNode) CountOfField() int {
 	return len(node.IdxToTypeGroup)
 }
 
-func (node *CommonNode) clearValueInfoOnDirty() {
-	err := loncha.Delete(&node.dirties, func(i int) bool {
-		return (node.dirties[i].Pos == node.Node.Pos) ||
-			(node.NodeList.ValueInfo.Pos > 0 && node.dirties[i].Pos == node.NodeList.ValueInfo.Pos)
-	})
-	if err != nil {
-		return
-	}
-}
-
 func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 
 	node.clearValueInfoOnDirty()
@@ -1156,7 +1146,7 @@ func (node *CommonNode) movePosOnList(i, pos, size int) {
 		flatbuffers.WriteUint32(node.U(ptr, SizeOfuint32), nextOff)
 	}
 
-	node.Base.dirties = append(node.Base.dirties, Dirty{Pos: node.NodeList.ValueInfo.Pos})
+	node.Base.AddDirty(Dirty{Pos: node.NodeList.ValueInfo.Pos})
 
 }
 
@@ -1200,7 +1190,8 @@ func (node *CommonNode) movePos(idx, pos, size int) {
 			return F("MovePos: Invalid Node=%s idx=%d\n", node.Name, idx)
 		})
 	}
-	node.Base.dirties = append(node.Base.dirties, Dirty{Pos: node.Node.Pos})
+
+	node.AddDirty(Dirty{Pos: node.Node.Pos})
 
 }
 

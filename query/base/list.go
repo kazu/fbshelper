@@ -105,7 +105,7 @@ func (l *CommonList) WriteElm(elm *CommonNode, pos, size int) {
 	defer func() {
 		l.dLen += size
 	}()
-	if len(l.Diffs) == 0 {
+	if len(l.GetDiffs()) == 0 {
 		l.dataW.Write(elm.R(pos)[:size])
 		//remove writed data area
 		bytes := l.R(0)
@@ -124,9 +124,9 @@ func (l *CommonList) WriteElm(elm *CommonNode, pos, size int) {
 
 		w.WriteAt(elm.R(0), int64(cur))
 
-		for i := range elm.Diffs {
-			bytes := elm.Diffs[i].bytes
-			offset := elm.Diffs[i].Offset
+		for i := range elm.GetDiffs() {
+			bytes := elm.GetDiffs()[i].bytes
+			offset := elm.GetDiffs()[i].Offset
 			if len(bytes)+offset > size {
 				fmt.Printf("????\n")
 			}
@@ -134,8 +134,10 @@ func (l *CommonList) WriteElm(elm *CommonNode, pos, size int) {
 		}
 	}
 	// remove written data
-	loncha.Delete(&l.Base.Diffs, func(i int) bool {
-		return wStart+pos+size <= l.Base.Diffs[i].Offset+len(l.Base.Diffs[i].bytes) || wStart <= l.Base.Diffs[i].Offset
+	diffs := l.GetDiffs()
+	loncha.Delete(&diffs, func(i int) bool {
+		return wStart+pos+size <= diffs[i].Offset+len(diffs[i].bytes) || wStart <= diffs[i].Offset
 	})
+	l.SetDiffs(diffs)
 	return
 }

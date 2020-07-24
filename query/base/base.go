@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 	"strings"
 
 	"github.com/kazu/loncha"
 
-	flatbuffers "github.com/google/flatbuffers/go"
 	log "github.com/kazu/fbshelper/query/log"
 )
 
@@ -89,10 +87,29 @@ func Log(l LogLevel, fn LogFn) {
 
 }
 
-// Base is Base Object of byte buffer for flatbuffers
+type Base interface {
+	Next(skip int) Base
+	HasIoReader() bool
+	R(off int) []byte
+	C(off, size int, src []byte) error
+	Copy(src Base, srcOff, size, dstOff, extend int)
+	D(off, size int) *Diff
+	U(off, size int) []byte
+	LenBuf() int
+	Merge()
+	Dedup()
+	ClearValueInfoOnDirty(node *NodeList)
+	insertBuf(pos, size int) Base
+	insertSpace(pos, size int, isCreate bool) Base
+	AddDirty(Dirty)
+	GetDiffs() []Diff
+	SetDiffs([]Diff)
+}
+
+// BaseImpl ... Base Object of byte buffer for flatbuffers
 // read from r and store bytes.
 // Diffs has jounals for writing
-type Base struct {
+type BaseImpl struct {
 	r       io.Reader
 	bytes   []byte
 	RDiffs  []Diff
@@ -115,38 +132,6 @@ type Root struct {
 	*Node
 }
 
-// Node base struct.
-// Pos is start position of buffer
-// ValueInfos is information of pointted fields
-type Node struct {
-	*Base
-	Pos  int
-	Size int
-	TLen uint16
-}
-
-// NodeList is struct for Vector(list) Node
-type NodeList struct {
-	*Node
-	ValueInfo
-}
-
-// ValueInfo is information of flatbuffer's table/struct field
-type ValueInfo struct {
-	Pos  int
-	Size int
-	VLen uint32
-}
-
-// Info is infotion of flatbuffer's table/struct
-type Info ValueInfo
-
-// NodePath is path for traverse data tree
-type NodePath struct {
-	Name string
-	Idx  int
-}
-
 func IsMatchBit(i, j int) bool {
 	if (i & j) > 0 {
 		return true
@@ -154,39 +139,22 @@ func IsMatchBit(i, j int) bool {
 	return false
 }
 
-// NewNode ... this provide creation of Node
-// Node share buffer in same tree.
-//    Base is buffer
-//    pos is start position in Base's buffer
-func NewNode(b *Base, pos int) *Node {
-	return NewNode2(b, pos, false)
-}
-
-// NewNode2 ...  provide skip to initialize Vtable
-func NewNode2(b *Base, pos int, noLoadVTable bool) *Node {
-	node := &Node{Base: b, Pos: pos, Size: -1}
-	if !noLoadVTable {
-		node.preLoadVtable()
-	}
-	return node
-}
-
 // NewBase initialize Base struct via buffer(buf)
-func NewBase(buf []byte) *Base {
-	return &Base{bytes: buf}
+func NewBase(buf []byte) *BaseImpl {
+	return &BaseImpl{bytes: buf}
 }
 
 // NewBaseByIO initialize , make Base
 //   this dosent use []byte, use io.Reader
-func NewBaseByIO(rio io.Reader, cap int) *Base {
-	b := &Base{r: rio, bytes: make([]byte, 0, cap)}
+func NewBaseByIO(rio io.Reader, cap int) *BaseImpl {
+	b := &BaseImpl{r: rio, bytes: make([]byte, 0, cap)}
 	return b
 }
 
 // NextBase provide next root flatbuffers
 // this is mainly for streaming data.
-func (b *Base) NextBase(skip int) *Base {
-	newBase := &Base{
+func (b *BaseImpl) Next(skip int) Base {
+	newBase := &BaseImpl{
 		r:     b.r,
 		bytes: b.bytes,
 	}
@@ -206,13 +174,13 @@ func (b *Base) NextBase(skip int) *Base {
 }
 
 // HasIoReader ... Base buffer is reading io.Reader or not.
-func (b *Base) HasIoReader() bool {
+func (b *BaseImpl) HasIoReader() bool {
 	return b.r != nil
 }
 
 // R ... is access buffer data
 // Base cannot access byte buffer directly.
-func (b *Base) R(off int) []byte {
+func (b *BaseImpl) R(off int) []byte {
 	if len(b.Diffs) == 0 {
 		return b.readerR(off)
 	}
@@ -234,7 +202,7 @@ func (b *Base) R(off int) []byte {
 	return b.bytes[off:]
 }
 
-func (b *Base) readerR(off int) []byte {
+func (b *BaseImpl) readerR(off int) []byte {
 
 	n, e := loncha.LastIndexOf(b.RDiffs, func(i int) bool {
 		return b.RDiffs[i].Offset <= off && off < (b.RDiffs[i].Offset+len(b.RDiffs[i].bytes))
@@ -250,7 +218,7 @@ func (b *Base) readerR(off int) []byte {
 	return b.bytes[off:]
 }
 
-func (b *Base) C(off, size int, src []byte) error {
+func (b *BaseImpl) C(off, size int, src []byte) error {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
 		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
@@ -265,7 +233,14 @@ func (b *Base) C(off, size int, src []byte) error {
 	return nil
 }
 
-func (b *Base) Copy(src *Base, srcOff, size, dstOff, extend int) {
+func (b *BaseImpl) Copy(osrc Base, srcOff, size, dstOff, extend int) {
+
+	src, ok := osrc.(*BaseImpl)
+	if !ok {
+		log.Log(LOG_WARN, log.Printf("BaseImpl.Copy() src is only BaseImpl"))
+
+		return
+	}
 
 	if len(b.bytes) > dstOff {
 		diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
@@ -300,7 +275,7 @@ func (b *Base) Copy(src *Base, srcOff, size, dstOff, extend int) {
 	return
 }
 
-func (b *Base) D(off, size int) *Diff {
+func (b *BaseImpl) D(off, size int) *Diff {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
 		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
@@ -346,7 +321,7 @@ func (b *Base) D(off, size int) *Diff {
 	return &b.Diffs[idx]
 }
 
-func (b *Base) U(off, size int) []byte {
+func (b *BaseImpl) U(off, size int) []byte {
 
 	diff := b.D(off, size)
 	diff.bytes = make([]byte, size)
@@ -354,7 +329,7 @@ func (b *Base) U(off, size int) []byte {
 }
 
 // FIXME:  support base.RDiff
-func (b *Base) expandBuf(plus int) error {
+func (b *BaseImpl) expandBuf(plus int) error {
 	if !b.HasIoReader() && cap(b.bytes)-len(b.bytes) < plus {
 		return nil
 	}
@@ -387,7 +362,7 @@ func (b *Base) expandBuf(plus int) error {
 }
 
 // LenBuf ... size of buffer
-func (b *Base) LenBuf() int {
+func (b *BaseImpl) LenBuf() int {
 
 	if len(b.Diffs) < 1 {
 		return len(b.bytes)
@@ -403,7 +378,7 @@ func (b *Base) LenBuf() int {
 	return max
 
 }
-func (b *Base) Merge() {
+func (b *BaseImpl) Merge() {
 
 	nbytes := make([]byte, b.LenBuf())
 
@@ -416,7 +391,7 @@ func (b *Base) Merge() {
 
 }
 
-func (b *Base) Dedup() {
+func (b *BaseImpl) Dedup() {
 
 	loncha.Delete(&b.Diffs, func(i int) bool {
 		n, err := loncha.LastIndexOf(b.Diffs, func(j int) bool {
@@ -444,7 +419,7 @@ type RawBufInfo struct {
 type BufInfo [2]RawBufInfo
 
 // BufInfo ... return infos(buffer detail information)
-func (b *Base) BufInfo() (infos BufInfo) {
+func (b *BaseImpl) BufInfo() (infos BufInfo) {
 
 	infos[0].Len = len(b.bytes)
 	infos[0].Cap = cap(b.bytes)
@@ -462,258 +437,36 @@ func (b *Base) BufInfo() (infos BufInfo) {
 	return
 }
 
-func (n *Node) vtable() {
-	n.preLoadVtable()
-}
+func (b *BaseImpl) ClearValueInfoOnDirty(node *NodeList) {
 
-func (n *Node) preLoadVtable() {
-
-	vOffset := int(flatbuffers.GetUOffsetT(n.R(n.Pos)))
-	vPos := int(n.Pos) - vOffset
-	vLen := int(flatbuffers.GetVOffsetT(n.R(vPos)))
-	n.TLen = uint16(flatbuffers.GetVOffsetT(n.R(vPos + 2)))
-
-	for cur := vPos + 4; cur < vPos+vLen; cur += 2 {
-		flatbuffers.GetVOffsetT(n.R(cur))
+	err := loncha.Delete(&b.dirties, func(i int) bool {
+		return (b.dirties[i].Pos == node.Node.Pos) ||
+			(node.ValueInfo.Pos > 0 && b.dirties[i].Pos == node.ValueInfo.Pos)
+	})
+	if err != nil {
+		return
 	}
 }
 
-// FbsString ... return []bytes for string data
-func FbsString(node *Node) []byte {
-	pos := node.VirtualTable(0)
-	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
-	sLen := int(flatbuffers.GetUint32(node.R(pos + sLenOff)))
-	start := pos + sLenOff + flatbuffers.SizeUOffsetT
-
-	return node.R(start)[:sLen]
+func (b *BaseImpl) GetDiffs() []Diff {
+	return b.Diffs
 }
 
-// FbsStringInfo ... return Node Infomation for FbsString
-func FbsStringInfo(node *Node) Info {
-	pos := node.VirtualTable(0)
-	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
-	sLen := flatbuffers.GetUint32(node.R(pos + sLenOff))
-	start := pos + sLenOff + flatbuffers.SizeUOffsetT
-
-	return Info{Pos: start, Size: int(sLen)}
+func (b *BaseImpl) SetDiffs(d []Diff) {
+	b.Diffs = d
 }
 
-// IsNotReady ... already set ValueInfo (field information)
-func (info ValueInfo) IsNotReady() bool {
-	return info.Pos < 1
+func (b *BaseImpl) AddDirty(d Dirty) {
+
+	b.dirties = append(b.dirties, d)
 
 }
-
-// ValueInfoPosBytes ... etching vtable position infomation for []byte
-func (node *Node) ValueInfoPosBytes(vIdx int) (info ValueInfo) {
-
-	info = node.ValueInfoPosList(vIdx)
-	info.Size = int(info.VLen)
-	return info
-}
-
-// ValueInfoPosList ... etching vtable position infomation for flatbuffers vector
-func (node *Node) ValueInfoPosList(vIdx int) (info ValueInfo) {
-
-	vPos := node.VirtualTable(vIdx)
-	if node.VirtualTableIsZero(vIdx) {
-		return info
-	}
-
-	vLenOff := int(flatbuffers.GetUint32(node.R(vPos)))
-	vLen := flatbuffers.GetUint32(node.R(vPos + vLenOff))
-	start := vPos + vLenOff + flatbuffers.SizeUOffsetT
-
-	info.Pos = int(start)
-	info.VLen = vLen
-
-	return info
-
-}
-
-func (node *Node) ValueTable(vIdx int) *Node {
-	return NewNode(node.Base,
-		node.Table(vIdx))
-}
-
-func (node *Node) ValueStruct(vIdx int) *Node {
-
-	return NewNode2(node.Base, node.VirtualTable(vIdx), true)
-
-}
-
-func (node *Node) ValueList(vIdx int) NodeList {
-
-	info := node.ValueInfoPosList(vIdx)
-
-	return NodeList{Node: NewNode(node.Base, node.Pos),
-		ValueInfo: info}
-}
-
-type UnmarshalFn func(string, reflect.Value) error
-
-func (node *Node) Unmarshal(ptr interface{}, setter UnmarshalFn) error {
-
-	return node.unmarshal(ptr, setter)
-}
-
-func (node *Node) unmarshal(ptr interface{}, setter UnmarshalFn) error {
-
-	rv := reflect.ValueOf(ptr)
-	_ = rv
-
-	if rv.Kind() != reflect.Ptr {
-		return ERR_MUST_POINTER
-	}
-	z := rv.Elem().Kind()
-	_ = z
-	if rv.Elem().Kind() != reflect.Struct {
-		return ERR_INVALID_TYPE
-	}
-
-	t := rv.Elem().Type()
-
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		tName, ok := field.Tag.Lookup(FBS_TAG_NAME)
-		if !ok {
-			continue
-		}
-		if err := setter(tName, rv.Elem().Field(i)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-type Value struct {
-	*Node
-	S int
-	E int
-}
-
-func (v Value) String() string {
-	return string(v.R(v.S)[:v.E])
-}
-
-// mock
-func (nList *NodeList) Member(i int) interface{} {
-	return nil
-}
-
-type FieldsDefile struct {
-	IdxToTyoe      map[int]int
-	IdxToTypeGroup map[int]int
-}
-
-func (node *Node) Byte() byte {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetByte(node.R(node.Pos))
-}
-
-func (node *Node) Bool() bool {
-	if node == nil {
-		return false
-	}
-
-	return flatbuffers.GetBool(node.R(node.Pos))
-}
-
-func (node *Node) Uint8() uint8 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetUint8(node.R(node.Pos))
-}
-
-func (node *Node) Uint16() uint16 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetUint16(node.R(node.Pos))
-}
-
-func (node *Node) Uint32() uint32 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetUint32(node.R(node.Pos))
-}
-
-func (node *Node) Uint64() uint64 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetUint64(node.R(node.Pos))
-}
-
-func (node *Node) Int8() int8 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetInt8(node.R(node.Pos))
-}
-
-func (node *Node) Int16() int16 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetInt16(node.R(node.Pos))
-}
-
-func (node *Node) Int32() int32 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetInt32(node.R(node.Pos))
-}
-
-func (node *Node) Int64() int64 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetInt64(node.R(node.Pos))
-}
-
-func (node *Node) Float32() float32 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetFloat32(node.R(node.Pos))
-}
-
-func (node *Node) Float64() float64 {
-	if node == nil {
-		return 0
-	}
-
-	return flatbuffers.GetFloat64(node.R(node.Pos))
-}
-
-func (node *Node) Bytes() []byte {
-	if node == nil {
-		return nil
-	}
-	return node.R(node.Pos)[:node.Size]
-}
-func (b *Base) insertBuf(pos, size int) *Base {
+func (b *BaseImpl) insertBuf(pos, size int) Base {
 	return b.insertSpace(pos, size, true)
 }
-func (b *Base) insertSpace(pos, size int, isCreate bool) *Base {
+func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) Base {
 
-	newBase := &Base{
+	newBase := &BaseImpl{
 		r:     b.r,
 		bytes: b.bytes,
 	}
@@ -748,42 +501,4 @@ func (b *Base) insertSpace(pos, size int, isCreate bool) *Base {
 			Diff{Offset: pos, bytes: make([]byte, size)})
 	}
 	return newBase
-}
-
-func (node *Node) VirtualTableIsZero(idx int) bool {
-
-	return node.VirtualTable(idx) == node.Pos
-}
-
-func (node *Node) VirtualTable(idx int) int {
-
-	voff := flatbuffers.GetUint32(node.R(node.Pos))
-	vPos := node.Pos - int(voff)
-
-	if node.LenBuf() <= int(vPos)+4+idx*2 {
-		return node.Pos
-	}
-
-	tOffset := flatbuffers.GetUint16(node.R(int(vPos) + 4 + idx*2))
-	return node.Pos + int(tOffset)
-}
-
-func (node *Node) TableLen() int {
-	voff := flatbuffers.GetUint32(node.R(node.Pos))
-	vPos := node.Pos - int(voff)
-	return int(flatbuffers.GetUint16(node.R(int(vPos) + 2)))
-}
-
-func (node *Node) VirtualTableLen() int {
-	voff := flatbuffers.GetUint32(node.R(node.Pos))
-	vPos := node.Pos - int(voff)
-	return int(flatbuffers.GetUint16(node.R(int(vPos))))
-}
-
-func (node *Node) Table(idx int) int {
-	pos := node.VirtualTable(idx)
-	if node.VirtualTableIsZero(idx) {
-		return -1
-	}
-	return pos + int(flatbuffers.GetUint32(node.R(pos)))
 }

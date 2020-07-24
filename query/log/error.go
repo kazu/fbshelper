@@ -42,6 +42,7 @@ func SetLogLevel(l LogLevel) {
 }
 
 func F(s string, v ...interface{}) LogArgs {
+
 	return LogArgs{Fmt: s, Infs: v}
 }
 
@@ -70,4 +71,10 @@ func Log(l LogLevel, fn LogFn) {
 
 	return
 
+}
+
+func Printf(s string, v ...interface{}) func() LogArgs {
+	return func() LogArgs {
+		return F(s, v...)
+	}
 }
