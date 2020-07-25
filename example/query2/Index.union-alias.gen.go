@@ -143,3 +143,26 @@ func IndexFromNumList(v *NumList) *Index {
 	result.FetchIndex()
 	return result
 }
+
+/*
+genny must be called per Index ;
+*/
+
+var DUMMP_IndexHoges bool = base.SetAlias("Index", "Hoges")
+
+func (node Index) Hoges() Hoges {
+	//result := Hoges{CommonNode: node.CommonNode}
+	result := Hoges{}
+	result.CommonNode = &CommonNode{}
+	result.NodeList = node.NodeList
+	result.CommonNode.Name = "Hoges"
+	result.FetchIndex()
+	return result
+}
+
+func IndexFromHoges(v *Hoges) *Index {
+	result := &Index{}
+	result.CommonNode = v.CommonNode
+	result.FetchIndex()
+	return result
+}

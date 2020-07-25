@@ -104,6 +104,7 @@ type Base interface {
 	AddDirty(Dirty)
 	GetDiffs() []Diff
 	SetDiffs([]Diff)
+	ShouldCheckBound() bool
 }
 
 // BaseImpl ... Base Object of byte buffer for flatbuffers
@@ -501,4 +502,8 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) Base {
 			Diff{Offset: pos, bytes: make([]byte, size)})
 	}
 	return newBase
+}
+
+func (b *BaseImpl) ShouldCheckBound() bool {
+	return true
 }

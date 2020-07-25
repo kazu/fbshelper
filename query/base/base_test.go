@@ -903,6 +903,17 @@ func (w *MyWriter) Write(p []byte) (n int, e error) {
 	return len(p), nil
 }
 
+func (w *MyWriter) ReadAt(p []byte, offset int64) (n int, e error) {
+
+	size := int64(len(p))
+	if size > int64(len(w.Buf[offset:])) {
+		size = int64(len(w.Buf[offset:]))
+	}
+
+	copy(p, w.Buf[offset:offset+size])
+	return int(size), nil
+}
+
 func (w *MyWriter) WriteAt(p []byte, offset int64) (n int, e error) {
 	oldlen := len(w.Buf)
 	if len(w.Buf) < int(offset)+len(p) {
@@ -922,6 +933,10 @@ func (w *MyWriter) WriteAt(p []byte, offset int64) (n int, e error) {
 func Test_CommonList(t *testing.T) {
 
 	//files := query2.NewFiles()
+	root := query2.NewRoot()
+	root.WithHeader()
+	hoges := query2.NewHoges()
+
 	flist := query2.NewFileList()
 
 	for i := 0; i < 3; i++ {
@@ -931,13 +946,23 @@ func Test_CommonList(t *testing.T) {
 		file.SetName(base.FromBytes([]byte("namedayo")))
 		flist.SetAt(i, file)
 	}
-
 	flist.Merge()
+	hoges.SetFiles(flist.CommonNode)
+	root.SetIndex(hoges.CommonNode)
+	root.Merge()
+
 	w := &MyWriter{}
 	w.Buf = make([]byte, 0, 4096)
 
 	cl := base.CommonList{}
+
 	cl.CommonNode = flist.CommonNode
+
+	//root.Base = NewDirectReader(base.NewBase(Root.R(0)[:cl.NodeList.ValueInfo.Pos-4]),
+	// cl.CommonNode = root.Index().Hoges().Files().CommonNode
+	// cl.Base = base.NewBase(cl.R(cl.NodeList.ValueInfo.Pos - 4))
+	// cl.NodeList.ValueInfo = flist.NodeList.ValueInfo
+	// cl.Node.Pos = flist.Node.Pos
 
 	cl.SetDataWriter(w)
 	cl.WriteDataAll()
@@ -952,45 +977,40 @@ func Test_CommonList(t *testing.T) {
 	}
 
 	cl.Merge()
+
+	bytes := root.R(0)
+
+	pos := root.Index().Hoges().Files().CommonNode.NodeList.ValueInfo.Pos - 4
+	headsize := int(cl.VLen())*4 + 4
+	copy(bytes[pos:pos+headsize], cl.R(cl.NodeList.ValueInfo.Pos - 4)[:headsize])
+	bytes = bytes[: pos+headsize : pos+headsize]
+
+	root.Base = base.NewDirectReader(base.NewBase(bytes), w)
+
+	assert.Equal(t, uint32(6), root.Index().Hoges().Files().VLen())
+
 	flist = query2.NewFileList()
 
 	flist.NodeList.ValueInfo = cl.NodeList.ValueInfo
+	lenbuf := cl.LenBuf()
 	newBytes := cl.Base.R(0)[:cl.LenBuf()]
 	newBytes = append(newBytes, w.Buf...)
 	flist.Base = base.NewBase(newBytes)
 	flist.Node.Pos = cl.Node.Pos
 
-	assert.Equal(t, 6, flist.Count())
-	file, _ := flist.At(3)
+	// assert.Equal(t, 6, flist.Count())
+	file2, _ := flist.At(3)
+	file, _ := root.Index().Hoges().Files().At(3)
+	bytes2 := file2.R(file2.Node.Pos)
+	bytes1 := file.R(file.Node.Pos)
+
+	assert.Equal(t, file.Node.Pos-file.LenBuf(), file2.Node.Pos-lenbuf)
+	_ = file2
+	assert.Equal(t, bytes1[0:64], bytes2[0:64])
 
 	assert.True(t, len(w.Buf) > 10)
 	assert.Equal(t, uint64(20), file.Id().Uint64())
+	assert.Equal(t, uint64(20), file.Id().Uint64())
 	assert.Equal(t, []byte("namedayoadd"), file.Name().Bytes())
-
-}
-
-type Lazy func() interface{}
-
-func Test_LazyLog(t *testing.T) {
-
-	b := 0
-
-	a := Lazy{
-		b += 1
-		return 1 + 1
-	}
-	Log(false, "aaaa %d ", a)
-
-	assert.Equal(t, 0, b)
-}
-
-//type Infn func() interface{}
-func Log(run bool, s string, fns ...(func() interface{})) {
-	if run {
-		args := []interface{}{}
-		for _, fn := range fns {
-			args = append(args, fn())
-		}
-		fmt.Printf(s, args...)
-	}
+	assert.Equal(t, file2.Id().Uint64(), file.Id().Uint64())
 }

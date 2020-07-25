@@ -7,7 +7,8 @@ union Index {
     File,
     InvertedMapNum,
     InvertedMapString,
-    NumList
+    NumList,
+    Hoges
 }
 
 table IndexNum {
@@ -52,7 +53,7 @@ table Root {
     record:Record;
 }
 
-table Files {
+table Hoges {
     files:[File];
 }
 

@@ -312,7 +312,7 @@ func (node *Node) VirtualTable(idx int) int {
 	voff := flatbuffers.GetUint32(node.R(node.Pos))
 	vPos := node.Pos - int(voff)
 
-	if node.LenBuf() <= int(vPos)+4+idx*2 {
+	if node.ShouldCheckBound() && node.LenBuf() <= int(vPos)+4+idx*2 {
 		return node.Pos
 	}
 
