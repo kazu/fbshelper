@@ -1,6 +1,10 @@
 package base
 
-import "io"
+import (
+	"io"
+
+	log "github.com/kazu/fbshelper/query/log"
+)
 
 type DirectReader struct {
 	Base
@@ -21,6 +25,10 @@ func (b DirectReader) R(offset int) (result []byte) {
 	result = result[:n]
 	if err != nil {
 		//Log(LOG_WARN, "P(%d) cannot read \n", offset)
+		if n > 0 {
+			return
+		}
+		log.Log(LOG_WARN, log.Printf("P(%d) cannot read \n", offset))
 		return nil
 	}
 	return
