@@ -343,3 +343,7 @@ func (node *Node) Table(idx int) int {
 func (node *NodeList) clearValueInfoOnDirty() {
 	node.ClearValueInfoOnDirty(node)
 }
+
+func (node *Node) BaseToNoLayer() {
+	node.Base = NewNoLayer(node.Base)
+}

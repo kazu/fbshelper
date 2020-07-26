@@ -930,6 +930,337 @@ func (w *MyWriter) WriteAt(p []byte, offset int64) (n int, e error) {
 	return len(p), nil
 }
 
+type BufWriterIO struct {
+	*os.File
+	buf []byte
+	len int
+	cap int
+	pos int64
+	l   int
+}
+
+func NewBufWriterIO(o *os.File, n int) *BufWriterIO {
+
+	return &BufWriterIO{
+		File: o,
+		buf:  make([]byte, 0, n),
+		pos:  int64(0),
+		len:  0,
+		cap:  n,
+		l:    n,
+	}
+}
+
+func (b *BufWriterIO) w() *os.File {
+	return b.File
+}
+
+func (b *BufWriterIO) Write(p []byte) (n int, e error) {
+
+	defer func() {
+		b.len = len(b.buf)
+		b.cap = cap(b.buf)
+	}()
+
+	b.buf = append(b.buf, p[:len(p):len(p)]...)
+	if len(b.buf) >= b.l {
+		n, e = b.w().WriteAt(b.buf, b.pos)
+		if n < 0 || e != nil {
+			return
+		}
+		b.pos += int64(n)
+		b.buf = b.buf[0:0:cap(b.buf)]
+	}
+	return len(p), nil
+
+}
+
+func (b *BufWriterIO) WriteAt(p []byte, offset int64) (n int, e error) {
+
+	defer func() {
+		b.len = len(b.buf)
+		b.cap = cap(b.buf)
+	}()
+
+	if (offset-b.pos)+int64(len(p)) > int64(cap(b.buf)) {
+		nbuf := make([]byte, (offset-b.pos)+int64(len(p)))
+		copy(nbuf[:len(b.buf)], b.buf)
+		b.buf = nbuf
+	}
+	wpos := offset - b.pos
+	copy(b.buf[wpos:wpos+int64(len(p))], p[:len(p):cap(p)])
+	b.buf = b.buf[:wpos+int64(len(p))]
+
+	if len(b.buf) >= b.l {
+		n, e = b.w().WriteAt(b.buf, b.pos)
+		if n < 0 || e != nil {
+			return
+		}
+		b.pos += int64(n)
+		b.buf = b.buf[0:0:cap(b.buf)]
+	}
+	return len(p), nil
+}
+
+func (b *BufWriterIO) Flush() (e error) {
+
+	defer func() {
+		b.len = len(b.buf)
+		b.cap = cap(b.buf)
+	}()
+	var n int
+	if len(b.buf) > 0 {
+		n, e = b.w().WriteAt(b.buf, b.pos)
+		b.pos += int64(n)
+		b.buf = b.buf[n:n]
+	}
+	return
+}
+func (b *BufWriterIO) ReOpen() {
+	name := b.File.Name()
+	b.Flush()
+	b.Close()
+	b.File, _ = os.OpenFile(name, os.O_RDWR, os.ModePerm)
+}
+
+func Benchmark_DirectBuf(b *testing.B) {
+
+	// b.ResetTimer()
+	// b.Run("directbuf block=4k disable=merge", func(b *testing.B) {
+	// 	b.StartTimer()
+	// 	MakeDirectBufFileList(b.N, 4096, false)
+	// 	b.StopTimer()
+	// })
+
+	// b.ResetTimer()
+	// b.Run("directbuf block=4k*8 disable=merge", func(b *testing.B) {
+	// 	b.StartTimer()
+	// 	MakeDirectBufFileList(b.N, 4096*8, false)
+	// 	b.StopTimer()
+	// })
+
+	// b.ResetTimer()
+	// b.Run("directbuf block=4k layer merge-interval-8", func(b *testing.B) {
+	// 	b.StartTimer()
+	// 	MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(8), useNoLayer(false))
+	// 	b.StopTimer()
+	// })
+
+	// b.ResetTimer()
+	// b.Run("directbuf block=512 layer merge-interval-8", func(b *testing.B) {
+	// 	b.StartTimer()
+	// 	MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(true), mInterval(8), useNoLayer(false))
+	// 	b.StopTimer()
+	// })
+
+	// b.ResetTimer()
+	// b.Run("directbuf block=4k  nomerge-interval-8", func(b *testing.B) {
+	// 	b.StartTimer()
+	// 	MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(false), mInterval(8), useNoLayer(true))
+	// 	b.StopTimer()
+	// })
+
+	// b.ResetTimer()
+	// b.Run("directbuf block=512  nomerge-interval-8", func(b *testing.B) {
+	// 	b.StartTimer()
+	// 	MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(false), mInterval(8), useNoLayer(true))
+	// 	b.StopTimer()
+	// })
+
+	b.ResetTimer()
+	b.Run("directbuf block=8k  merge-interval-8", func(b *testing.B) {
+		b.StartTimer()
+		MakeDirectBufFileList(loopCnt(b.N), blockSize(8192), useMerge(true), mInterval(8), useNoLayer(true))
+		b.StopTimer()
+	})
+
+	b.ResetTimer()
+	b.Run("directbuf block=4k  merge-interval-8", func(b *testing.B) {
+		b.StartTimer()
+		MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(8), useNoLayer(true))
+		b.StopTimer()
+	})
+
+	b.ResetTimer()
+	b.Run("directbuf block=512  merge-interval-8", func(b *testing.B) {
+		b.StartTimer()
+		MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(true), mInterval(8), useNoLayer(true))
+		b.StopTimer()
+	})
+
+	b.ResetTimer()
+	b.Run("directbuf block=4k merge-interval-4", func(b *testing.B) {
+		b.StartTimer()
+		MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(4), useNoLayer(true))
+
+		b.StopTimer()
+	})
+
+	b.ResetTimer()
+	b.Run("directbuf block=512 merge-interval-4", func(b *testing.B) {
+		b.StartTimer()
+		MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(true), mInterval(4), useNoLayer(true))
+		b.StopTimer()
+	})
+
+	b.ResetTimer()
+	b.Run("directbuf block=4k merge-interval-2", func(b *testing.B) {
+		b.StartTimer()
+		MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(2), useNoLayer(true))
+
+		b.StopTimer()
+	})
+
+	b.ResetTimer()
+	b.Run("directbuf block=512 merge-interval-2", func(b *testing.B) {
+		b.StartTimer()
+		MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(true), mInterval(2), useNoLayer(true))
+		b.StopTimer()
+	})
+
+}
+
+type Conf struct {
+	loopCnt    int
+	block      int
+	useMerge   bool
+	mInterval  int
+	useNoLayer bool
+}
+
+type Config func(*Conf)
+
+func loopCnt(i int) Config {
+	return func(c *Conf) {
+		c.loopCnt = i
+	}
+}
+
+func blockSize(i int) Config {
+	return func(c *Conf) {
+		c.block = i
+	}
+}
+
+func useMerge(useMerge bool) Config {
+	return func(c *Conf) {
+		c.useMerge = useMerge
+	}
+}
+
+func useNoLayer(useNoLayer bool) Config {
+	return func(c *Conf) {
+		c.useNoLayer = useNoLayer
+	}
+}
+
+func mInterval(mInterval int) Config {
+	return func(c *Conf) {
+		c.mInterval = mInterval
+	}
+}
+
+func (c *Conf) Apply(confs ...Config) {
+	for i := range confs {
+		confs[i](c)
+	}
+}
+
+func MakeDirectBufFileList(confs ...Config) {
+	opt := Conf{useNoLayer: false}
+
+	opt.Apply(confs...)
+
+	root := query2.NewRoot()
+	root.WithHeader()
+	hoges := query2.NewHoges()
+
+	flist := query2.NewFileList()
+	if opt.useNoLayer {
+		flist.BaseToNoLayer()
+	}
+
+	for i := 0; i < 1; i++ {
+		file := query2.NewFile()
+		if opt.useNoLayer {
+			file.BaseToNoLayer()
+		}
+		file.SetId(query2.FromUint64(10 + uint64(i)))
+		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
+		file.SetName(base.FromBytes([]byte("namedayo")))
+		flist.SetAt(i, file)
+	}
+
+	flist.Merge()
+	hoges.SetFiles(flist.CommonNode)
+	root.SetIndex(hoges.CommonNode)
+	root.Merge()
+
+	fname := fmt.Sprintf("bench-%d", opt.loopCnt)
+	f, _ := os.Create(fname)
+	defer func() {
+		f.Close()
+		os.Readlink(fname)
+	}()
+	w := NewBufWriterIO(f, opt.block)
+
+	cl := base.CommonList{}
+
+	cl.CommonNode = flist.CommonNode
+	cl.SetDataWriter(w)
+	cl.WriteDataAll()
+	cnt := cl.Count()
+
+	for i := 0; i < opt.loopCnt; i++ {
+		file := query2.NewFile()
+		if opt.useNoLayer {
+			file.BaseToNoLayer()
+		}
+		file.SetId(query2.FromUint64(20 + uint64(i)))
+		file.SetIndexAt(query2.FromInt64(3000 + int64(i)))
+		file.SetName(base.FromBytes([]byte("namedayoadd")))
+		if opt.useMerge {
+			file.Merge()
+		}
+		cl.SetAt(cnt+i, file.CommonNode)
+		if opt.useMerge && i%opt.mInterval == (opt.mInterval-1) {
+			cl.Merge()
+		}
+		if i%100 == 50 {
+			w.ReOpen()
+		}
+
+	}
+
+	cl.Merge()
+
+	bytes := root.R(0)
+
+	pos := root.Index().Hoges().Files().CommonNode.NodeList.ValueInfo.Pos - 4
+	headsize := int(cl.VLen())*4 + 4
+	if len(bytes) < pos+headsize {
+		nbytes := make([]byte, pos+headsize)
+		copy(nbytes, bytes)
+		bytes = nbytes
+	}
+
+	copy(bytes[pos:pos+headsize], cl.R(cl.NodeList.ValueInfo.Pos - 4)[:headsize])
+	bytes = bytes[: pos+headsize : pos+headsize]
+
+	root.Base = base.NewDirectReader(base.NewBase(bytes), w)
+	w.Flush()
+}
+
+func TestCast(t *testing.T) {
+
+	// hoge := interface{}(BaseP{})
+	// _, ok := Base(hoge)
+	// assert.True(t, ok)
+	// hoge = interface{}(&BaseD{})
+	// _, ok = Base(hoge)
+	// assert.True(t, ok)
+}
+
 func Test_CommonList(t *testing.T) {
 
 	//files := query2.NewFiles()
@@ -938,9 +1269,12 @@ func Test_CommonList(t *testing.T) {
 	hoges := query2.NewHoges()
 
 	flist := query2.NewFileList()
+	flist.Merge()
+	flist.BaseToNoLayer()
 
 	for i := 0; i < 3; i++ {
 		file := query2.NewFile()
+		file.BaseToNoLayer()
 		file.SetId(query2.FromUint64(10 + uint64(i)))
 		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
 		file.SetName(base.FromBytes([]byte("namedayo")))
@@ -951,8 +1285,20 @@ func Test_CommonList(t *testing.T) {
 	root.SetIndex(hoges.CommonNode)
 	root.Merge()
 
+	loopCnt := 10
+
 	w := &MyWriter{}
-	w.Buf = make([]byte, 0, 4096)
+	w.Buf = make([]byte, 0, 4096*loopCnt)
+
+	// fname := fmt.Sprintf("bench-%d", loopCnt)
+	// f, _ := os.Create(fname)
+	// w := NewBufWriterIO(f, 4096)
+	// //w.ReOpen()
+	// defer func() {
+	// 	w.Flush()
+	// 	f.Close()
+	// 	os.Readlink(fname)
+	// }()
 
 	cl := base.CommonList{}
 
@@ -968,11 +1314,13 @@ func Test_CommonList(t *testing.T) {
 	cl.WriteDataAll()
 	cnt := cl.Count()
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < loopCnt; i++ {
 		file := query2.NewFile()
+		file.BaseToNoLayer()
 		file.SetId(query2.FromUint64(20 + uint64(i)))
 		file.SetIndexAt(query2.FromInt64(3000 + int64(i)))
 		file.SetName(base.FromBytes([]byte("namedayoadd")))
+		file.Merge()
 		cl.SetAt(cnt+i, file.CommonNode)
 	}
 
@@ -982,12 +1330,23 @@ func Test_CommonList(t *testing.T) {
 
 	pos := root.Index().Hoges().Files().CommonNode.NodeList.ValueInfo.Pos - 4
 	headsize := int(cl.VLen())*4 + 4
+	if len(bytes) < pos+headsize {
+		nbytes := make([]byte, pos+headsize)
+		copy(nbytes, bytes)
+		bytes = nbytes
+	}
+
 	copy(bytes[pos:pos+headsize], cl.R(cl.NodeList.ValueInfo.Pos - 4)[:headsize])
 	bytes = bytes[: pos+headsize : pos+headsize]
 
 	root.Base = base.NewDirectReader(base.NewBase(bytes), w)
 
-	assert.Equal(t, uint32(6), root.Index().Hoges().Files().VLen())
+	assert.True(t, uint32(6) < root.Index().Hoges().Files().VLen())
+	// w.Flush()
+	// info, _ := w.File.Stat()
+	// size := root.LenBuf()
+	// _ = size
+	// assert.True(t, 100 < info.Size())
 
 	flist = query2.NewFileList()
 

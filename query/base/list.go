@@ -55,7 +55,7 @@ func (l *CommonList) WriteDataAll() (e error) {
 	//remove writed data area
 	bytes := l.R(0)
 	bytes = bytes[0 : first.Node.Pos-vSize : first.Node.Pos-vSize]
-	l.Base = NewBase(bytes)
+	l.Base = l.Base.New(bytes)
 
 	return nil
 

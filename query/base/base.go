@@ -91,9 +91,9 @@ type Base interface {
 	Next(skip int) Base
 	HasIoReader() bool
 	R(off int) []byte
+	D(off, size int) *Diff
 	C(off, size int, src []byte) error
 	Copy(src Base, srcOff, size, dstOff, extend int)
-	D(off, size int) *Diff
 	U(off, size int) []byte
 	LenBuf() int
 	Merge()
@@ -105,6 +105,7 @@ type Base interface {
 	GetDiffs() []Diff
 	SetDiffs([]Diff)
 	ShouldCheckBound() bool
+	New([]byte) Base
 }
 
 // BaseImpl ... Base Object of byte buffer for flatbuffers
@@ -150,6 +151,14 @@ func NewBase(buf []byte) *BaseImpl {
 func NewBaseByIO(rio io.Reader, cap int) *BaseImpl {
 	b := &BaseImpl{r: rio, bytes: make([]byte, 0, cap)}
 	return b
+}
+
+// func (b *BaseImpl) New(bytes []byte) Base {
+// 	return nil
+// }
+
+func (b *BaseImpl) New(bytes []byte) Base {
+	return NewBase(bytes)
 }
 
 // NextBase provide next root flatbuffers
@@ -234,14 +243,14 @@ func (b *BaseImpl) C(off, size int, src []byte) error {
 	return nil
 }
 
-func (b *BaseImpl) Copy(osrc Base, srcOff, size, dstOff, extend int) {
+func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
 
-	src, ok := osrc.(*BaseImpl)
-	if !ok {
-		log.Log(LOG_WARN, log.Printf("BaseImpl.Copy() src is only BaseImpl"))
+	// src, ok := osrc.(*BaseImpl)
+	// if !ok {
+	// 	log.Log(LOG_WARN, log.Printf("BaseImpl.Copy() src is only BaseImpl"))
 
-		return
-	}
+	// 	return
+	// }
 
 	if len(b.bytes) > dstOff {
 		diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
@@ -256,16 +265,16 @@ func (b *BaseImpl) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 		b.Diffs[i] = diff
 	}
 
-	if len(src.bytes) > srcOff {
-		nSize := len(src.bytes[srcOff:])
+	if len(src.R(0)) > srcOff {
+		nSize := len(src.R(0)[srcOff:])
 		if nSize > size {
 			nSize = size
 		}
 
-		diff := Diff{Offset: dstOff, bytes: src.bytes[srcOff : srcOff+nSize]}
+		diff := Diff{Offset: dstOff, bytes: src.R(0)[srcOff : srcOff+nSize]}
 		b.Diffs = append(b.Diffs, diff)
 	}
-	for _, diff := range src.Diffs {
+	for _, diff := range src.GetDiffs() {
 		if diff.Offset >= srcOff {
 			nDiff := diff
 			nDiff.Offset -= srcOff
