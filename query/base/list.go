@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/kazu/fbshelper/query/log"
 	"github.com/kazu/loncha"
 )
@@ -15,10 +16,18 @@ type CommonList struct {
 	dLen  int
 }
 
+func (l *CommonList) DataLen() int {
+	return l.dLen
+}
+
 func (l *CommonList) SetDataWriter(w io.Writer) {
 	l.dCur = 0
 	l.dataW = w
-	l.dCur = 0
+	l.dLen = 0
+}
+func (l *CommonList) DataWriter() io.Writer {
+
+	return l.dataW
 }
 
 func (l *CommonList) WriteDataAll() (e error) {
@@ -139,5 +148,85 @@ func (l *CommonList) WriteElm(elm *CommonNode, pos, size int) {
 		return wStart+pos+size <= diffs[i].Offset+len(diffs[i].bytes) || wStart <= diffs[i].Offset
 	})
 	l.SetDiffs(diffs)
+	return
+}
+
+// Add ... if src.Name and dst.Name is the same and list, join header
+//       only support element is table .
+func (dst *CommonList) Add(src *CommonList) (nList *CommonList, e error) {
+
+	if dst.Name != src.Name {
+		return nil, ERR_NO_SUPPORT
+	}
+
+	g := GetTypeGroup(dst.Name)
+
+	if !IsFieldTable(g) {
+		return nil, ERR_NO_SUPPORT
+	}
+
+	if dst.dataW == nil || src.dataW == nil {
+		return nil, ERR_NO_SUPPORT
+	}
+
+	newLen := dst.VLen() + src.VLen()
+
+	nList = &CommonList{
+		CommonNode: &CommonNode{},
+		dataW:      dst.dataW,
+		dCur:       dst.dCur + src.dCur,
+		dLen:       dst.dLen + src.dLen,
+	}
+	nList.NodeList = &NodeList{}
+	nList.CommonNode.Name = dst.Name
+	nList.InitList()
+
+	//	a := dst.New(make([]byte, 4+int(newLen)*4))
+	nList.Base = dst.New(make([]byte, 4+int(newLen)*4))
+	flatbuffers.WriteUint32(nList.U(0, 4), newLen)
+
+	cur2 := 0
+	_ = cur2
+	for i := 0; i < int(dst.VLen()); i++ {
+		cur2 = 4 + i*4
+		flatbuffers.WriteUint32(nList.U(4+i*4, 4),
+			flatbuffers.GetUint32(dst.R(dst.NodeList.ValueInfo.Pos+i*4))+src.VLen()*4)
+	}
+
+	cur := int(dst.VLen()) * 4
+
+	for i := 0; i < int(src.VLen()); i++ {
+		flatbuffers.WriteUint32(nList.U(cur+i*4+4, 4),
+			flatbuffers.GetUint32(src.R(src.NodeList.ValueInfo.Pos+i*4))+uint32(dst.dLen))
+	}
+	nList.Node.Pos = 4
+	nList.NodeList.ValueInfo = dst.NodeList.ValueInfo
+	nList.NodeList.ValueInfo.VLen = nList.VLen()
+	nList.NodeList.ValueInfo.Size += src.NodeList.ValueInfo.Size - 4
+
+	seeker, ok := dst.dataW.(io.Seeker)
+	if !ok {
+		return nil, log.ERR_NO_SUPPORT
+	}
+	n, e := seeker.Seek(0, io.SeekEnd)
+	//	n, e := seeker.Seek(int64(dst.dLen), io.SeekStart)
+	_ = n
+	if e != nil {
+		return nil, e
+	}
+
+	srcDataR, ok := src.dataW.(io.Reader)
+	if !ok {
+		return nil, log.ERR_NO_SUPPORT
+	}
+
+	written, e := io.Copy(dst.dataW, srcDataR)
+	if e != nil {
+		return nil, e
+	}
+	if written != int64(src.dLen) {
+		return nil, log.ERR_INVLIAD_WRITE_SIZE
+	}
+
 	return
 }

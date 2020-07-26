@@ -1025,98 +1025,50 @@ func (b *BufWriterIO) ReOpen() {
 
 func Benchmark_DirectBuf(b *testing.B) {
 
-	// b.ResetTimer()
-	// b.Run("directbuf block=4k disable=merge", func(b *testing.B) {
-	// 	b.StartTimer()
-	// 	MakeDirectBufFileList(b.N, 4096, false)
-	// 	b.StopTimer()
-	// })
+	benchs := []struct {
+		name    string
+		configs []Config
+	}{
+		{
+			name:    "directbuf block=8k  merge-interval-8",
+			configs: []Config{loopCnt(b.N), blockSize(8192), useMerge(true), mInterval(8), useNoLayer(true)},
+		},
+		{
+			name:    "directbuf block=4k  merge-interval-8",
+			configs: []Config{loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(8), useNoLayer(true)},
+		},
+		{
+			name:    "directbuf block=512  merge-interval-8",
+			configs: []Config{loopCnt(b.N), blockSize(512), useMerge(true), mInterval(8), useNoLayer(true)},
+		},
+		{
+			name:    "directbuf block=4k merge-interval-4",
+			configs: []Config{loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(4), useNoLayer(true)},
+		},
+		{
+			name:    "directbuf block=512 merge-interval-4",
+			configs: []Config{loopCnt(b.N), blockSize(512), useMerge(true), mInterval(4), useNoLayer(true)},
+		},
+		{
+			name:    "directbuf block=4k merge-interval-2",
+			configs: []Config{blockSize(4096), useMerge(true), mInterval(2), useNoLayer(true)},
+		},
+		{
+			name:    "directbuf block=512 merge-interval-2",
+			configs: []Config{blockSize(512), useMerge(true), mInterval(2), useNoLayer(true)},
+		},
+	}
 
-	// b.ResetTimer()
-	// b.Run("directbuf block=4k*8 disable=merge", func(b *testing.B) {
-	// 	b.StartTimer()
-	// 	MakeDirectBufFileList(b.N, 4096*8, false)
-	// 	b.StopTimer()
-	// })
+	for _, bb := range benchs {
+		b.ResetTimer()
+		b.Run(bb.name, func(b *testing.B) {
+			b.StartTimer()
+			_, deferfn := MakeDirectBufFileList(append(bb.configs, loopCnt(b.N))...)
+			b.StopTimer()
+			deferfn()
+		})
 
-	// b.ResetTimer()
-	// b.Run("directbuf block=4k layer merge-interval-8", func(b *testing.B) {
-	// 	b.StartTimer()
-	// 	MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(8), useNoLayer(false))
-	// 	b.StopTimer()
-	// })
-
-	// b.ResetTimer()
-	// b.Run("directbuf block=512 layer merge-interval-8", func(b *testing.B) {
-	// 	b.StartTimer()
-	// 	MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(true), mInterval(8), useNoLayer(false))
-	// 	b.StopTimer()
-	// })
-
-	// b.ResetTimer()
-	// b.Run("directbuf block=4k  nomerge-interval-8", func(b *testing.B) {
-	// 	b.StartTimer()
-	// 	MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(false), mInterval(8), useNoLayer(true))
-	// 	b.StopTimer()
-	// })
-
-	// b.ResetTimer()
-	// b.Run("directbuf block=512  nomerge-interval-8", func(b *testing.B) {
-	// 	b.StartTimer()
-	// 	MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(false), mInterval(8), useNoLayer(true))
-	// 	b.StopTimer()
-	// })
-
-	b.ResetTimer()
-	b.Run("directbuf block=8k  merge-interval-8", func(b *testing.B) {
-		b.StartTimer()
-		MakeDirectBufFileList(loopCnt(b.N), blockSize(8192), useMerge(true), mInterval(8), useNoLayer(true))
-		b.StopTimer()
-	})
-
-	b.ResetTimer()
-	b.Run("directbuf block=4k  merge-interval-8", func(b *testing.B) {
-		b.StartTimer()
-		MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(8), useNoLayer(true))
-		b.StopTimer()
-	})
-
-	b.ResetTimer()
-	b.Run("directbuf block=512  merge-interval-8", func(b *testing.B) {
-		b.StartTimer()
-		MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(true), mInterval(8), useNoLayer(true))
-		b.StopTimer()
-	})
-
-	b.ResetTimer()
-	b.Run("directbuf block=4k merge-interval-4", func(b *testing.B) {
-		b.StartTimer()
-		MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(4), useNoLayer(true))
-
-		b.StopTimer()
-	})
-
-	b.ResetTimer()
-	b.Run("directbuf block=512 merge-interval-4", func(b *testing.B) {
-		b.StartTimer()
-		MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(true), mInterval(4), useNoLayer(true))
-		b.StopTimer()
-	})
-
-	b.ResetTimer()
-	b.Run("directbuf block=4k merge-interval-2", func(b *testing.B) {
-		b.StartTimer()
-		MakeDirectBufFileList(loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(2), useNoLayer(true))
-
-		b.StopTimer()
-	})
-
-	b.ResetTimer()
-	b.Run("directbuf block=512 merge-interval-2", func(b *testing.B) {
-		b.StartTimer()
-		MakeDirectBufFileList(loopCnt(b.N), blockSize(512), useMerge(true), mInterval(2), useNoLayer(true))
-		b.StopTimer()
-	})
+	}
 
 }
 
@@ -1166,7 +1118,9 @@ func (c *Conf) Apply(confs ...Config) {
 	}
 }
 
-func MakeDirectBufFileList(confs ...Config) {
+type Defer func()
+
+func MakeDirectBufFileList(confs ...Config) (*base.CommonList, Defer) {
 	opt := Conf{useNoLayer: false}
 
 	opt.Apply(confs...)
@@ -1198,10 +1152,7 @@ func MakeDirectBufFileList(confs ...Config) {
 
 	fname := fmt.Sprintf("bench-%d", opt.loopCnt)
 	f, _ := os.Create(fname)
-	defer func() {
-		f.Close()
-		os.Readlink(fname)
-	}()
+
 	w := NewBufWriterIO(f, opt.block)
 
 	cl := base.CommonList{}
@@ -1249,6 +1200,11 @@ func MakeDirectBufFileList(confs ...Config) {
 
 	root.Base = base.NewDirectReader(base.NewBase(bytes), w)
 	w.Flush()
+
+	return &cl, func() {
+		f.Close()
+		os.Remove(fname)
+	}
 }
 
 func TestCast(t *testing.T) {
@@ -1372,4 +1328,47 @@ func Test_CommonList(t *testing.T) {
 	assert.Equal(t, uint64(20), file.Id().Uint64())
 	assert.Equal(t, []byte("namedayoadd"), file.Name().Bytes())
 	assert.Equal(t, file2.Id().Uint64(), file.Id().Uint64())
+}
+
+func Test_Add_CommonList(t *testing.T) {
+
+	dst, fn1 := MakeDirectBufFileList(loopCnt(10), blockSize(4096), useMerge(true), mInterval(2), useNoLayer(true))
+	src, fn2 := MakeDirectBufFileList(loopCnt(11), blockSize(4096), useMerge(true), mInterval(2), useNoLayer(true))
+
+	defer fn1()
+	defer fn2()
+
+	list, err := dst.Add(src)
+	w := list.DataWriter().(*BufWriterIO)
+	w.Flush()
+	list.Base = base.NewDirectReader(list.Base, w)
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, src.VLen()+dst.VLen(), list.VLen())
+	assert.Equal(t, src.DataLen()+dst.DataLen(), list.DataLen())
+
+	flist := query2.NewFileList()
+	flist.NodeList.ValueInfo = list.NodeList.ValueInfo
+	flist.Base = list.Base
+	flist.Node.Pos = list.Node.Pos
+
+	dflist := query2.NewFileList()
+	dflist.NodeList.ValueInfo = list.NodeList.ValueInfo
+	dflist.Base = base.NewDirectReader(dst.Base, src.DataWriter().(*BufWriterIO))
+	dflist.Node.Pos = list.Node.Pos
+
+	sflist := query2.NewFileList()
+	sflist.NodeList.ValueInfo = src.NodeList.ValueInfo
+	sflist.Base = base.NewDirectReader(src.Base, src.DataWriter().(*BufWriterIO))
+	sflist.Node.Pos = src.Node.Pos
+
+	file2, _ := sflist.At(10)
+	file3, _ := dflist.At(10)
+
+	file, _ := flist.At(21)
+
+	assert.Equal(t, file2.Id().Uint64(), file.Id().Uint64())
+	assert.Equal(t, file2.Name().Bytes(), file.Name().Bytes())
+	assert.Equal(t, file2.Name().Bytes(), file3.Name().Bytes())
 }

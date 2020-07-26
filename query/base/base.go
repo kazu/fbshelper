@@ -24,14 +24,15 @@ var (
 )
 
 var (
-	ERR_MUST_POINTER    error = log.ERR_MUST_POINTER
-	ERR_INVALID_TYPE    error = log.ERR_INVALID_TYPE
-	ERR_NOT_FOUND       error = log.ERR_NOT_FOUND
-	ERR_READ_BUFFER     error = log.ERR_READ_BUFFER
-	ERR_MORE_BUFFER     error = log.ERR_MORE_BUFFER
-	ERR_NO_SUPPORT      error = log.ERR_NO_SUPPORT
-	ERR_INVALID_INDEX   error = log.ERR_INVALID_INDEX
-	ERR_NO_INCLUDE_ROOT error = log.ERR_NO_INCLUDE_ROOT
+	ERR_MUST_POINTER       error = log.ERR_MUST_POINTER
+	ERR_INVALID_TYPE       error = log.ERR_INVALID_TYPE
+	ERR_NOT_FOUND          error = log.ERR_NOT_FOUND
+	ERR_READ_BUFFER        error = log.ERR_READ_BUFFER
+	ERR_MORE_BUFFER        error = log.ERR_MORE_BUFFER
+	ERR_NO_SUPPORT         error = log.ERR_NO_SUPPORT
+	ERR_INVALID_INDEX      error = log.ERR_INVALID_INDEX
+	ERR_NO_INCLUDE_ROOT    error = log.ERR_NO_INCLUDE_ROOT
+	ERR_INVLIAD_WRITE_SIZE error = log.ERR_INVLIAD_WRITE_SIZE
 )
 
 type LogLevel = log.LogLevel
@@ -87,6 +88,7 @@ func Log(l LogLevel, fn LogFn) {
 
 }
 
+// Base ... express low level buffer
 type Base interface {
 	Next(skip int) Base
 	HasIoReader() bool
@@ -96,7 +98,8 @@ type Base interface {
 	Copy(src Base, srcOff, size, dstOff, extend int)
 	U(off, size int) []byte
 	LenBuf() int
-	Merge()
+	Merge() // Deprecated: should use Flatten()
+	Flatten()
 	Dedup()
 	ClearValueInfoOnDirty(node *NodeList)
 	insertBuf(pos, size int) Base
@@ -119,6 +122,8 @@ type BaseImpl struct {
 	dirties []Dirty
 }
 
+// Dirty ... Dirty
+// Deprecated: not use.
 type Dirty struct {
 	Pos int
 }
@@ -388,7 +393,15 @@ func (b *BaseImpl) LenBuf() int {
 	return max
 
 }
+
+// Merge ... join Diffs buffer to bytes
+// Deprecated: Use Flatten()
 func (b *BaseImpl) Merge() {
+	b.Flatten()
+}
+
+// Flatten ... Diffs buffer join to bytes
+func (b *BaseImpl) Flatten() {
 
 	nbytes := make([]byte, b.LenBuf())
 
