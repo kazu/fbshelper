@@ -298,8 +298,12 @@ func (node *CommonNode) At(i int) (*CommonNode, error) {
 	tName := node.Name[2:]
 	grp := GetTypeGroup(tName)
 
-	// FIXME:  work basictype/struct not 4 byte
 	ptr := int(node.NodeList.ValueInfo.Pos) + i*4
+	if i > 0 && (IsFieldBasicType(grp) || IsFieldStruct(grp)) {
+		first, _ := node.First()
+		size := first.Info().Size
+		ptr = int(node.NodeList.ValueInfo.Pos) + i*size
+	}
 
 	var nNode *Node
 	if IsFieldBasicType(grp) || IsFieldStruct(grp) {
@@ -462,6 +466,7 @@ func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
 			vlen++
 			flatbuffers.WriteUint32(node.U(node.NodeList.ValueInfo.Pos-4, 4), uint32(vlen))
 		}
+		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
 		return nil
 	} else if IsFieldUnion(g) {
 		return ERR_NO_SUPPORT

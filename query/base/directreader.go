@@ -161,7 +161,23 @@ func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 	})
 
 	for _, diff := range srcDiffs {
-		diff.Offset += dstOff - srcOff
+		diff.Offset -= srcOff
+		if diff.Offset < 0 && len(diff.bytes)-diff.Offset > 0 {
+			diff.Offset = 0
+			diff.bytes = diff.bytes[srcOff:]
+			if len(diff.bytes) > size {
+				diff.bytes = diff.bytes[:size:size]
+			}
+		}
+		diff.Offset += dstOff
+		//diff.Offset = 0
+		// diff.Offset += srcOff - dstOff
+		// diff.Offset += dstOff
+		// diff.bytes = diff.bytes[srcOff:]
+		// if len(diff.bytes) > size {
+		// 	diff.bytes = diff.bytes[:size:size]
+		// }
+
 		loncha.Delete(&b.Diffs, func(i int) bool {
 			return diff.Offset <= b.Diffs[i].Offset &&
 				b.Diffs[i].Offset+len(b.Diffs[i].bytes) <= diff.Offset+len(diff.bytes)
