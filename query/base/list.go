@@ -3,6 +3,7 @@ package base
 import (
 	"fmt"
 	"io"
+	"math/rand"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/kazu/fbshelper/query/log"
@@ -229,4 +230,386 @@ func (dst *CommonList) Add(src *CommonList) (nList *CommonList, e error) {
 	}
 
 	return
+}
+
+func (node *CommonNode) At(i int) (*CommonNode, error) {
+
+	if !node.IsList() {
+		return nil, ERR_NO_SUPPORT
+	}
+	if i >= int(node.VLen()) || i < 0 {
+		//if i >= int(node.NodeList.ValueInfo.VLen) || i < 0 {
+		return nil, ERR_INVALID_INDEX
+	}
+
+	tName := node.Name[2:]
+	grp := GetTypeGroup(tName)
+
+	ptr := int(node.NodeList.ValueInfo.Pos) + i*4
+	if i > 0 && (IsFieldBasicType(grp) || IsFieldStruct(grp)) {
+		first, _ := node.First()
+		size := first.Info().Size
+		ptr = int(node.NodeList.ValueInfo.Pos) + i*size
+	}
+
+	var nNode *Node
+	if IsFieldBasicType(grp) || IsFieldStruct(grp) {
+		nNode = NewNode2(node.Base, ptr, true)
+	} else {
+		nNode = NewNode(node.Base, ptr+int(flatbuffers.GetUint32(node.R(ptr))))
+	}
+
+	cNode := &CommonNode{}
+	cNode.NodeList = &NodeList{}
+	cNode.Node = nNode
+	cNode.Name = tName
+	if _, ok := All_IdxToName[tName]; ok {
+		cNode.IdxToType = All_IdxToType[tName]
+		cNode.IdxToTypeGroup = All_IdxToTypeGroup[tName]
+	}
+
+	return cNode, nil
+
+}
+
+func (node *CommonNode) First() (*CommonNode, error) {
+	return node.At(0)
+}
+
+func (node *CommonNode) Last() (*CommonNode, error) {
+	return node.At(int(node.VLen()) - 1)
+}
+
+func (node *CommonNode) Select(fn func(m *CommonNode) bool) []*CommonNode {
+	result := make([]*CommonNode, 0, int(node.NodeList.ValueInfo.VLen))
+	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
+		if m, err := node.At(i); err == nil && fn(m) {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
+func (node *CommonNode) Find(fn func(m *CommonNode) bool) *CommonNode {
+
+	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
+		if m, e := node.At(i); e == nil && fn(m) {
+			return m
+		}
+	}
+
+	return nil
+}
+
+func (node *CommonNode) All() []*CommonNode {
+	return node.Select(func(m *CommonNode) bool { return true })
+}
+
+func (node *CommonNode) VLen() uint32 {
+	return flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos - flatbuffers.SizeUOffsetT))
+}
+
+func (node *CommonNode) InfoSlice() Info {
+	info := Info{Pos: node.NodeList.ValueInfo.Pos, Size: -1}
+	tName := node.Name[2:]
+	var vInfo Info
+
+	grp := GetTypeGroup(tName)
+	if IsFieldBasicType(grp) {
+		ptr := int(node.NodeList.ValueInfo.Pos)
+		size := int(node.NodeList.ValueInfo.VLen) * TypeToSize[NameToTypeEnum(tName)]
+		vInfo = Info{Pos: ptr, Size: size}
+	} else if IsFieldBytes(grp) {
+		ptr := int(node.NodeList.ValueInfo.Pos) + (int(node.NodeList.ValueInfo.VLen)-1)*4
+		vInfo = FbsStringInfo(NewNode(node.Base, ptr+int(flatbuffers.GetUint32(node.R(ptr)))))
+	} else {
+		if elm, err := node.Last(); err == nil {
+			vInfo = elm.Info()
+		}
+	}
+	info.VLen = flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos - 4))
+	if info.VLen == 0 {
+		info.Size = 0
+	}
+	if info.Pos+info.Size < vInfo.Pos+vInfo.Size {
+		info.Size = (vInfo.Pos + vInfo.Size) - info.Pos
+	}
+	return info
+}
+
+func (node *CommonNode) SearchInfoSlice(pos int, fn RecFn, condFn CondFn) {
+
+	info := node.Info()
+
+	if condFn(pos, info) {
+		fn(NodePath{Name: node.Name, Idx: -1}, info)
+	} else {
+		return
+	}
+
+	var v interface{}
+	for _, cNode := range node.All() {
+		v = cNode
+		if vv, ok := v.(Searcher); ok {
+			vv.SearchInfo(pos, fn, condFn)
+		} else {
+			goto NO_NODE
+		}
+	}
+	return
+
+NO_NODE:
+	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
+		ptr := int(node.NodeList.ValueInfo.Pos) + i*4
+		start := ptr + int(flatbuffers.GetUint32(node.R(ptr)))
+		size := info.Size
+		if i+1 < int(node.NodeList.ValueInfo.Pos) {
+			size = ptr + 4 + int(flatbuffers.GetUint32(node.R(ptr+4))) - start
+		}
+		cInfo := Info{Pos: start, Size: size}
+		if condFn(pos, info) {
+
+			fn(NodePath{Name: node.Name, Idx: i}, cInfo)
+		}
+	}
+
+}
+
+func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
+
+	if idx > int(node.NodeList.ValueInfo.VLen) {
+		return ERR_INVALID_INDEX
+	}
+
+	if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
+		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+	}
+	if node.NodeList.ValueInfo.VLen == 0 {
+		node.NodeList.ValueInfo.Size = 0
+	}
+	vlen := int(node.NodeList.ValueInfo.VLen)
+	total := node.NodeList.ValueInfo.Size
+
+	g := GetTypeGroup(elm.Name)
+	//ptr := int(node.NodeList.ValueInfo.Pos) + vlen*4
+
+	if IsFieldBasicType(g) || IsFieldStruct(g) {
+		// new element
+		if elm.Node.Size <= 0 {
+			elm.Node.Size = elm.Info().Size
+		}
+		ptr := int(node.NodeList.ValueInfo.Pos) + idx*elm.Node.Size
+		//node.insertBuf(node.NodeList.ValueInfo.Pos + total, elm.Node.Size)
+		extend := 0
+		if vlen == idx {
+			extend = elm.Node.Size
+		}
+		node.Copy(
+			elm.Base, elm.Node.Pos, elm.Node.Size,
+			ptr, extend)
+
+		total += extend
+		if vlen == idx {
+			vlen++
+			flatbuffers.WriteUint32(node.U(node.NodeList.ValueInfo.Pos-4, 4), uint32(vlen))
+		}
+		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+		return nil
+	} else if IsFieldUnion(g) {
+		return ERR_NO_SUPPORT
+	} else if IsFieldTable(g) {
+		// new element
+		vSize := elm.CountOfField()*2 + 4
+		oSize := 0
+		var oElm *CommonNode
+		if idx < vlen {
+			oElm, _ = node.At(idx)
+			oSize = oElm.Info().Size
+		}
+		if elm.Node.Size <= 0 {
+			elm.Node.Size = elm.Info().Size
+		}
+		ptrIdx := func(idx int) int {
+			return int(node.NodeList.ValueInfo.Pos) + idx*4
+		}
+		ptr := ptrIdx(idx)
+
+		header := make([]byte, 4)
+
+		//flatbuffers.WriteUint32(off, uint32(total-vlen*4+vSize))
+
+		header_extend := 0
+		body_extend := 0
+		if vlen == idx {
+			header_extend = 4
+		}
+
+		if header_extend > 0 {
+			body_extend = elm.Node.Size + vSize
+		} else {
+			body_extend = elm.Node.Size - oSize
+		}
+		if body_extend < 0 {
+			body_extend = 0
+		}
+		dstPos := 0
+		if header_extend > 0 {
+			flatbuffers.WriteUint32(header, uint32(total-vlen*4+vSize))
+			node.InsertBuf(ptr, 4)
+			for i := 0; i < vlen; i++ {
+				dataPtr := ptrIdx(i)
+				_ = dataPtr
+				off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
+				off += 4
+				flatbuffers.WriteUint32(node.U(ptrIdx(i), 4), off)
+			}
+			dstPos = ptrIdx(0) + total + header_extend
+			flatbuffers.WriteUint32(node.U(ptrIdx(idx), 4), uint32(dstPos+vSize-ptr))
+			vlen++
+		} else {
+			dstPos = oElm.Node.Pos - vSize
+		}
+
+		if body_extend > 0 {
+			node.InsertSpace(dstPos, body_extend, false)
+			if header_extend == 0 {
+				for i := idx + 1; i < vlen; i++ {
+					off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
+					off += uint32(body_extend)
+					flatbuffers.WriteUint32(node.U(ptrIdx(i), 4), off)
+				}
+			}
+		}
+		// update vlen
+		flatbuffers.WriteUint32(node.U(ptrIdx(-1), 4), uint32(vlen))
+		node.Copy(elm.Base,
+			elm.Node.Pos-vSize, elm.Node.Size+vSize,
+			dstPos, 0)
+		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+		return nil
+	}
+
+	return ERR_NO_SUPPORT
+}
+
+func (node *CommonNode) InitList() error {
+
+	// write vLen == 0
+	node.Node = NewNode2(NewBase(make([]byte, 4)), 4, true)
+	node.NodeList.ValueInfo.Pos = 4
+	return nil
+}
+
+func (node *CommonNode) isDirectList() bool {
+
+	if !node.IsList() {
+		return false
+	}
+
+	tName := node.Name[2:]
+
+	grp := GetTypeGroup(tName)
+	if IsFieldBasicType(grp) || IsFieldStruct(grp) {
+		return true
+	}
+
+	return false
+}
+
+func (node *CommonNode) offsetOfList() int {
+
+	if !node.IsList() {
+		return -1
+	}
+
+	if !node.isDirectList() {
+		return 4
+	}
+
+	first, _ := node.First()
+	return first.Info().Size
+
+}
+
+// SwapAt ... swap data in i and j in List.
+func (node *CommonNode) SwapAt(i, j int) error {
+	if !node.IsList() {
+		return log.ERR_NO_SUPPORT
+	}
+
+	if i >= int(node.VLen()) || j >= int(node.VLen()) {
+		return log.ERR_INVALID_INDEX
+	}
+
+	if node.isDirectList() {
+		size := node.offsetOfList()
+		node.Flatten()
+
+		iPtr := int(node.NodeList.ValueInfo.Pos) + i*size
+		jPtr := int(node.NodeList.ValueInfo.Pos) + j*size
+
+		tmp := make([]byte, size)
+		iData := node.U(iPtr, size)[:size:size]
+		jData := node.U(jPtr, size)[:size:size]
+		copy(tmp, iData)
+		copy(iData, jData)
+		copy(jData, tmp)
+
+		return nil
+	}
+
+	size := flatbuffers.SizeUOffsetT
+
+	iPtr := int(node.NodeList.ValueInfo.Pos) + i*size
+	jPtr := int(node.NodeList.ValueInfo.Pos) + j*size
+
+	iOffset := int(flatbuffers.GetUint32(node.R(iPtr)))
+	jOffset := int(flatbuffers.GetUint32(node.R(jPtr)))
+	iOffset -= (jPtr - iPtr)
+	jOffset -= (iPtr - jPtr)
+
+	flatbuffers.WriteUint32(node.U(iPtr, size), uint32(jOffset))
+	flatbuffers.WriteUint32(node.U(jPtr, size), uint32(iOffset))
+
+	return nil
+
+}
+
+func (node *CommonNode) SortBy(less func(i, j int) bool) error {
+	if !node.IsList() {
+		return log.ERR_NO_SUPPORT
+	}
+
+	left, right := 0, int(node.VLen()-1)
+
+	return node.quicksort(left, right, less)
+
+}
+
+func (node *CommonNode) quicksort(left, right int, less func(i, j int) bool) error {
+	if !node.IsList() {
+		return log.ERR_NO_SUPPORT
+	}
+
+	len := (right - left + 1)
+	if len < 2 {
+		return nil
+	}
+
+	pivot := rand.Int() % len
+
+	node.SwapAt(pivot, right)
+
+	for i := 0; i < len; i++ {
+		if less(i, right) {
+			node.SwapAt(left, i)
+			left++
+		}
+	}
+	node.SwapAt(left, right)
+
+	node.quicksort(0, left-1, less)
+	node.quicksort(left+1, len-2-left, less)
+
+	return nil
 }

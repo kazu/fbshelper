@@ -1372,3 +1372,88 @@ func Test_Add_CommonList(t *testing.T) {
 	assert.Equal(t, file2.Name().Bytes(), file.Name().Bytes())
 	assert.Equal(t, file2.Name().Bytes(), file3.Name().Bytes())
 }
+
+func Test_List_Swap(t *testing.T) {
+
+	flist := query2.NewFileList()
+	flist.Base = base.NewNoLayer(flist.Base)
+
+	for i := 0; i < 5; i++ {
+		file := query2.NewFile()
+		file.Base = base.NewNoLayer(file.Base)
+		file.SetId(query2.FromUint64(uint64(i)))
+		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
+		file.SetName(base.FromBytes([]byte("namedayo")))
+
+		flist.SetAt(i, file)
+	}
+	at2, _ := flist.At(2)
+
+	assert.Equal(t, uint64(2), at2.Id().Uint64())
+
+	flist.SwapAt(0, 4)
+	at0, _ := flist.At(0)
+	at4, _ := flist.At(4)
+
+	assert.Equal(t, uint64(4), at0.Id().Uint64())
+	assert.Equal(t, uint64(0), at4.Id().Uint64())
+
+}
+
+func Test_List_SortBy(t *testing.T) {
+
+	flist := query2.NewFileList()
+	flist.Base = base.NewNoLayer(flist.Base)
+
+	for i := 0; i < 5; i++ {
+		file := query2.NewFile()
+		file.Base = base.NewNoLayer(file.Base)
+		file.SetId(query2.FromUint64(uint64(i)))
+		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
+		file.SetName(base.FromBytes([]byte("namedayo")))
+
+		flist.SetAt(i, file)
+	}
+	flist.SortBy(func(i, j int) bool {
+		ifile, _ := flist.At(i)
+		jfile, _ := flist.At(j)
+		return ifile.Id().Uint64() > jfile.Id().Uint64()
+	})
+
+	at2, _ := flist.At(2)
+	at0, _ := flist.At(0)
+	at4, _ := flist.At(4)
+
+	assert.Equal(t, uint64(2), at2.Id().Uint64())
+	assert.Equal(t, uint64(4), at0.Id().Uint64())
+	assert.Equal(t, uint64(0), at4.Id().Uint64())
+
+}
+
+func Test_DirectList_Swap(t *testing.T) {
+
+	rlist := query2.NewRecordList()
+	rlist.Base = base.NewNoLayer(rlist.Base)
+
+	for i := 0; i < 5; i++ {
+		rec := query2.NewRecord()
+		rec.Base = base.NewNoLayer(rec.Base)
+		rec.SetFileId(query2.FromUint64(uint64(i)))
+		rec.SetOffset(query2.FromInt64(8))
+		rec.SetSize(query2.FromInt64(7))
+		rec.SetOffsetOfValue(query2.FromInt32(6))
+		rec.SetValueSize(query2.FromInt32(5))
+		rlist.SetAt(i, rec)
+	}
+	at2, _ := rlist.At(2)
+
+	assert.Equal(t, uint64(2), at2.FileId().Uint64())
+
+	rlist.SwapAt(0, 4)
+	at0, _ := rlist.At(0)
+	at4, _ := rlist.At(4)
+
+	assert.Equal(t, uint64(4), at0.FileId().Uint64())
+	assert.Equal(t, uint64(0), at4.FileId().Uint64())
+
+}
