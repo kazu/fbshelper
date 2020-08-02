@@ -30,6 +30,13 @@ func (node *CommonNode) Info() (info Info) {
 	}
 	info.Pos = node.Node.Pos
 	info.Size = -1
+
+	grp := GetTypeGroup(nName)
+	if IsFieldBasicType(grp) {
+		info.Size = TypeToSize[NameToTypeEnum(nName)]
+		return info
+	}
+
 	if IsStructName[nName] {
 		size := 0
 		for i := 0; i < len(node.IdxToTypeGroup); i++ {
