@@ -613,3 +613,20 @@ func (node *CommonNode) quicksort(left, right int, less func(i, j int) bool) err
 
 	return nil
 }
+
+// SearchIndex ... binary search
+// copy/modify from golang.org/src/sort/search.go
+func (node *CommonNode) SearchIndex(n int, fn func(c *CommonNode) bool) int {
+	i, j := 0, n
+	for i < j {
+		h := int(uint(i+j) >> 1) // avoid overflow when computing h
+		// i ≤ h < j
+		if cNode, err := node.At(h); err == nil && !fn(cNode) {
+			i = h + 1 // preserves f(i-1) == false
+		} else {
+			j = h // preserves f(j) == true
+		}
+	}
+	// i == j, f(i-1) == false, and f(j) (= f(i)) == true  =>  answer is i.
+	return i
+}

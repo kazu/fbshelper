@@ -65,3 +65,17 @@ func (node ListType) All() []*NodeName {
 func (node ListType) Count() int {
 	return int(node.NodeList.ValueInfo.VLen)
 }
+
+// Search ... binary search
+func (node ListType) Search(fn func(*NodeName) bool) *NodeName {
+	result := &NodeName{}
+
+	i := node.CommonNode.SearchIndex(int(node.VLen()), func(cm *CommonNode) bool {
+		return fn(&NodeName{CommonNode: cm})
+	})
+	if i < int(node.VLen()) {
+		result, _ = node.At(i)
+	}
+
+	return result
+}
