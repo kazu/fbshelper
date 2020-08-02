@@ -108,7 +108,8 @@ type Base interface {
 	GetDiffs() []Diff
 	SetDiffs([]Diff)
 	ShouldCheckBound() bool
-	New([]byte) Base
+	New(Base) Base
+	NewFromBytes([]byte) Base
 }
 
 // BaseImpl ... Base Object of byte buffer for flatbuffers
@@ -146,24 +147,22 @@ func IsMatchBit(i, j int) bool {
 	return false
 }
 
-// NewBase initialize Base struct via buffer(buf)
-func NewBase(buf []byte) *BaseImpl {
+// NewBaseImpl ... initialize Base struct via buffer(buf)
+func NewBaseImpl(buf []byte) *BaseImpl {
 	return &BaseImpl{bytes: buf}
 }
 
-// NewBaseByIO initialize , make Base
-//   this dosent use []byte, use io.Reader
-func NewBaseByIO(rio io.Reader, cap int) *BaseImpl {
+func NewBaseImplByIO(rio io.Reader, cap int) *BaseImpl {
 	b := &BaseImpl{r: rio, bytes: make([]byte, 0, cap)}
 	return b
 }
 
-// func (b *BaseImpl) New(bytes []byte) Base {
-// 	return nil
-// }
+func (b *BaseImpl) NewFromBytes(bytes []byte) Base {
+	return NewBaseImpl(bytes)
+}
 
-func (b *BaseImpl) New(bytes []byte) Base {
-	return NewBase(bytes)
+func (b *BaseImpl) New(n Base) Base {
+	return n
 }
 
 // NextBase provide next root flatbuffers

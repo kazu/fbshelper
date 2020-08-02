@@ -178,7 +178,7 @@ func TestBase(t *testing.T) {
 	buf := MakeRootFileFbs(12, "root_test1.json", 456)
 	assert.NotNil(t, buf)
 
-	q := query2.OpenByBuf(buf)
+	q := query2.OpenByBuf(buf, base.SetDefaultBase("NoLayer"))
 
 	assert.Equal(t, int32(1), q.Version().Int32())
 	assert.Equal(t, uint64(12), q.Index().File().Id().Uint64())

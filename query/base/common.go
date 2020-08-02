@@ -292,7 +292,11 @@ func (node *CommonNode) IsList() bool {
 	//return node.VLen() > 0
 }
 
-func Open(r io.Reader, cap int) (node *CommonNode) {
+func Open(r io.Reader, cap int, opts ...Option) (node *CommonNode) {
+
+	if len(opts) > 0 {
+		opts[0](&DefaultOption)
+	}
 
 	ApplyRequestNameFields()
 
@@ -304,7 +308,11 @@ func Open(r io.Reader, cap int) (node *CommonNode) {
 	return node
 }
 
-func OpenByBuf(buf []byte) *CommonNode {
+func OpenByBuf(buf []byte, opts ...Option) *CommonNode {
+
+	if len(opts) > 0 {
+		opts[0](&DefaultOption)
+	}
 
 	ApplyRequestNameFields()
 

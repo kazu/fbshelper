@@ -65,7 +65,7 @@ func (l *CommonList) WriteDataAll() (e error) {
 	//remove writed data area
 	bytes := l.R(0)
 	bytes = bytes[0 : first.Node.Pos-vSize : first.Node.Pos-vSize]
-	l.Base = l.Base.New(bytes)
+	l.Base = l.Base.NewFromBytes(bytes)
 
 	return nil
 
@@ -183,7 +183,7 @@ func (dst *CommonList) Add(src *CommonList) (nList *CommonList, e error) {
 	nList.InitList()
 
 	//	a := dst.New(make([]byte, 4+int(newLen)*4))
-	nList.Base = dst.New(make([]byte, 4+int(newLen)*4))
+	nList.Base = dst.NewFromBytes(make([]byte, 4+int(newLen)*4))
 	flatbuffers.WriteUint32(nList.U(0, 4), newLen)
 
 	cur2 := 0

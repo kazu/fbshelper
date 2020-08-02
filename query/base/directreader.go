@@ -188,8 +188,11 @@ func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 	}
 
 }
-func (b NoLayer) New(bytes []byte) Base {
 
-	return NewNoLayer(NewBase(bytes))
+func (b NoLayer) NewFromBytes(bytes []byte) Base {
+	return NewNoLayer(NewBaseImpl(bytes))
+}
 
+func (b NoLayer) New(n Base) Base {
+	return NewNoLayer(n)
 }

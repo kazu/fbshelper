@@ -41,17 +41,16 @@ func NewCommonNodeList() *CommonNodeList {
 	return emptyCommonNodeList()
 }
 
-func Open(r io.Reader, cap int) RootType {
-	result := RootType{CommonNode: base.Open(r, cap)}
+func Open(r io.Reader, cap int, opts ...base.Option) RootType {
+	result := RootType{CommonNode: base.Open(r, cap, opts...)}
 	result.CommonNode.Name = "RootType"
 	base.SetRootName(result.CommonNode.Name)
 	result.FetchIndex()
 	return result
-	//return RootType{CommonNode: base.Open(r, cap)}
 }
 
-func OpenByBuf(buf []byte) RootType {
-	result := RootType{CommonNode: base.OpenByBuf(buf)}
+func OpenByBuf(buf []byte, opts ...base.Option) RootType {
+	result := RootType{CommonNode: base.OpenByBuf(buf, opts...)}
 	result.CommonNode.Name = "RootType"
 	base.SetRootName(result.CommonNode.Name)
 	result.FetchIndex()
