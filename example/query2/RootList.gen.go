@@ -69,3 +69,17 @@ func (node RootList) All() []*Root {
 func (node RootList) Count() int {
 	return int(node.NodeList.ValueInfo.VLen)
 }
+
+// Search ... binary search
+func (node RootList) Search(fn func(*Root) bool) *Root {
+	result := &Root{}
+
+	i := node.CommonNode.SearchIndex(int(node.VLen()), func(cm *CommonNode) bool {
+		return fn(&Root{CommonNode: cm})
+	})
+	if i < int(node.VLen()) {
+		result, _ = node.At(i)
+	}
+
+	return result
+}

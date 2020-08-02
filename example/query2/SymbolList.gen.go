@@ -69,3 +69,17 @@ func (node SymbolList) All() []*Symbol {
 func (node SymbolList) Count() int {
 	return int(node.NodeList.ValueInfo.VLen)
 }
+
+// Search ... binary search
+func (node SymbolList) Search(fn func(*Symbol) bool) *Symbol {
+	result := &Symbol{}
+
+	i := node.CommonNode.SearchIndex(int(node.VLen()), func(cm *CommonNode) bool {
+		return fn(&Symbol{CommonNode: cm})
+	})
+	if i < int(node.VLen()) {
+		result, _ = node.At(i)
+	}
+
+	return result
+}

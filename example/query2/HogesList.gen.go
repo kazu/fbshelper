@@ -69,3 +69,17 @@ func (node HogesList) All() []*Hoges {
 func (node HogesList) Count() int {
 	return int(node.NodeList.ValueInfo.VLen)
 }
+
+// Search ... binary search
+func (node HogesList) Search(fn func(*Hoges) bool) *Hoges {
+	result := &Hoges{}
+
+	i := node.CommonNode.SearchIndex(int(node.VLen()), func(cm *CommonNode) bool {
+		return fn(&Hoges{CommonNode: cm})
+	})
+	if i < int(node.VLen()) {
+		result, _ = node.At(i)
+	}
+
+	return result
+}

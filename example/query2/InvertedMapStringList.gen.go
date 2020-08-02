@@ -69,3 +69,17 @@ func (node InvertedMapStringList) All() []*InvertedMapString {
 func (node InvertedMapStringList) Count() int {
 	return int(node.NodeList.ValueInfo.VLen)
 }
+
+// Search ... binary search
+func (node InvertedMapStringList) Search(fn func(*InvertedMapString) bool) *InvertedMapString {
+	result := &InvertedMapString{}
+
+	i := node.CommonNode.SearchIndex(int(node.VLen()), func(cm *CommonNode) bool {
+		return fn(&InvertedMapString{CommonNode: cm})
+	})
+	if i < int(node.VLen()) {
+		result, _ = node.At(i)
+	}
+
+	return result
+}
