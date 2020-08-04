@@ -345,5 +345,8 @@ func (node *NodeList) clearValueInfoOnDirty() {
 }
 
 func (node *Node) BaseToNoLayer() {
+	if _, already := node.Base.(NoLayer); already {
+		return
+	}
 	node.Base = NewNoLayer(node.Base)
 }

@@ -44,8 +44,14 @@ type NoLayer struct {
 }
 
 func NewNoLayer(b Base) NoLayer {
-	impl := b.(*BaseImpl)
-	return NoLayer{BaseImpl: impl}
+	impl, ok := b.(*BaseImpl)
+	if ok {
+		return NoLayer{BaseImpl: impl}
+	}
+	if _, already := b.(NoLayer); already {
+		return b.(NoLayer)
+	}
+	return NoLayer{}
 }
 
 func (b NoLayer) insertBuf(pos, size int) Base {
@@ -54,6 +60,7 @@ func (b NoLayer) insertBuf(pos, size int) Base {
 
 func (b NoLayer) insertSpace(pos, size int, isCreate bool) Base {
 	nImple := b.BaseImpl.insertSpace(pos, size, isCreate).(*BaseImpl)
+
 	if nImple.LenBuf() >= pos+size {
 		b.BaseImpl = nImple
 	} else {
@@ -65,10 +72,6 @@ func (b NoLayer) insertSpace(pos, size int, isCreate bool) Base {
 
 func (b NoLayer) R(off int) []byte {
 
-	if off < len(b.bytes) {
-		return b.bytes[off:]
-	}
-
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
 		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
 	})
@@ -76,8 +79,13 @@ func (b NoLayer) R(off int) []byte {
 		return b.Diffs[sn].bytes[off-b.Diffs[sn].Offset:]
 	}
 
-	if off < cap(b.bytes) {
-		if b.expandBuf(off-len(b.bytes)) == nil {
+	if off < len(b.bytes) {
+		return b.bytes[off:]
+	}
+
+	// MENTION: should check off +32 ?
+	if off+8 < cap(b.bytes) {
+		if b.expandBuf(off-len(b.bytes)+32) == nil || off < len(b.bytes) {
 			return b.bytes[off:]
 		}
 	}
@@ -126,7 +134,7 @@ func (b NoLayer) D(off, size int) *Diff {
 func (b NoLayer) U(off, size int) []byte {
 
 	diff := b.D(off, size)
-	if cap(b.bytes) < size {
+	if cap(diff.bytes) < size {
 		diff.bytes = make([]byte, size)
 	}
 	return diff.bytes
@@ -142,8 +150,10 @@ func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 	// 	return
 	// }
 	if cap(b.bytes) > dstOff {
-		diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
-		b.Diffs = append(b.Diffs, diff)
+		if len(b.bytes) > dstOff {
+			diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
+			b.Diffs = append(b.Diffs, diff)
+		}
 		b.bytes = b.bytes[:dstOff:dstOff]
 	}
 
@@ -182,7 +192,7 @@ func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 			return diff.Offset <= b.Diffs[i].Offset &&
 				b.Diffs[i].Offset+len(b.Diffs[i].bytes) <= diff.Offset+len(diff.bytes)
 		})
-		if diff.Offset > 0 {
+		if diff.Offset >= 0 {
 			b.Diffs = append(b.Diffs, diff)
 		}
 	}

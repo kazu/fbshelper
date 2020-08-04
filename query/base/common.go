@@ -79,11 +79,12 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 		}
 
 	} else if IsFieldBytes(grp) {
-		info = node.ValueInfoPosBytes(idx)
+		info = node.ValueInfoPosList(idx)
+		info.Size = (*List)(node.FieldAt(idx)).InfoSlice().Size
 
 	} else if IsFieldSlice(grp) {
 		info = node.ValueInfoPosList(idx)
-		info.Size = node.FieldAt(idx).InfoSlice().Size
+		info.Size = (*List)(node.FieldAt(idx)).InfoSlice().Size
 
 	} else if IsFieldTable(grp) {
 		info.Pos = node.Table(idx)
@@ -155,9 +156,9 @@ func (node *CommonNode) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 		} else if IsMatchBit(g, FieldTypeUnion) && node.CanFollow(i) {
 			node.FollowUnion(i).SearchInfo(pos, fn, condFn)
 		} else if IsMatchBit(g, FieldTypeSlice) && IsMatchBit(g, FieldTypeBasic1) {
-			node.FieldAt(i).SearchInfoSlice(pos, fn, condFn)
+			(*List)(node.FieldAt(i)).SearchInfoSlice(pos, fn, condFn)
 		} else if IsMatchBit(g, FieldTypeSlice) {
-			node.FieldAt(i).SearchInfoSlice(pos, fn, condFn)
+			(*List)(node.FieldAt(i)).SearchInfoSlice(pos, fn, condFn)
 		} else if IsMatchBit(g, FieldTypeTable) {
 			node.FieldAt(i).SearchInfo(pos, fn, condFn)
 		} else if IsMatchBit(g, FieldTypeBasic) {
@@ -601,7 +602,7 @@ func (node *CommonNode) TraverseInfo(pos int, fn TraverseRec, condFn TraverseCon
 func (node *CommonNode) TraverseInfoSlice(pos int, fn TraverseRec, condFn TraverseCond) {
 
 	var v interface{}
-	for i, cNode := range node.All() {
+	for i, cNode := range (*List)(node).All() {
 
 		if condFn(node.NodeList.ValueInfo.Pos, cNode.Node.Pos, -1) {
 			fn(node, i, node.NodeList.ValueInfo.Pos, cNode.Node.Pos, -1)
@@ -724,7 +725,7 @@ func (node *CommonNode) AllTree() *Tree {
 	for _, result := range results {
 		tree := &Tree{}
 		if result.pNode.NodeList.ValueInfo.Pos > 0 {
-			tree.Node, _ = result.pNode.At(result.idx)
+			tree.Node, _ = (*List)(result.pNode).At(result.idx)
 		} else {
 			tree.Node = result.pNode.FieldAt(result.idx)
 		}
@@ -1088,7 +1089,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 	if IsFieldSlice(g) {
 		size := 4
 		if fNode.Node.Size <= 0 {
-			fNode.Node.Size = fNode.InfoSlice().Size //fNode.ValueInfo(idx).Size
+			fNode.Node.Size = (*List)(fNode).InfoSlice().Size //fNode.ValueInfo(idx).Size
 			if fNode.Node.Size < 0 {
 				panic("!!!")
 			}
@@ -1174,6 +1175,8 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 	return ERR_NO_SUPPORT
 }
 
+// FromBytes ... return fbs data for []byte
+// Deprecated: use FromByteList()
 func FromBytes(bytes []byte) *CommonNode {
 
 	buf := make([]byte, len(bytes)+4)

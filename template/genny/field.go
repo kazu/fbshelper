@@ -38,7 +38,8 @@ func (node NodeName) FieldName() (result *ResultType) {
 	return
 }
 
-func (node NodeName) SetFieldName(v *base.CommonNode) error {
+//func (node NodeName) SetFieldName(v *base.CommonNode) error {
+func (node NodeName) SetFieldName(v *ResultType) error {
 
-	return node.CommonNode.SetFieldAt(FieldNum, v)
+	return node.CommonNode.SetFieldAt(FieldNum, v.SelfAsCommonNode())
 }

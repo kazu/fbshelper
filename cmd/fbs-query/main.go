@@ -119,8 +119,10 @@ func MakeGenGennies(parser *fbsparser.Parser, dir string, opt GennyOpt) (result 
 			fmt.Fprintf(b, " FieldName=%s", field.Name)
 			fmt.Fprintf(b, " FieldType=%s", field.Type)
 
-			if _, ok := base.NameToType[field.Type]; ok || IsBasicTypeSlice(field.Type) {
+			if _, ok := base.NameToType[field.Type]; ok {
 				fmt.Fprintf(b, " ResultType=%s", "CommonNode")
+			} else if IsBasicTypeSlice(field.Type) {
+				fmt.Fprintf(b, " ResultType=%s", "List")
 			} else if IsSlice(field.Type) {
 				fmt.Fprintf(b, " ResultType=%s", ConvResultType(field.Type))
 			} else {

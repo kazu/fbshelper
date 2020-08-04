@@ -22,6 +22,7 @@ type Float32 = base.Float32
 type Float64 = base.Float64
 
 type CommonNode = base.CommonNode
+type List = base.List
 
 type CommonNodeList = base.CommonNode
 
@@ -39,6 +40,14 @@ func emptyCommonNodeList() *CommonNodeList {
 
 func NewCommonNodeList() *CommonNodeList {
 	return emptyCommonNodeList()
+}
+
+func emptyList() *base.List {
+	return (*base.List)(&base.CommonNode{})
+}
+
+func NewList() *List {
+	return emptyList()
 }
 
 func Open(r io.Reader, cap int, opts ...base.Option) RootType {

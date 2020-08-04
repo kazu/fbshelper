@@ -227,7 +227,9 @@ func TestOpen(t *testing.T) {
 		t.Run(tt.TestName, func(t *testing.T) {
 			buf := MakeRootFileFbs(tt.ID, string(tt.Name), tt.IndexAt)
 			file := File{}
+			// query2.OpenByBuf(buf, base.SetDefaultBase("NoLayer"))
 			fq := query2.Open(bytes.NewReader(buf), 512).Index().File()
+			//fq := query2.Open(bytes.NewReader(buf), 512, base.SetDefaultBase("NoLayer")).Index().File()
 			e := fq.Unmarshal(&file)
 
 			assert.NoError(t, e)
@@ -388,7 +390,8 @@ func Test_TraverseInfo(t *testing.T) {
 		//return parent <= pos && pos <= child
 		return true
 	}
-	q := query2.Open(bytes.NewReader(buf), 512)
+	q := query2.Open(bytes.NewReader(buf), 512, base.SetDefaultBase("NoLayer"))
+	//q := query2.Open(bytes.NewReader(buf), 512)
 	pos = q.Index().IndexString().Size().Node.Pos
 
 	q.TraverseInfo(pos, recFn, cond)
@@ -442,7 +445,9 @@ func Test_AllTree(t *testing.T) {
 
 	type Tree = base.Tree
 
-	q := query2.Open(bytes.NewReader(buf), 512)
+	//q := query2.Open(bytes.NewReader(buf), 512)
+	q := query2.Open(bytes.NewReader(buf), 512, base.SetDefaultBase("NoLayer"))
+
 	tree := q.AllTree()
 
 	//var b strings.Builder
@@ -636,8 +641,12 @@ func Test_InsertBuf(t *testing.T) {
 	})
 
 	//root := query2.OpenByBuf(buf)
-	root := query2.Open(bytes.NewReader(buf), 512)
-	root_old := root
+	root := query2.Open(bytes.NewReader(buf), 512, base.SetDefaultBase("NoLayer"))
+
+	old_buf := make([]byte, len(buf))
+	copy(old_buf, buf)
+	root_old := query2.Open(bytes.NewReader(old_buf), 512, base.SetDefaultBase("NoLayer"))
+
 	last := query2.InvertedMapStringSingle(root.Index().IndexString().Maps().Last())
 	olastPos := last.Key().Node.Pos
 	oRecordPos := last.Value().Node.Pos
@@ -666,10 +675,15 @@ func Test_InsertBuf(t *testing.T) {
 				query2.InvertedMapStringSingle(
 					root.Index().IndexString().Maps().First(),
 				).Value().FileId().Uint64()
+
+			imvs := query2.InvertedMapStringSingle(
+				root.Index().IndexString().Maps().Last(),
+			)
+			if imvs.Err != nil {
+				fmt.Printf("err=%s\n", imvs.Err)
+			}
 			results[3][i] =
-				query2.InvertedMapStringSingle(
-					root.Index().IndexString().Maps().Last(),
-				).Value().FileId().Uint64()
+				imvs.Value().FileId().Uint64()
 		}
 		for i := range results {
 			assert.Equal(t, results[i][0], results[i][1], i)
@@ -707,6 +721,7 @@ func Test_BaseCopy(t *testing.T) {
 		{4, 4, 0, 0},    // overwrite front
 		{4, 4, 12, 0},   // overwrite back
 	}
+	base.SetDefaultBase("NoLayer")(&base.DefaultOption)
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("Base.Copy(%v)", tt), func(t *testing.T) {
@@ -735,8 +750,10 @@ func Test_SetFieldAt(t *testing.T) {
 
 	base.SetLogLevel(base.LOG_DEBUG)
 	buf := MakeRootFileFbsNoVersion(12, "root_test1.json", 456)
+	buf2 := append([]byte{}, buf...)
+	//buf3 := append([]byte{}, buf...)
 
-	root := query2.OpenByBuf(buf)
+	root := query2.OpenByBuf(buf, base.SetDefaultBase("NoLayer"))
 
 	common := query2.FromUint64(13)
 
@@ -753,7 +770,7 @@ func Test_SetFieldAt(t *testing.T) {
 	assert.Equal(t, int32(0), oVersion)
 	assert.Equal(t, int32(1), root.Version().Int32(), "edit Root.Version")
 
-	oRoot := query2.OpenByBuf(buf)
+	oRoot := query2.OpenByBuf(buf2)
 	nFile := query2.NewFile()
 
 	fbsUint64 := query2.FromUint64(13)
@@ -779,13 +796,13 @@ func Test_SetFieldAt(t *testing.T) {
 	assert.Equal(t, fbsInt64.Int64(), root.Index().File().IndexAt().Int64())
 	assert.Equal(t, []byte("Zile-bytes"), root.Index().File().Name().Bytes(), "edit Root.Index.File.Name")
 
-	buf = MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
+	buf3 := MakeRootIndexString(func(b *flatbuffers.Builder) flatbuffers.UOffsetT {
 		return MakeIndexString(b, func(b *flatbuffers.Builder, i int) flatbuffers.UOffsetT {
 			return MakeInvertedMapString(b, fmt.Sprintf("     %d", i))
 		})
 	})
 
-	root = query2.OpenByBuf(buf)
+	root = query2.OpenByBuf(buf3)
 
 	cnt := root.Index().IndexString().Maps().Count()
 	_ = cnt
@@ -798,8 +815,8 @@ func Test_SetFieldAt(t *testing.T) {
 	rec.SetSize(query2.FromInt64(7))
 	rec.SetOffsetOfValue(query2.FromInt32(6))
 	rec.SetValueSize(query2.FromInt32(5))
-	invs.SetValue(rec.CommonNode)
-	invs.SetKey(base.FromBytes([]byte("inverted")))
+	invs.SetValue(rec)
+	invs.SetKey(base.FromByteList([]byte("inverted")))
 
 	maps := root.Index().IndexString().Maps()
 	query2.RootFromCommon(maps.CommonNode).AllTree().DumpAll(0, os.Stdout)
@@ -813,8 +830,8 @@ func Test_SetFieldAt(t *testing.T) {
 	rec.SetSize(query2.FromInt64(17))
 	rec.SetOffsetOfValue(query2.FromInt32(16))
 	rec.SetValueSize(query2.FromInt32(15))
-	invs.SetValue(rec.CommonNode)
-	invs.SetKey(base.FromBytes([]byte("inverted2")))
+	invs.SetValue(rec)
+	invs.SetKey(base.FromByteList([]byte("inverted2")))
 
 	maps.SetAt(1, invs)
 
@@ -832,6 +849,7 @@ func Test_SetFieldAt(t *testing.T) {
 
 func Test_NewRootIndexString(t *testing.T) {
 	log.SetLogLevel(log.LOG_DEBUG)
+	base.SetDefaultBase("NoLayer")(&base.DefaultOption)
 
 	var e error
 	root := query2.NewRoot()
@@ -846,7 +864,7 @@ func Test_NewRootIndexString(t *testing.T) {
 	assert.Equal(t, query2.FromInt32(3).Int32(), idxStr.Size().Int32())
 
 	inv := query2.NewInvertedMapString()
-	inv.SetKey(base.FromBytes([]byte("inv-str-key")))
+	inv.SetKey(base.FromByteList([]byte("inv-str-key")))
 
 	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
 
@@ -857,7 +875,7 @@ func Test_NewRootIndexString(t *testing.T) {
 	rec.SetOffsetOfValue(query2.FromInt32(6))
 	rec.SetValueSize(query2.FromInt32(5))
 
-	inv.SetValue(rec.CommonNode)
+	inv.SetValue(rec)
 
 	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
 	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
@@ -871,7 +889,7 @@ func Test_NewRootIndexString(t *testing.T) {
 	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
 	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
 
-	idxStr.SetMaps(maps.CommonNode)
+	idxStr.SetMaps(maps)
 
 	inv, e = idxStr.Maps().At(0)
 
@@ -880,7 +898,7 @@ func Test_NewRootIndexString(t *testing.T) {
 	assert.Equal(t, []byte("inv-str-key"), inv.Key().Bytes())
 	assert.Equal(t, query2.FromUint64(9).Uint64(), inv.Value().FileId().Uint64())
 
-	root.SetIndex(idxStr.CommonNode)
+	root.SetIndex(&query.Index{CommonNode: idxStr.CommonNode})
 
 	idx := root.Index().IndexString()
 	idxStr = &idx
@@ -1141,13 +1159,13 @@ func MakeDirectBufFileList(confs ...Config) (*base.CommonList, Defer) {
 		}
 		file.SetId(query2.FromUint64(10 + uint64(i)))
 		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
-		file.SetName(base.FromBytes([]byte("namedayo")))
+		file.SetName(base.FromByteList([]byte("namedayo")))
 		flist.SetAt(i, file)
 	}
 
 	flist.Merge()
-	hoges.SetFiles(flist.CommonNode)
-	root.SetIndex(hoges.CommonNode)
+	hoges.SetFiles(flist)
+	root.SetIndex(&query.Index{CommonNode: hoges.CommonNode})
 	root.Merge()
 
 	fname := fmt.Sprintf("bench-%d", opt.loopCnt)
@@ -1169,7 +1187,7 @@ func MakeDirectBufFileList(confs ...Config) (*base.CommonList, Defer) {
 		}
 		file.SetId(query2.FromUint64(20 + uint64(i)))
 		file.SetIndexAt(query2.FromInt64(3000 + int64(i)))
-		file.SetName(base.FromBytes([]byte("namedayoadd")))
+		file.SetName(base.FromByteList([]byte("namedayoadd")))
 		if opt.useMerge {
 			file.Merge()
 		}
@@ -1219,6 +1237,7 @@ func TestCast(t *testing.T) {
 
 func Test_CommonList(t *testing.T) {
 
+	base.SetDefaultBase("NoLayer")(&base.DefaultOption)
 	//files := query2.NewFiles()
 	root := query2.NewRoot()
 	root.WithHeader()
@@ -1233,12 +1252,12 @@ func Test_CommonList(t *testing.T) {
 		file.BaseToNoLayer()
 		file.SetId(query2.FromUint64(10 + uint64(i)))
 		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
-		file.SetName(base.FromBytes([]byte("namedayo")))
+		file.SetName(base.FromByteList([]byte("namedayo")))
 		flist.SetAt(i, file)
 	}
 	flist.Merge()
-	hoges.SetFiles(flist.CommonNode)
-	root.SetIndex(hoges.CommonNode)
+	hoges.SetFiles(flist)
+	root.SetIndex(&query.Index{CommonNode: hoges.CommonNode})
 	root.Merge()
 
 	loopCnt := 10
@@ -1275,7 +1294,7 @@ func Test_CommonList(t *testing.T) {
 		file.BaseToNoLayer()
 		file.SetId(query2.FromUint64(20 + uint64(i)))
 		file.SetIndexAt(query2.FromInt64(3000 + int64(i)))
-		file.SetName(base.FromBytes([]byte("namedayoadd")))
+		file.SetName(base.FromByteList([]byte("namedayoadd")))
 		file.Merge()
 		cl.SetAt(cnt+i, file.CommonNode)
 	}
@@ -1297,7 +1316,7 @@ func Test_CommonList(t *testing.T) {
 
 	root.Base = base.NewDirectReader(base.NewBase(bytes), w)
 
-	assert.True(t, uint32(6) < root.Index().Hoges().Files().VLen())
+	assert.True(t, uint32(6) < (*base.List)(root.Index().Hoges().Files().CommonNode).VLen())
 	// w.Flush()
 	// info, _ := w.File.Stat()
 	// size := root.LenBuf()
@@ -1383,7 +1402,7 @@ func Test_List_Swap(t *testing.T) {
 		file.Base = base.NewNoLayer(file.Base)
 		file.SetId(query2.FromUint64(uint64(i)))
 		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
-		file.SetName(base.FromBytes([]byte("namedayo")))
+		file.SetName(base.FromByteList([]byte("namedayo")))
 
 		flist.SetAt(i, file)
 	}
@@ -1391,7 +1410,7 @@ func Test_List_Swap(t *testing.T) {
 
 	assert.Equal(t, uint64(2), at2.Id().Uint64())
 
-	flist.SwapAt(0, 4)
+	(*base.List)(flist.CommonNode).SwapAt(0, 4)
 	at0, _ := flist.At(0)
 	at4, _ := flist.At(4)
 
@@ -1410,11 +1429,11 @@ func Test_List_SortBy(t *testing.T) {
 		file.Base = base.NewNoLayer(file.Base)
 		file.SetId(query2.FromUint64(uint64(i)))
 		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
-		file.SetName(base.FromBytes([]byte("namedayo")))
+		file.SetName(base.FromByteList([]byte("namedayo")))
 
 		flist.SetAt(i, file)
 	}
-	flist.SortBy(func(i, j int) bool {
+	(*base.List)(flist.CommonNode).SortBy(func(i, j int) bool {
 		ifile, _ := flist.At(i)
 		jfile, _ := flist.At(j)
 		return ifile.Id().Uint64() > jfile.Id().Uint64()

@@ -38,7 +38,7 @@ func (l *CommonList) WriteDataAll() (e error) {
 	}
 	l.Merge()
 
-	first, e := l.CommonNode.At(0)
+	first, e := (*List)(l.CommonNode).At(0)
 	if e != nil {
 		return e
 	}
@@ -51,7 +51,7 @@ func (l *CommonList) WriteDataAll() (e error) {
 		return log.ERR_NO_SUPPORT
 	}
 
-	for i, elm := range l.All() {
+	for i, elm := range (*List)(l.CommonNode).All() {
 		pos := elm.Node.Pos - vSize
 		elm.Node.Size = elm.Info().Size
 		size := elm.Node.Size + vSize
@@ -73,7 +73,7 @@ func (l *CommonList) WriteDataAll() (e error) {
 
 func (l *CommonList) At(i int) (*CommonNode, error) {
 	if l.dataW == nil {
-		return l.CommonNode.At(i)
+		return (*List)(l.CommonNode).At(i)
 	}
 	// FIXME
 	return nil, log.ERR_NO_SUPPORT
@@ -81,7 +81,7 @@ func (l *CommonList) At(i int) (*CommonNode, error) {
 
 func (l *CommonList) SetAt(i int, elm *CommonNode) error {
 	if l.dataW == nil {
-		return l.CommonNode.SetAt(i, elm)
+		return (*List)(l.CommonNode).SetAt(i, elm)
 	}
 	if l.Count() != i {
 		return log.ERR_NO_SUPPORT
@@ -95,7 +95,7 @@ func (l *CommonList) SetAt(i int, elm *CommonNode) error {
 
 	//elm.Merge()
 
-	l.CommonNode.SetAt(i, elm)
+	(*List)(l.CommonNode).SetAt(i, elm)
 	last := l.LenBuf()
 	_ = last
 	l.WriteElm(elm, pos, size)
@@ -106,7 +106,7 @@ func (l *CommonList) SetAt(i int, elm *CommonNode) error {
 
 func (l *CommonList) dataStart() int {
 
-	return l.NodeList.ValueInfo.Pos + int(l.VLen())*4
+	return l.NodeList.ValueInfo.Pos + int((*List)(l.CommonNode).VLen())*4
 
 }
 
@@ -170,7 +170,7 @@ func (dst *CommonList) Add(src *CommonList) (nList *CommonList, e error) {
 		return nil, ERR_NO_SUPPORT
 	}
 
-	newLen := dst.VLen() + src.VLen()
+	newLen := (*List)(dst.CommonNode).VLen() + (*List)(src.CommonNode).VLen()
 
 	nList = &CommonList{
 		CommonNode: &CommonNode{},
@@ -180,7 +180,7 @@ func (dst *CommonList) Add(src *CommonList) (nList *CommonList, e error) {
 	}
 	nList.NodeList = &NodeList{}
 	nList.CommonNode.Name = dst.Name
-	nList.InitList()
+	(*List)(nList.CommonNode).InitList()
 
 	//	a := dst.New(make([]byte, 4+int(newLen)*4))
 	nList.Base = dst.NewFromBytes(make([]byte, 4+int(newLen)*4))
@@ -188,21 +188,21 @@ func (dst *CommonList) Add(src *CommonList) (nList *CommonList, e error) {
 
 	cur2 := 0
 	_ = cur2
-	for i := 0; i < int(dst.VLen()); i++ {
+	for i := 0; i < int((*List)(dst.CommonNode).VLen()); i++ {
 		cur2 = 4 + i*4
 		flatbuffers.WriteUint32(nList.U(4+i*4, 4),
-			flatbuffers.GetUint32(dst.R(dst.NodeList.ValueInfo.Pos+i*4))+src.VLen()*4)
+			flatbuffers.GetUint32(dst.R(dst.NodeList.ValueInfo.Pos+i*4))+(*List)(src.CommonNode).VLen()*4)
 	}
 
-	cur := int(dst.VLen()) * 4
+	cur := int((*List)(dst.CommonNode).VLen()) * 4
 
-	for i := 0; i < int(src.VLen()); i++ {
+	for i := 0; i < int((*List)(src.CommonNode).VLen()); i++ {
 		flatbuffers.WriteUint32(nList.U(cur+i*4+4, 4),
 			flatbuffers.GetUint32(src.R(src.NodeList.ValueInfo.Pos+i*4))+uint32(dst.dLen))
 	}
 	nList.Node.Pos = 4
 	nList.NodeList.ValueInfo = dst.NodeList.ValueInfo
-	nList.NodeList.ValueInfo.VLen = nList.VLen()
+	nList.NodeList.ValueInfo.VLen = (*List)(nList.CommonNode).VLen()
 	nList.NodeList.ValueInfo.Size += src.NodeList.ValueInfo.Size - 4
 
 	seeker, ok := dst.dataW.(io.Seeker)
@@ -231,10 +231,15 @@ func (dst *CommonList) Add(src *CommonList) (nList *CommonList, e error) {
 
 	return
 }
+func (l *CommonList) VLen() uint32 {
+	return (*List)(l.CommonNode).VLen()
+}
 
-func (node *CommonNode) At(i int) (*CommonNode, error) {
+type List CommonNode
 
-	if !node.IsList() {
+func (node *List) At(i int) (*CommonNode, error) {
+
+	if !(*CommonNode)(node).IsList() {
 		return nil, ERR_NO_SUPPORT
 	}
 	if i >= int(node.VLen()) || i < 0 {
@@ -256,6 +261,7 @@ func (node *CommonNode) At(i int) (*CommonNode, error) {
 	if IsFieldBasicType(grp) || IsFieldStruct(grp) {
 		nNode = NewNode2(node.Base, ptr, true)
 	} else {
+		_ = node.R(ptr + 3)
 		nNode = NewNode(node.Base, ptr+int(flatbuffers.GetUint32(node.R(ptr))))
 	}
 
@@ -272,15 +278,15 @@ func (node *CommonNode) At(i int) (*CommonNode, error) {
 
 }
 
-func (node *CommonNode) First() (*CommonNode, error) {
+func (node *List) First() (*CommonNode, error) {
 	return node.At(0)
 }
 
-func (node *CommonNode) Last() (*CommonNode, error) {
+func (node *List) Last() (*CommonNode, error) {
 	return node.At(int(node.VLen()) - 1)
 }
 
-func (node *CommonNode) Select(fn func(m *CommonNode) bool) []*CommonNode {
+func (node *List) Select(fn func(m *CommonNode) bool) []*CommonNode {
 	result := make([]*CommonNode, 0, int(node.NodeList.ValueInfo.VLen))
 	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
 		if m, err := node.At(i); err == nil && fn(m) {
@@ -290,7 +296,7 @@ func (node *CommonNode) Select(fn func(m *CommonNode) bool) []*CommonNode {
 	return result
 }
 
-func (node *CommonNode) Find(fn func(m *CommonNode) bool) *CommonNode {
+func (node *List) Find(fn func(m *CommonNode) bool) *CommonNode {
 
 	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
 		if m, e := node.At(i); e == nil && fn(m) {
@@ -301,15 +307,15 @@ func (node *CommonNode) Find(fn func(m *CommonNode) bool) *CommonNode {
 	return nil
 }
 
-func (node *CommonNode) All() []*CommonNode {
+func (node *List) All() []*CommonNode {
 	return node.Select(func(m *CommonNode) bool { return true })
 }
 
-func (node *CommonNode) VLen() uint32 {
+func (node *List) VLen() uint32 {
 	return flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos - flatbuffers.SizeUOffsetT))
 }
 
-func (node *CommonNode) InfoSlice() Info {
+func (node *List) InfoSlice() Info {
 	info := Info{Pos: node.NodeList.ValueInfo.Pos, Size: -1}
 	tName := node.Name[2:]
 	var vInfo Info
@@ -337,9 +343,9 @@ func (node *CommonNode) InfoSlice() Info {
 	return info
 }
 
-func (node *CommonNode) SearchInfoSlice(pos int, fn RecFn, condFn CondFn) {
+func (node *List) SearchInfoSlice(pos int, fn RecFn, condFn CondFn) {
 
-	info := node.Info()
+	info := (*CommonNode)(node).Info()
 
 	if condFn(pos, info) {
 		fn(NodePath{Name: node.Name, Idx: -1}, info)
@@ -375,7 +381,7 @@ NO_NODE:
 
 }
 
-func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
+func (node *List) SetAt(idx int, elm *CommonNode) error {
 
 	if idx > int(node.NodeList.ValueInfo.VLen) {
 		return ERR_INVALID_INDEX
@@ -455,7 +461,7 @@ func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
 		dstPos := 0
 		if header_extend > 0 {
 			flatbuffers.WriteUint32(header, uint32(total-vlen*4+vSize))
-			node.InsertBuf(ptr, 4)
+			(*CommonNode)(node).InsertBuf(ptr, 4)
 			for i := 0; i < vlen; i++ {
 				dataPtr := ptrIdx(i)
 				_ = dataPtr
@@ -471,7 +477,7 @@ func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
 		}
 
 		if body_extend > 0 {
-			node.InsertSpace(dstPos, body_extend, false)
+			(*CommonNode)(node).InsertSpace(dstPos, body_extend, false)
 			if header_extend == 0 {
 				for i := idx + 1; i < vlen; i++ {
 					off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
@@ -492,7 +498,7 @@ func (node *CommonNode) SetAt(idx int, elm *CommonNode) error {
 	return ERR_NO_SUPPORT
 }
 
-func (node *CommonNode) InitList() error {
+func (node *List) InitList() error {
 
 	// write vLen == 0
 	node.Node = NewNode2(NewBase(make([]byte, 4)), 4, true)
@@ -500,7 +506,11 @@ func (node *CommonNode) InitList() error {
 	return nil
 }
 
-func (node *CommonNode) isDirectList() bool {
+func (node *List) isDirectList() bool {
+	return node.isDirect()
+}
+
+func (node *List) isDirect() bool {
 
 	if !node.IsList() {
 		return false
@@ -516,7 +526,12 @@ func (node *CommonNode) isDirectList() bool {
 	return false
 }
 
-func (node *CommonNode) offsetOfList() int {
+func (node *List) offsetOfList() int {
+
+	return node.offsetOf()
+}
+
+func (node *List) offsetOf() int {
 
 	if !node.IsList() {
 		return -1
@@ -532,7 +547,7 @@ func (node *CommonNode) offsetOfList() int {
 }
 
 // SwapAt ... swap data in i and j in List.
-func (node *CommonNode) SwapAt(i, j int) error {
+func (node *List) SwapAt(i, j int) error {
 	if !node.IsList() {
 		return log.ERR_NO_SUPPORT
 	}
@@ -575,7 +590,7 @@ func (node *CommonNode) SwapAt(i, j int) error {
 
 }
 
-func (node *CommonNode) SortBy(less func(i, j int) bool) error {
+func (node *List) SortBy(less func(i, j int) bool) error {
 	if !node.IsList() {
 		return log.ERR_NO_SUPPORT
 	}
@@ -586,7 +601,7 @@ func (node *CommonNode) SortBy(less func(i, j int) bool) error {
 
 }
 
-func (node *CommonNode) quicksort(left, right int, less func(i, j int) bool) error {
+func (node *List) quicksort(left, right int, less func(i, j int) bool) error {
 	if !node.IsList() {
 		return log.ERR_NO_SUPPORT
 	}
@@ -616,7 +631,7 @@ func (node *CommonNode) quicksort(left, right int, less func(i, j int) bool) err
 
 // SearchIndex ... binary search
 // copy/modify from golang.org/src/sort/search.go
-func (node *CommonNode) SearchIndex(n int, fn func(c *CommonNode) bool) int {
+func (node *List) SearchIndex(n int, fn func(c *CommonNode) bool) int {
 	i, j := 0, n
 	for i < j {
 		h := int(uint(i+j) >> 1) // avoid overflow when computing h
@@ -629,4 +644,35 @@ func (node *CommonNode) SearchIndex(n int, fn func(c *CommonNode) bool) int {
 	}
 	// i == j, f(i-1) == false, and f(j) (= f(i)) == true  =>  answer is i.
 	return i
+}
+
+func (l *List) IsList() bool {
+	return (*CommonNode)(l).IsList()
+}
+
+func (l *List) SelfAsCommonNode() *CommonNode {
+	return (*CommonNode)(l).SelfAsCommonNode()
+}
+
+func (node *List) Count() int {
+	// MENTION: if dosent work, enable comment out routine
+	//return int(node.NodeList.ValueInfo.VLen)
+	return int(node.VLen())
+}
+
+func FromByteList(bytes []byte) *List {
+
+	buf := make([]byte, len(bytes)+4)
+	flatbuffers.WriteUint32(buf, uint32(len(bytes)))
+	copy(buf[4:], bytes)
+
+	common := &CommonNode{}
+	common.NodeList = &NodeList{}
+	common.Name = "[]byte"
+	common.Node = NewNode2(NewBase(buf), 4, true)
+	common.NodeList.ValueInfo.Pos = 4
+	common.NodeList.ValueInfo.VLen = uint32(len(bytes))
+	common.NodeList.ValueInfo.Size = len(bytes)
+
+	return (*List)(common)
 }
