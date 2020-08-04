@@ -1,7 +1,6 @@
 package base
 
 import (
-	"fmt"
 	"io"
 	"math/rand"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/kazu/loncha"
 )
 
+// CommonList ... return List for separated data area.
 type CommonList struct {
 	*CommonNode
 	dataW io.Writer
@@ -17,20 +17,25 @@ type CommonList struct {
 	dLen  int
 }
 
+// DataLen ... return data.
 func (l *CommonList) DataLen() int {
 	return l.dLen
 }
 
+// SetDataWriter ... set io.Writer for writing data area.
 func (l *CommonList) SetDataWriter(w io.Writer) {
 	l.dCur = 0
 	l.dataW = w
 	l.dLen = 0
 }
+
+// DataWriter ... return DataWriter
 func (l *CommonList) DataWriter() io.Writer {
 
 	return l.dataW
 }
 
+// WriteDataAll ... write all data to datawriter
 func (l *CommonList) WriteDataAll() (e error) {
 
 	if l.Count() == 0 {
@@ -71,6 +76,7 @@ func (l *CommonList) WriteDataAll() (e error) {
 
 }
 
+// At ... return Element of list
 func (l *CommonList) At(i int) (*CommonNode, error) {
 	if l.dataW == nil {
 		return (*List)(l.CommonNode).At(i)
@@ -79,6 +85,7 @@ func (l *CommonList) At(i int) (*CommonNode, error) {
 	return nil, log.ERR_NO_SUPPORT
 }
 
+// SetAt ... Set Element to list
 func (l *CommonList) SetAt(i int, elm *CommonNode) error {
 	if l.dataW == nil {
 		return (*List)(l.CommonNode).SetAt(i, elm)
@@ -110,6 +117,7 @@ func (l *CommonList) dataStart() int {
 
 }
 
+// WriteElm ... Set Element to list
 func (l *CommonList) WriteElm(elm *CommonNode, pos, size int) {
 
 	defer func() {
@@ -138,7 +146,9 @@ func (l *CommonList) WriteElm(elm *CommonNode, pos, size int) {
 			bytes := elm.GetDiffs()[i].bytes
 			offset := elm.GetDiffs()[i].Offset
 			if len(bytes)+offset > size {
-				fmt.Printf("????\n")
+				log.Log(LOG_ERROR, func() log.LogArgs {
+					return log.F("WriteElm: invalid  len(bytes)=%d + offset=%d > size=%d\n", len(bytes), offset, size)
+				})
 			}
 			w.WriteAt(bytes, int64(cur+pos+offset))
 		}
@@ -231,12 +241,16 @@ func (dst *CommonList) Add(src *CommonList) (nList *CommonList, e error) {
 
 	return
 }
+
+// VLen ... return Len of Virtual Table.
 func (l *CommonList) VLen() uint32 {
 	return (*List)(l.CommonNode).VLen()
 }
 
+// List ... List Node as CommonNode.
 type List CommonNode
 
+// At ... return Element of list
 func (node *List) At(i int) (*CommonNode, error) {
 
 	if !(*CommonNode)(node).IsList() {
@@ -278,14 +292,17 @@ func (node *List) At(i int) (*CommonNode, error) {
 
 }
 
+// First ... First Element in List
 func (node *List) First() (*CommonNode, error) {
 	return node.At(0)
 }
 
+// Last ... Last Element in List
 func (node *List) Last() (*CommonNode, error) {
 	return node.At(int(node.VLen()) - 1)
 }
 
+// Select ... Select Elements by condtion function
 func (node *List) Select(fn func(m *CommonNode) bool) []*CommonNode {
 	result := make([]*CommonNode, 0, int(node.NodeList.ValueInfo.VLen))
 	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
@@ -296,6 +313,7 @@ func (node *List) Select(fn func(m *CommonNode) bool) []*CommonNode {
 	return result
 }
 
+// Find ... Find Element by condtion function
 func (node *List) Find(fn func(m *CommonNode) bool) *CommonNode {
 
 	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
@@ -307,14 +325,17 @@ func (node *List) Find(fn func(m *CommonNode) bool) *CommonNode {
 	return nil
 }
 
+// All ... All Element by condtion function
 func (node *List) All() []*CommonNode {
 	return node.Select(func(m *CommonNode) bool { return true })
 }
 
+// VLen ... return Length of flatbuffers's Virtual Table
 func (node *List) VLen() uint32 {
 	return flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos - flatbuffers.SizeUOffsetT))
 }
 
+// InfoSlice ... return infomation of List
 func (node *List) InfoSlice() Info {
 	info := Info{Pos: node.NodeList.ValueInfo.Pos, Size: -1}
 	tName := node.Name[2:]
@@ -343,6 +364,7 @@ func (node *List) InfoSlice() Info {
 	return info
 }
 
+// SearchInfoSlice ... search list information
 func (node *List) SearchInfoSlice(pos int, fn RecFn, condFn CondFn) {
 
 	info := (*CommonNode)(node).Info()
@@ -381,6 +403,7 @@ NO_NODE:
 
 }
 
+// SetAt ... Set Element to list
 func (node *List) SetAt(idx int, elm *CommonNode) error {
 
 	if idx > int(node.NodeList.ValueInfo.VLen) {
@@ -498,6 +521,7 @@ func (node *List) SetAt(idx int, elm *CommonNode) error {
 	return ERR_NO_SUPPORT
 }
 
+// InitList ... initlize List.
 func (node *List) InitList() error {
 
 	// write vLen == 0
@@ -590,6 +614,7 @@ func (node *List) SwapAt(i, j int) error {
 
 }
 
+// SortBy ... sort of List
 func (node *List) SortBy(less func(i, j int) bool) error {
 	if !node.IsList() {
 		return log.ERR_NO_SUPPORT
@@ -646,20 +671,24 @@ func (node *List) SearchIndex(n int, fn func(c *CommonNode) bool) int {
 	return i
 }
 
-func (l *List) IsList() bool {
-	return (*CommonNode)(l).IsList()
+// IsList ... return true if List is true
+func (node *List) IsList() bool {
+	return (*CommonNode)(node).IsList()
 }
 
-func (l *List) SelfAsCommonNode() *CommonNode {
-	return (*CommonNode)(l).SelfAsCommonNode()
+// SelfAsCommonNode ... return self CommonNode used by trick genny.
+func (node *List) SelfAsCommonNode() *CommonNode {
+	return (*CommonNode)(node).SelfAsCommonNode()
 }
 
+// Count ... return count of element in List
 func (node *List) Count() int {
 	// MENTION: if dosent work, enable comment out routine
 	//return int(node.NodeList.ValueInfo.VLen)
 	return int(node.VLen())
 }
 
+// FromByteList ... []byte in flatbuffers.
 func FromByteList(bytes []byte) *List {
 
 	buf := make([]byte, len(bytes)+4)

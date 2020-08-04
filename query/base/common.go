@@ -10,9 +10,9 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 	log "github.com/kazu/fbshelper/query/log"
 	"github.com/kazu/loncha"
-	//. "github.com/kazu/fbshelper/query/error"
 )
 
+// CommonNode ... is node of flatbuffers.
 type CommonNode struct {
 	*NodeList
 	Name           string
@@ -20,6 +20,7 @@ type CommonNode struct {
 	IdxToTypeGroup map[int]int
 }
 
+// Info ... return information of node
 func (node *CommonNode) Info() (info Info) {
 
 	nName := node.Name
@@ -54,6 +55,7 @@ func (node *CommonNode) Info() (info Info) {
 	return info
 }
 
+// ValueInfo ... return infomation of field/attribute of node.
 func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 
 	info := ValueInfo{Pos: node.Node.Pos, Size: 0}
@@ -102,11 +104,14 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 
 	return info
 }
+
+// CanFollow ... check instance on Union.
 func (node *CommonNode) CanFollow(idx int) bool {
 
 	return node.FieldAt(idx-1).Byte() > 0
 }
 
+// FollowUnion ... return instance via Union.
 func (node *CommonNode) FollowUnion(idx int) *CommonNode {
 	idxOfAlias := node.FieldAt(idx-1).Byte() - 1
 	if int(idxOfAlias) >= len(UnionAlias[All_IdxToName[node.Name][idx]]) {
@@ -131,6 +136,7 @@ func (node *CommonNode) FollowUnion(idx int) *CommonNode {
 	return next
 }
 
+// SearchInfo ... collect Infomation via traversing.
 // if TraverseInfo is work. removed
 func (node *CommonNode) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 	info := node.Info()
@@ -171,6 +177,7 @@ func (node *CommonNode) SearchInfo(pos int, fn RecFn, condFn CondFn) {
 
 }
 
+// IsLeafAt ... field has child or not.
 func (node *CommonNode) IsLeafAt(j int) bool {
 	nName := node.Name
 	tGroup := node.IdxToTypeGroup[j]
@@ -201,10 +208,12 @@ func (node *CommonNode) IsLeafAt(j int) bool {
 
 }
 
+// CountOfField ... return count of field/attribute
 func (node *CommonNode) CountOfField() int {
 	return len(node.IdxToTypeGroup)
 }
 
+// FieldAt ... return field by field index
 func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 
 	node.clearValueInfoOnDirty()
@@ -271,6 +280,7 @@ RESULT:
 	return cNode
 }
 
+// FetchIndex ... fetching index
 func (node *CommonNode) FetchIndex() {
 	if _, ok := All_IdxToName[node.Name]; ok {
 		node.IdxToType = All_IdxToType[node.Name]
@@ -278,6 +288,7 @@ func (node *CommonNode) FetchIndex() {
 	}
 }
 
+// IsList ... return true if is List Node.
 func (node *CommonNode) IsList() bool {
 	if node.Name == "" && node.NodeList.ValueInfo.VLen > 0 {
 		return true
@@ -293,6 +304,7 @@ func (node *CommonNode) IsList() bool {
 	//return node.VLen() > 0
 }
 
+// List ... return List instance if node is List.
 func (node *CommonNode) List() *List {
 
 	if !node.IsList() {
@@ -302,6 +314,7 @@ func (node *CommonNode) List() *List {
 	return (*List)(node)
 }
 
+// Open ... Open New CommonNode with io.Reader
 func Open(r io.Reader, cap int, opts ...Option) (node *CommonNode) {
 
 	if len(opts) > 0 {
@@ -318,6 +331,7 @@ func Open(r io.Reader, cap int, opts ...Option) (node *CommonNode) {
 	return node
 }
 
+// OpenByBuf ... Open New CommonNode with byte buffer
 func OpenByBuf(buf []byte, opts ...Option) *CommonNode {
 
 	if len(opts) > 0 {
@@ -332,6 +346,7 @@ func OpenByBuf(buf []byte, opts ...Option) *CommonNode {
 	return node
 }
 
+// Len ... return len of byte size.
 func (node *CommonNode) Len() int {
 	info := node.Info()
 	size := info.Pos + info.Size
@@ -343,6 +358,7 @@ func (node *CommonNode) Len() int {
 	return size + (8 - (size % 8))
 }
 
+// Unmarshal ... unmarshal to struct. only work fbs's struct node.
 func (node *CommonNode) Unmarshal(v interface{}) error {
 
 	return node.unmarshal(v, func(s string, rv reflect.Value) error {
@@ -560,6 +576,7 @@ func (node *CommonNode) SetFloat64(v float64) error {
 
 }
 
+// TraverseInfo ... traverse Info/ValueInfo of all node.
 func (node *CommonNode) TraverseInfo(pos int, fn TraverseRec, condFn TraverseCond) {
 
 	for i := 0; i < len(node.IdxToTypeGroup); i++ {
@@ -608,6 +625,7 @@ func (node *CommonNode) TraverseInfo(pos int, fn TraverseRec, condFn TraverseCon
 	}
 }
 
+// TraverseInfoSlice ... traverse Info/ValueInfo of all list node.
 func (node *CommonNode) TraverseInfoSlice(pos int, fn TraverseRec, condFn TraverseCond) {
 
 	var v interface{}
@@ -641,16 +659,19 @@ NO_NODE:
 	}
 }
 
+// Count ... count of List node.
 func (node *CommonNode) Count() int {
 	return int(node.NodeList.ValueInfo.VLen)
 }
 
+// Tree ... return node tree.
 type Tree struct {
 	Node   *CommonNode
 	Parent *Tree
 	Childs []*Tree
 }
 
+// Pos ... return offset position in buffer.
 func (t Tree) Pos() int {
 
 	if t.Node.NodeList.ValueInfo.Pos > 0 {
@@ -662,6 +683,7 @@ func (t Tree) Pos() int {
 	return t.Node.Node.Pos
 }
 
+// Size ... return Size  in buffer.
 func (t Tree) Size() int {
 
 	if t.Node.NodeList.ValueInfo.Pos > 0 {
@@ -673,6 +695,7 @@ func (t Tree) Size() int {
 	return t.Node.Node.Size
 }
 
+// Dump ... dump of node information
 func (tree Tree) Dump() string {
 	if tree.Parent != nil {
 		return fmt.Sprintf("{Type:\t%s,\tPos:\t%d,\tSize:\t%d,\tParentPos:\t%d}\n",
@@ -689,6 +712,7 @@ func (tree Tree) Dump() string {
 	)
 }
 
+// DumpAll ... dump of all node information
 func (tree Tree) DumpAll(i int, w io.Writer) {
 
 	for j := 0; j < i*2; j++ {
@@ -700,6 +724,7 @@ func (tree Tree) DumpAll(i int, w io.Writer) {
 	}
 }
 
+// AllTree ... return all Tree
 func (node *CommonNode) AllTree() *Tree {
 
 	type Result struct {
@@ -773,6 +798,7 @@ func findtree(tree *Tree, cond TreeCond, out chan *Tree) {
 
 }
 
+// FindTree ... return Tree by condtion function.
 func (node *CommonNode) FindTree(cond TreeCond) <-chan *Tree {
 
 	ch := make(chan *Tree, 10)
@@ -796,10 +822,12 @@ func (node *CommonNode) root() *CommonNode {
 	return common
 }
 
+// RootCommon ... return Root Node.
 func (node *CommonNode) RootCommon() *CommonNode {
 	return node.root()
 }
 
+// InRoot ... return true if buffer include Root Node.
 func (node *CommonNode) InRoot() bool {
 
 	pos := int(flatbuffers.GetVOffsetT(node.R(0)))
@@ -814,11 +842,13 @@ func (node *CommonNode) InRoot() bool {
 
 }
 
+// InsertBuf ... insert buffer in pos position.
 func (node *CommonNode) InsertBuf(pos, size int) {
 
 	node.InsertSpace(pos, size, true)
 }
 
+// InsertSpace ... insert buffer in pos position.
 func (node *CommonNode) InsertSpace(pos, size int, isInsert bool) {
 
 	newBase := node.Base.insertSpace(pos, size, isInsert)
@@ -957,6 +987,7 @@ func (node *CommonNode) movePos(idx, pos, size int) {
 
 }
 
+// IsRoot ... return true if root node.
 func (node *CommonNode) IsRoot() bool {
 
 	if RootName == node.Name {
@@ -967,6 +998,7 @@ func (node *CommonNode) IsRoot() bool {
 
 type NodeName string
 
+// Init ... initialize as CommonNode.
 func (node *CommonNode) Init() error {
 
 	node.IdxToType = All_IdxToType[node.Name]
@@ -1057,7 +1089,8 @@ func (node *CommonNode) insertVTable(idx, size int) int {
 
 }
 
-//FIXME
+// IsSameType ... return true if type information of field collect.
+//FIXME: should improve for performance
 func (node *CommonNode) IsSameType(idx int, fNode *CommonNode) bool {
 	if All_IdxToName[node.Name][idx] == fNode.Name {
 		return true
@@ -1069,6 +1102,7 @@ func (node *CommonNode) IsSameType(idx int, fNode *CommonNode) bool {
 		})
 }
 
+// SetFieldAt ... set Node to current Node field/attribute
 func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 
 	if len(node.IdxToTypeGroup) <= idx {
@@ -1203,6 +1237,7 @@ func FromBytes(bytes []byte) *CommonNode {
 	return common
 }
 
+// DumpTableWithVTable ... Dump flatbuffers Table and VTable information.
 func (node *CommonNode) DumpTableWithVTable() string {
 
 	g := GetTypeGroup(node.Name)
@@ -1246,6 +1281,7 @@ func (node *CommonNode) DumpTableWithVTable() string {
 
 }
 
+// SelfAsCommonNode ... return self CommonNode used by trick genny.
 func (node *CommonNode) SelfAsCommonNode() *CommonNode {
 	return node
 }

@@ -302,11 +302,13 @@ func (node *Node) Bytes() []byte {
 	return node.R(node.Pos)[:node.Size]
 }
 
+// VirtualTableIsZero ... return checking VTable is empty
 func (node *Node) VirtualTableIsZero(idx int) bool {
 
 	return node.VirtualTable(idx) == node.Pos
 }
 
+// VirtualTable ... return VTable.
 func (node *Node) VirtualTable(idx int) int {
 
 	voff := flatbuffers.GetUint32(node.R(node.Pos))
@@ -320,6 +322,7 @@ func (node *Node) VirtualTable(idx int) int {
 	return node.Pos + int(tOffset)
 }
 
+// TableLen ... return table length in VTable.
 func (node *Node) TableLen() int {
 	voff := flatbuffers.GetUint32(node.R(node.Pos))
 	vPos := node.Pos - int(voff)

@@ -88,7 +88,7 @@ func Log(l LogLevel, fn LogFn) {
 
 }
 
-// Base ... express low level buffer
+// Base ... low level buffer
 type Base interface {
 	Next(skip int) Base
 	HasIoReader() bool
@@ -140,6 +140,7 @@ type Root struct {
 	*Node
 }
 
+// IsMatchBit ... is used bit field . mainly Field Type
 func IsMatchBit(i, j int) bool {
 	if (i & j) > 0 {
 		return true
@@ -147,25 +148,28 @@ func IsMatchBit(i, j int) bool {
 	return false
 }
 
-// NewBaseImpl ... initialize Base struct via buffer(buf)
+// NewBaseImpl ... initialize BaseImpl struct via buffer(buf)
 func NewBaseImpl(buf []byte) *BaseImpl {
 	return &BaseImpl{bytes: buf}
 }
 
+// NewBaseImplByIO ... return new BaseImpl instance with io.Reader
 func NewBaseImplByIO(rio io.Reader, cap int) *BaseImpl {
 	b := &BaseImpl{r: rio, bytes: make([]byte, 0, cap)}
 	return b
 }
 
+// NewFromBytes ... return new BaseImpl instance with byte buffer
 func (b *BaseImpl) NewFromBytes(bytes []byte) Base {
 	return NewBaseImpl(bytes)
 }
 
+// New ... return new Base Interface (instance is BaseImpl)
 func (b *BaseImpl) New(n Base) Base {
 	return n
 }
 
-// NextBase provide next root flatbuffers
+// Next ... provide next root flatbuffers
 // this is mainly for streaming data.
 func (b *BaseImpl) Next(skip int) Base {
 	newBase := &BaseImpl{
@@ -232,6 +236,8 @@ func (b *BaseImpl) readerR(off int) []byte {
 	return b.bytes[off:]
 }
 
+// C ... copy buffer
+// Deprecated: should use Copy
 func (b *BaseImpl) C(off, size int, src []byte) error {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
@@ -247,6 +253,7 @@ func (b *BaseImpl) C(off, size int, src []byte) error {
 	return nil
 }
 
+// Copy ... Copy buffer from src to b as BaseImplt
 func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
 
 	// src, ok := osrc.(*BaseImpl)
@@ -289,6 +296,7 @@ func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
 	return
 }
 
+// D ... return new Diff of buffer for updating
 func (b *BaseImpl) D(off, size int) *Diff {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
@@ -335,6 +343,7 @@ func (b *BaseImpl) D(off, size int) *Diff {
 	return &b.Diffs[idx]
 }
 
+// U ... return buffer for updating
 func (b *BaseImpl) U(off, size int) []byte {
 
 	diff := b.D(off, size)
@@ -413,6 +422,7 @@ func (b *BaseImpl) Flatten() {
 
 }
 
+// Dedup ... dedup in b.Diffs
 func (b *BaseImpl) Dedup() {
 
 	loncha.Delete(&b.Diffs, func(i int) bool {
@@ -459,6 +469,7 @@ func (b *BaseImpl) BufInfo() (infos BufInfo) {
 	return
 }
 
+// ClearValueInfoOnDirty ... notify to be changed ValueInfo.
 func (b *BaseImpl) ClearValueInfoOnDirty(node *NodeList) {
 
 	err := loncha.Delete(&b.dirties, func(i int) bool {
@@ -470,14 +481,17 @@ func (b *BaseImpl) ClearValueInfoOnDirty(node *NodeList) {
 	}
 }
 
+// GetDiffs ... return Diffs of buffer
 func (b *BaseImpl) GetDiffs() []Diff {
 	return b.Diffs
 }
 
+// SetDiffs ... set Diffs of buffer
 func (b *BaseImpl) SetDiffs(d []Diff) {
 	b.Diffs = d
 }
 
+// AddDirty ... add dirty of ValueInfo.
 func (b *BaseImpl) AddDirty(d Dirty) {
 
 	b.dirties = append(b.dirties, d)
@@ -525,6 +539,7 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) Base {
 	return newBase
 }
 
+// ShouldCheckBound .. which check bounding of buffer.
 func (b *BaseImpl) ShouldCheckBound() bool {
 	return true
 }

@@ -7,15 +7,18 @@ import (
 	"github.com/kazu/loncha"
 )
 
+// DirectReader ... is Base without buffer in data area
 type DirectReader struct {
 	Base
 	r io.ReaderAt
 }
 
+// NewDirectReader ... return new DirectReader instance.
 func NewDirectReader(b Base, r io.ReaderAt) DirectReader {
 	return DirectReader{Base: b, r: r}
 }
 
+// R ... read data.
 func (b DirectReader) R(offset int) (result []byte) {
 	if b.Base.LenBuf() > offset {
 		return b.Base.R(offset)
@@ -35,14 +38,17 @@ func (b DirectReader) R(offset int) (result []byte) {
 	return
 }
 
+// ShouldCheckBound ... DirectReader is not checking boundary.
 func (b DirectReader) ShouldCheckBound() bool {
 	return false
 }
 
+// NoLayer is BaseImpl without journal infomation for perfomance.
 type NoLayer struct {
 	*BaseImpl
 }
 
+// NewNoLayer ... return new NoLayer instnace. b must be BaseImpl/NoLayer
 func NewNoLayer(b Base) NoLayer {
 	impl, ok := b.(*BaseImpl)
 	if ok {
@@ -70,6 +76,7 @@ func (b NoLayer) insertSpace(pos, size int, isCreate bool) Base {
 	return b
 }
 
+// R ... read buffer
 func (b NoLayer) R(off int) []byte {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
@@ -100,6 +107,7 @@ func (b NoLayer) R(off int) []byte {
 
 }
 
+// D ... return Diff for write
 func (b NoLayer) D(off, size int) *Diff {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
@@ -131,6 +139,7 @@ func (b NoLayer) D(off, size int) *Diff {
 	return &newDiff
 }
 
+// U ... return buffer for update
 func (b NoLayer) U(off, size int) []byte {
 
 	diff := b.D(off, size)
@@ -140,15 +149,9 @@ func (b NoLayer) U(off, size int) []byte {
 	return diff.bytes
 }
 
+// Copy ... copy buffer from Base
 func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 
-	// src, ok := osrc.(*BaseImpl)
-	// _ = src
-	// if !ok {
-	// 	log.Log(LOG_WARN, log.Printf("BaseImpl.Copy() src is only BaseImpl"))
-
-	// 	return
-	// }
 	if cap(b.bytes) > dstOff {
 		if len(b.bytes) > dstOff {
 			diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
@@ -199,10 +202,12 @@ func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 
 }
 
+// NewFromBytes ... return new NoLayer instance with byte buffer.
 func (b NoLayer) NewFromBytes(bytes []byte) Base {
 	return NewNoLayer(NewBaseImpl(bytes))
 }
 
+// New ... return new NoLayer instance
 func (b NoLayer) New(n Base) Base {
 	return NewNoLayer(n)
 }
