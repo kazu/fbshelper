@@ -293,6 +293,15 @@ func (node *CommonNode) IsList() bool {
 	//return node.VLen() > 0
 }
 
+func (node *CommonNode) List() *List {
+
+	if !node.IsList() {
+		return nil
+	}
+
+	return (*List)(node)
+}
+
 func Open(r io.Reader, cap int, opts ...Option) (node *CommonNode) {
 
 	if len(opts) > 0 {
