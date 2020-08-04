@@ -18,11 +18,11 @@ var (
 // (field inedx, field type) -> NumList_IdxToType
 var DUMMY_NumList_Num bool = SetNumListFields("NumList", "Num", "[]int32", NumList_Num_0)
 
-func (node NumList) Num() (result *CommonNode) {
-	result = emptyCommonNode()
+func (node NumList) Num() (result *List) {
+	result = emptyList()
 	common := node.FieldAt(NumList_Num_0)
 	if common.Node == nil {
-		result = NewCommonNode()
+		result = NewList()
 		node.SetFieldAt(NumList_Num_0, result.SelfAsCommonNode())
 		common = node.FieldAt(NumList_Num_0)
 	}
@@ -35,7 +35,8 @@ func (node NumList) Num() (result *CommonNode) {
 	return
 }
 
-func (node NumList) SetNum(v *base.CommonNode) error {
+//func (node NumList) SetNum(v *base.CommonNode) error {
+func (node NumList) SetNum(v *List) error {
 
-	return node.CommonNode.SetFieldAt(0, v)
+	return node.CommonNode.SetFieldAt(0, v.SelfAsCommonNode())
 }

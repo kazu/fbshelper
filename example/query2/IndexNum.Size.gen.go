@@ -35,7 +35,8 @@ func (node IndexNum) Size() (result *CommonNode) {
 	return
 }
 
-func (node IndexNum) SetSize(v *base.CommonNode) error {
+//func (node IndexNum) SetSize(v *base.CommonNode) error {
+func (node IndexNum) SetSize(v *CommonNode) error {
 
-	return node.CommonNode.SetFieldAt(0, v)
+	return node.CommonNode.SetFieldAt(0, v.SelfAsCommonNode())
 }

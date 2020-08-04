@@ -35,7 +35,8 @@ func (node Hoges) Files() (result *FileList) {
 	return
 }
 
-func (node Hoges) SetFiles(v *base.CommonNode) error {
+//func (node Hoges) SetFiles(v *base.CommonNode) error {
+func (node Hoges) SetFiles(v *FileList) error {
 
-	return node.CommonNode.SetFieldAt(0, v)
+	return node.CommonNode.SetFieldAt(0, v.SelfAsCommonNode())
 }

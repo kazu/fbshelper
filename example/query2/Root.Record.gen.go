@@ -35,7 +35,8 @@ func (node Root) Record() (result *Record) {
 	return
 }
 
-func (node Root) SetRecord(v *base.CommonNode) error {
+//func (node Root) SetRecord(v *base.CommonNode) error {
+func (node Root) SetRecord(v *Record) error {
 
-	return node.CommonNode.SetFieldAt(3, v)
+	return node.CommonNode.SetFieldAt(3, v.SelfAsCommonNode())
 }
