@@ -87,3 +87,15 @@ func (node ListType) Search(fn func(*NodeName) bool) *NodeName {
 
 	return result
 }
+
+func (node ListType) SearchIndex(fn func(*NodeName) bool) int {
+
+	i := (*base.List)(node.CommonNode).SearchIndex(int((*base.List)(node.CommonNode).VLen()), func(cm *CommonNode) bool {
+		return fn(&NodeName{CommonNode: cm})
+	})
+	if i < int((*base.List)(node.CommonNode).VLen()) {
+		return i
+	}
+
+	return -1
+}
