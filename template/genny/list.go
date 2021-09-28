@@ -27,6 +27,14 @@ func (node ListType) At(i int) (result *NodeName, e error) {
 	return
 }
 
+func (node ListType) AtWihoutError(i int) (result *NodeName) {
+	result, e := node.At(i)
+	if e != nil {
+		result = nil
+	}
+	return
+}
+
 func (node ListType) SetAt(i int, v *NodeName) error {
 	return (*base.List)(node.CommonNode).SetAt(i, v.CommonNode)
 }
