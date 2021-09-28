@@ -91,3 +91,15 @@ func (node HogesList) Search(fn func(*Hoges) bool) *Hoges {
 
 	return result
 }
+
+func (node HogesList) SearchIndex(fn func(*Hoges) bool) int {
+
+	i := (*base.List)(node.CommonNode).SearchIndex(int((*base.List)(node.CommonNode).VLen()), func(cm *CommonNode) bool {
+		return fn(&Hoges{CommonNode: cm})
+	})
+	if i < int((*base.List)(node.CommonNode).VLen()) {
+		return i
+	}
+
+	return -1
+}

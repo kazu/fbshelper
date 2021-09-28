@@ -91,3 +91,15 @@ func (node NumListList) Search(fn func(*NumList) bool) *NumList {
 
 	return result
 }
+
+func (node NumListList) SearchIndex(fn func(*NumList) bool) int {
+
+	i := (*base.List)(node.CommonNode).SearchIndex(int((*base.List)(node.CommonNode).VLen()), func(cm *CommonNode) bool {
+		return fn(&NumList{CommonNode: cm})
+	})
+	if i < int((*base.List)(node.CommonNode).VLen()) {
+		return i
+	}
+
+	return -1
+}

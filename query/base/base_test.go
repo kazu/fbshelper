@@ -1476,3 +1476,81 @@ func Test_DirectList_Swap(t *testing.T) {
 	assert.Equal(t, uint64(0), at4.FileId().Uint64())
 
 }
+
+func Test_DirectList_Search(t *testing.T) {
+
+	rlist := query2.NewRecordList()
+	rlist.Base = base.NewNoLayer(rlist.Base)
+
+	for i := 0; i < 5; i++ {
+		rec := query2.NewRecord()
+		rec.Base = base.NewNoLayer(rec.Base)
+		rec.SetFileId(query2.FromUint64(uint64(i)))
+		rec.SetOffset(query2.FromInt64(8))
+		rec.SetSize(query2.FromInt64(7))
+		rec.SetOffsetOfValue(query2.FromInt32(6))
+		rec.SetValueSize(query2.FromInt32(5))
+		rlist.SetAt(i, rec)
+	}
+	at2, _ := rlist.At(2)
+
+	assert.Equal(t, uint64(2), at2.FileId().Uint64())
+
+	rlist.SwapAt(0, 4)
+
+	removeE := func(v *query2.Record, e error) *query2.Record {
+		return v
+	}
+	rlist.SortBy(func(i, j int) bool {
+		return removeE(rlist.At(i)).FileId().Uint64() < removeE(rlist.At(j)).FileId().Uint64()
+	})
+
+	r := rlist.Search(func(q *query2.Record) bool {
+		return q.FileId().Uint64() == uint64(4)
+	})
+	assert.NotNil(t, r.CommonNode)
+
+	assert.Equal(t, uint64(4), r.FileId().Uint64())
+}
+
+func Test_DirectList_SearchIndex(t *testing.T) {
+
+	rlist := query2.NewRecordList()
+	rlist.Base = base.NewNoLayer(rlist.Base)
+
+	for i := 0; i < 5; i++ {
+		rec := query2.NewRecord()
+		rec.Base = base.NewNoLayer(rec.Base)
+		rec.SetFileId(query2.FromUint64(uint64(i)))
+		rec.SetOffset(query2.FromInt64(8))
+		rec.SetSize(query2.FromInt64(7))
+		rec.SetOffsetOfValue(query2.FromInt32(6))
+		rec.SetValueSize(query2.FromInt32(5))
+		rlist.SetAt(i, rec)
+	}
+	at2, _ := rlist.At(2)
+
+	assert.Equal(t, uint64(2), at2.FileId().Uint64())
+
+	rlist.SwapAt(0, 4)
+
+	ridx := rlist.SearchIndex(func(q *query2.Record) bool {
+		return q.FileId().Uint64() >= uint64(4)
+	})
+
+	assert.Equal(t, -1, ridx)
+
+	removeE := func(v *query2.Record, e error) *query2.Record {
+		return v
+	}
+	rlist.SortBy(func(i, j int) bool {
+		return removeE(rlist.At(i)).FileId().Uint64() < removeE(rlist.At(j)).FileId().Uint64()
+	})
+
+	ridx = rlist.SearchIndex(func(q *query2.Record) bool {
+		return q.FileId().Uint64() >= uint64(3)
+	})
+	assert.NotEqual(t, -1, ridx)
+
+	assert.Equal(t, uint64(3), removeE(rlist.At(ridx)).FileId().Uint64())
+}
