@@ -175,17 +175,21 @@ func RunGenerate(dir, s string, isNotDryRun bool) error {
 	genPath := filepath.Join(dir, "tmp-gen-fbs-query.go")
 	f, err := os.Create(genPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("RunGenerate(%s, ..., %v): cannot create file genPath=%s err=%s", dir, isNotDryRun, genPath, err.Error())
 	}
 	f.WriteString(s)
 	f.Close()
 	fmt.Fprintf(os.Stdout, "created %s\n", genPath)
 	fmt.Fprintf(os.Stdout, "runnnig ... %s\n", genPath)
+	odir := dir
+	if dir[0] != '/' && dir[0] != '.' {
+		odir = "./" + dir
+	}
 	if isNotDryRun {
-		out, err := exec.Command("go", "generate", "-v", dir).Output()
+		out, err := exec.Command("go", "generate", "-v", odir).Output()
 		fmt.Println(out)
 		if err != nil {
-			return err
+			return fmt.Errorf("RunGenerate(%s, ..., %v): cannot run go generate %s err=%s", dir, isNotDryRun, odir, err.Error())
 		}
 		os.RemoveAll(dir)
 		os.RemoveAll(filepath.Join(dir, "../", "genny"))
@@ -204,7 +208,7 @@ func GennyMode(parser *fbsparser.Parser, outDir string, opt GennyOpt) {
 
 	s, e := MakeGenGennies(parser, outDir, opt)
 	if e != nil {
-		fmt.Fprintf(os.Stderr, "make gen,go filer %s err=%v", e)
+		fmt.Fprintf(os.Stderr, "make gen,go filer %s err=[%v]\n", e)
 		return
 	}
 	if opt.verbose {
@@ -212,7 +216,7 @@ func GennyMode(parser *fbsparser.Parser, outDir string, opt GennyOpt) {
 	}
 	e = RunGenerate(filepath.Join(outDir, "/gen"), s, true)
 	if e != nil {
-		fmt.Fprintf(os.Stderr, "run gen.go fail err=%v", e)
+		fmt.Fprintf(os.Stderr, "run gen.go fail err=[%s]\n", e.Error())
 		return
 	}
 	return
