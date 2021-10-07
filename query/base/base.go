@@ -256,17 +256,9 @@ func (b *BaseImpl) C(off, size int, src []byte) error {
 // Copy ... Copy buffer from src to b as BaseImplt
 func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
 
-	// src, ok := osrc.(*BaseImpl)
-	// if !ok {
-	// 	log.Log(LOG_WARN, log.Printf("BaseImpl.Copy() src is only BaseImpl"))
-
-	// 	return
-	// }
-
 	if len(b.bytes) > dstOff {
 		diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
-		b.Diffs = append(b.Diffs, diff)
-		//b.bytes = b.bytes[:dstOff]
+		b.Diffs = append([]Diff{diff}, b.Diffs...)
 	}
 
 	for i, diff := range b.Diffs {
@@ -284,10 +276,16 @@ func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
 
 		diff := Diff{Offset: dstOff, bytes: src.R(0)[srcOff : srcOff+nSize]}
 		b.Diffs = append(b.Diffs, diff)
+		if len(diff.bytes) == size {
+			return
+		}
 	}
 	for _, diff := range src.GetDiffs() {
 		if diff.Offset >= srcOff {
 			nDiff := diff
+			if (nDiff.Offset-srcOff)+len(nDiff.bytes) > size {
+				nDiff.bytes = nDiff.bytes[:size-(diff.Offset-srcOff)]
+			}
 			nDiff.Offset -= srcOff
 			nDiff.Offset += dstOff
 			b.Diffs = append(b.Diffs, nDiff)
@@ -410,11 +408,19 @@ func (b *BaseImpl) Merge() {
 
 // Flatten ... Diffs buffer join to bytes
 func (b *BaseImpl) Flatten() {
+	b.FlattenWithLen(-1)
+}
+
+// FlattenWithLen ... Diffs buffer join to bytes
+func (b *BaseImpl) FlattenWithLen(l int) {
 
 	nbytes := make([]byte, b.LenBuf())
 
 	copy(nbytes, b.bytes)
 	for i := range b.Diffs {
+		if l > 0 && b.Diffs[i].Offset+len(b.Diffs[i].bytes) > l {
+			_ = nbytes
+		}
 		copy(nbytes[b.Diffs[i].Offset:], b.Diffs[i].bytes)
 	}
 	b.bytes = nbytes

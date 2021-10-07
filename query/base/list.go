@@ -38,7 +38,7 @@ func (l *CommonList) DataWriter() io.Writer {
 // WriteDataAll ... write all data to datawriter
 func (l *CommonList) WriteDataAll() (e error) {
 
-	if l.Count() == 0 {
+	if l.CommonNode == nil || l.Count() == 0 {
 		return
 	}
 	l.Merge()

@@ -2,6 +2,7 @@ package base_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/kazu/fbshelper/example/vfs_schema"
 	"github.com/kazu/fbshelper/query/base"
 	log "github.com/kazu/fbshelper/query/log"
+	"github.com/kazu/loncha"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -159,19 +161,114 @@ func MakeRootRecord(key uint64) []byte {
 	vfs_schema.RootAddVersion(b, 1)
 	vfs_schema.RootAddIndexType(b, vfs_schema.IndexInvertedMapNum)
 	vfs_schema.RootAddIndex(b, iMapNum)
-	vfs_schema.RootAddRecord(b, vfs_schema.CreateRecord(b, 666, 12, 34, 56, 78))
+	vfs_schema.RootAddRecord(b, vfs_schema.CreateRecord(b, 666, 12, 34, 0, 0))
 
 	b.Finish(vfs_schema.RootEnd(b))
 
 	return b.FinishedBytes()
+}
+
+func NeoMakeRootRecord(key uint64) []byte {
+
+	return MakeRootWithRecord(key, 666, 12, 34)
 
 }
+
+func MakeRootWithRecord(key uint64, fID uint64, offset int64, size int64) []byte {
+
+	root := query.NewRoot()
+
+	root.SetVersion(query.FromInt32(1))
+	root.WithHeader()
+	root.Flatten()
+
+	inv := query.NewInvertedMapNum()
+	inv.SetKey(query.FromInt64(int64(key)))
+
+	rec := query.NewRecord()
+	rlen, rbuflen := rec.Len(), rec.LenBuf()
+	cnt := rec.CountOfField()
+	_ = cnt
+	rec.SetFileId(query.FromUint64(fID))
+	rlen, rbuflen = rec.Len(), rec.LenBuf()
+	rec.SetOffset(query.FromInt64(offset))
+	rlen, rbuflen = rec.Len(), rec.LenBuf()
+	rec.SetSize(query.FromInt64(size))
+	rlen, rbuflen = rec.Len(), rec.LenBuf()
+	rec.SetOffsetOfValue(query.FromInt32(0))
+	rlen, rbuflen = rec.Len(), rec.LenBuf()
+	rec.SetValueSize(query.FromInt32(0))
+	rlen, rbuflen = rec.Len(), rec.LenBuf()
+
+	rec2 := query.NewRecord()
+	rec2.SetFileId(query.FromUint64(1))
+	rec2.SetOffset(query.FromInt64(2))
+	rec2.SetSize(query.FromInt64(3))
+	rec2.SetOffsetOfValue(query.FromInt32(0))
+	rec2.SetValueSize(query.FromInt32(0))
+
+	rec.Flatten()
+	rec2.Flatten()
+	_, _ = rlen, rbuflen
+	rlen, rbuflen = rec.Len(), rec.LenBuf()
+	inv.SetValue(rec2)
+	//inv.Flatten()
+
+	rec.Flatten()
+	root.SetRecord(rec)
+
+	root.SetIndexType(query.FromByte(byte(vfs_schema.IndexInvertedMapNum)))
+
+	linv := inv.CountOfField()
+	_ = linv
+	root.SetIndex(&query.Index{CommonNode: inv.CommonNode})
+	//root.SetVersion(query.FromInt32(1))
+
+	root.Flatten()
+
+	l := root.Len()
+	lb := root.LenBuf()
+
+	hoge := root.R(0)[l : lb-1]
+
+	v := root.Version().Int32()
+	_ = v
+
+	_, _, _ = l, lb, hoge
+	return root.R(0)
+}
+
+// func MakeRootWithKeyRecords(keyID2Recird map[uint64]*query.RecordList) []byte {
+
+// 	root := query.NewRoot()
+// 	root.SetVersion(query.FromInt32(1))
+// 	root.WithHeader()
+// 	root.SetIndexType(query.FromByte(byte(vfs_schema.IndexIndexNum)))
+// 	idxNum := query.NewIndexNum()
+// 	idxNum.Base = base.NewNoLayer(idxNum.Base)
+// 	keyrecords := query2.NewKeyRecordList()
+// 	keyrecords.Base = base.NewNoLayer(keyrecords.Base)
+
+// 	root.SetIndex(&query.Index{CommonNode: idxNum.CommonNode})
+
+// 	root.Flatten()
+// 	return root.R(0)
+// }
 
 type File struct {
 	ID      uint64 `fbs:"Id"`
 	Name    []byte `fbs:"Name"`
 	IndexAt int64  `fbs:"IndexAt"`
 }
+
+// func TestMakeRootRecord(t *testing.T) {
+
+// 	old := MakeRootRecord(612)
+// 	neo := NeoMakeRootRecord(612)
+
+// 	assert.True(t, bytes.Equal(old, neo))
+
+// }
 
 func TestBase(t *testing.T) {
 
@@ -403,8 +500,29 @@ func Test_TraverseInfo(t *testing.T) {
 
 func dump(tree *base.Tree) string {
 	if tree.Parent != nil {
-		return fmt.Sprintf("{Type:\t%s,\tPos:\t%d\tParentPos:\t%d}\n",
-			tree.Node.Name,
+		idx, _ := loncha.IndexOf(&tree.Parent.Childs, func(i int) bool {
+			return tree.Parent.Childs[i] == tree
+			//return true
+		})
+		_ = idx
+		fname := ""
+		//All_NameToIdx[tree.Parent.Node.Name]
+		for s, i := range base.All_NameToIdx[tree.Parent.Node.Name] {
+			if i == idx {
+				fname = s
+				break
+			}
+		}
+		if fname == "" {
+			return fmt.Sprintf("{Type:\t%16s,\tPos:\t%d\tParentPos:\t%d}\n",
+				tree.Node.Name,
+				tree.Pos(),
+				tree.Parent.Pos(),
+			)
+		}
+
+		return fmt.Sprintf("{Type:\t%16s,\tPos:\t%d\tParentPos:\t%d}\n",
+			fmt.Sprintf("%s(%5s)", tree.Node.Name, fname),
 			tree.Pos(),
 			tree.Parent.Pos(),
 		)
@@ -445,7 +563,6 @@ func Test_AllTree(t *testing.T) {
 
 	type Tree = base.Tree
 
-	//q := query2.Open(bytes.NewReader(buf), 512)
 	q := query2.Open(bytes.NewReader(buf), 512, base.SetDefaultBase("NoLayer"))
 
 	tree := q.AllTree()
@@ -454,7 +571,33 @@ func Test_AllTree(t *testing.T) {
 
 	dumpAll(0, tree, os.Stdout)
 	assert.Equal(t, 4, len(tree.Childs))
+}
 
+func Test_AllTree2(t *testing.T) {
+	buf := MakeRootRecord(612)
+	buf1 := NeoMakeRootRecord(612)
+	stdoutDumper := hex.Dumper(os.Stdout)
+
+	type Tree = base.Tree
+
+	q := query2.Open(bytes.NewReader(buf), 512, base.SetDefaultBase("NoLayer"))
+	tree := q.AllTree()
+
+	stdoutDumper.Write(buf)
+	fmt.Print("\n")
+	dumpAll(0, tree, os.Stdout)
+	assert.Equal(t, int32(1), q.Version().Int32())
+
+	q = query2.Open(bytes.NewReader(buf1), 512, base.SetDefaultBase("NoLayer"))
+	tree = q.AllTree()
+
+	stdoutDumper = hex.Dumper(os.Stdout)
+	stdoutDumper.Write(buf1)
+	fmt.Print("\n")
+	dumpAll(0, tree, os.Stdout)
+
+	assert.Equal(t, int32(1), q.Version().Int32())
+	assert.Equal(t, 4, len(tree.Childs))
 }
 
 func Test_FindTree(t *testing.T) {
@@ -1174,6 +1317,7 @@ func MakeDirectBufFileList(confs ...Config) (*base.CommonList, Defer) {
 	w := NewBufWriterIO(f, opt.block)
 
 	cl := base.CommonList{}
+	cl.WriteDataAll()
 
 	cl.CommonNode = flist.CommonNode
 	cl.SetDataWriter(w)
