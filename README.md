@@ -6,7 +6,7 @@ flatbuffers parser/helper utils for golang
 
 [![Go](https://github.com/kazu/fbshelper/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/kazu/fbshelper/actions/workflows/go.yml)
 
-[![pkg.go.dev](https://pkg.go.dev/github.com/kazu/fbshelper)](https://pkg.go.dev/github.com/kazu/fbshelper)
+[![Go Reference](https://pkg.go.dev/badge/github.com/kazu/fbshelper.svg)](https://pkg.go.dev/github.com/kazu/fbshelper)
 
 ## content 
 
