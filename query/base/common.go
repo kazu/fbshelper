@@ -997,8 +997,6 @@ func (node *CommonNode) IsRoot() bool {
 	return false
 }
 
-type NodeName string
-
 // Init ... initialize as CommonNode.
 func (node *CommonNode) Init() error {
 
