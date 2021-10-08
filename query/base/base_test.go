@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"strings"
 	"testing"
+	"time"
 	"unsafe"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -261,14 +263,16 @@ type File struct {
 	IndexAt int64  `fbs:"IndexAt"`
 }
 
-// func TestMakeRootRecord(t *testing.T) {
+func TestMakeRootRecord(t *testing.T) {
 
-// 	old := MakeRootRecord(612)
-// 	neo := NeoMakeRootRecord(612)
+	old := query2.OpenByBuf(MakeRootRecord(612))
+	neo := query2.OpenByBuf(NeoMakeRootRecord(612))
 
-// 	assert.True(t, bytes.Equal(old, neo))
+	assert.True(t, old.Equal(neo.CommonNode))
 
-// }
+	//	assert.True(t, bytes.Equal(old, neo))
+
+}
 
 func TestBase(t *testing.T) {
 
@@ -1697,4 +1701,53 @@ func Test_DirectList_SearchIndex(t *testing.T) {
 	assert.NotEqual(t, -1, ridx)
 
 	assert.Equal(t, uint64(3), removeE(rlist.At(ridx)).FileId().Uint64())
+}
+
+func Test_RecordListEqual(t *testing.T) {
+
+	l := query2.NewRecordList()
+	l2 := query2.NewRecordList()
+
+	for i := 0; i < 10; i++ {
+		rec := query2.NewRecord()
+		rec.SetFileId(query2.FromUint64(uint64(i + 1)))
+		rec.SetOffset(query2.FromInt64(int64(i + 2)))
+		rec.SetSize(query2.FromInt64(int64(i + 3)))
+		rec.SetOffsetOfValue(query2.FromInt32(int32(i + 4)))
+		rec.SetValueSize(query2.FromInt32(int32(i + 5)))
+
+		rec2 := query2.NewRecord()
+		rec2.SetFileId(query2.FromUint64(uint64(i + 1)))
+		rec2.SetOffset(query2.FromInt64(int64(i + 2)))
+		rec2.SetSize(query2.FromInt64(int64(i + 3)))
+		rec2.SetOffsetOfValue(query2.FromInt32(int32(i + 4)))
+		rec2.SetValueSize(query2.FromInt32(int32(i + 5)))
+
+		l.SetAt(l.Count(), rec)
+		l2.SetAt(l2.Count(), rec2)
+	}
+
+	assert.True(t, l.Equal(l2.CommonNode))
+
+	rand.Seed(time.Now().UnixNano())
+
+	i := rand.Intn(10)
+
+	elm, err1 := l.At(i)
+	elm2, err2 := l2.At(i)
+
+	assert.NoError(t, err1)
+	assert.NoError(t, err2)
+
+	assert.Equal(t, uint64(i+1), elm.FileId().Uint64())
+	assert.Equal(t, int64(i+2), elm.Offset().Int64())
+	assert.Equal(t, int64(i+3), elm.Size().Int64())
+	assert.Equal(t, int32(i+4), elm.OffsetOfValue().Int32())
+	assert.Equal(t, int32(i+5), elm.ValueSize().Int32())
+
+	assert.Equal(t, elm.FileId().Uint64(), elm2.FileId().Uint64())
+	assert.Equal(t, elm.Offset().Int64(), elm2.Offset().Int64())
+	assert.Equal(t, elm.Size().Int64(), elm2.Size().Int64())
+	assert.Equal(t, elm.OffsetOfValue().Int32(), elm2.OffsetOfValue().Int32())
+	assert.Equal(t, elm.ValueSize().Int32(), elm2.ValueSize().Int32())
 }

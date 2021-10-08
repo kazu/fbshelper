@@ -1,6 +1,7 @@
 package base
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -1284,4 +1285,60 @@ func (node *CommonNode) DumpTableWithVTable() string {
 // SelfAsCommonNode ... return self CommonNode used by trick genny.
 func (node *CommonNode) SelfAsCommonNode() *CommonNode {
 	return node
+}
+
+// Equal ... return boolan if value is same.
+func (n1 *CommonNode) Equal(n2 *CommonNode) bool {
+
+	isSlice := func(n *CommonNode) bool {
+		return n.NodeList.ValueInfo.Pos > 0
+	}
+	if isSlice(n1) {
+		for i := 0; i < int(n1.NodeList.ValueInfo.VLen); i++ {
+			l1, err := (*List)(n1).At(i)
+			if err != nil {
+				return false
+			}
+			l2, err := (*List)(n2).At(i)
+			if err != nil {
+				return false
+			}
+			if !l1.Equal(l2) {
+				return false
+			}
+		}
+		return true
+	}
+
+	for i := 0; i < n1.CountOfField(); i++ {
+		if n1.IdxToTypeGroup[i] != n2.IdxToTypeGroup[i] {
+			return false
+		}
+		if IsFieldUnion(n1.IdxToTypeGroup[i]) {
+			if !n1.FollowUnion(i).Equal(n2.FollowUnion(i)) {
+				return false
+			}
+			continue
+		}
+
+		if !IsFieldBasicType(n1.IdxToTypeGroup[i]) {
+			if !n1.FieldAt(i).Equal(n2.FieldAt(i)) {
+				return false
+			}
+			continue
+		}
+		size := TypeToSize[n1.IdxToType[i]]
+
+		f1 := n1.FieldAt(i)
+		f2 := n1.FieldAt(i)
+
+		if len(f1.R(f1.Node.Pos)) < size || len(f2.R(f2.Node.Pos)) < size {
+			return false
+		}
+
+		if !bytes.Equal(f1.R(f1.Node.Pos)[:size], f2.R(f2.Node.Pos)[:size]) {
+			return false
+		}
+	}
+	return true
 }
