@@ -70,6 +70,19 @@ q.Index().File().IndexAt().Int64()
 
 ```
 
+### write via fbs-query's generated code
+
+```go
+q := query.OpenByBuf(buf)
+
+q.Index().File().SetId(query.FromInt64(1)()
+q.Index().File().SetName(query.FromString("hogehoge")
+q.Index().File().SetIndexAt(query.FromInt64(1))
+q.Flatten()
+q.R(0) // return encoded byte data
+```
+
+
 ### read vector data 
 
 ```go
@@ -109,14 +122,14 @@ fbs.Files().First().Unmarshal(&f)
 - [x] support basic type slice ( []int, ... )
 - [x] change text/template to genny
 - [x] support writing
-      - [x] Set()
-        - [x] basic type field
-        - [x] Union/table
-        - [ ] struct
-        - [x] slice
-        - [x] merge
-      - [x] insert buffer
-      - [ ] NewFbsNode()
+  - [x] Set()
+    - [x] basic type field
+    - [x] Union/table
+    - [x] struct
+    - [x] slice
+    - [x] merge
+    - [x] insert buffer
+    - [x] NewFbsNode()
 - [ ] marshal
 - [ ] unmarshal nested Table/Struct
 - [ ] no generate list in node not using as list

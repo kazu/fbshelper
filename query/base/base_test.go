@@ -237,6 +237,8 @@ func MakeRootWithRecord(key uint64, fID uint64, offset int64, size int64) []byte
 	_ = v
 
 	_, _, _ = l, lb, hoge
+	a := root.Bytes()
+	_ = a
 	return root.R(0)
 }
 
