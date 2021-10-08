@@ -1005,14 +1005,14 @@ func (node *CommonNode) Init() error {
 	node.IdxToType = All_IdxToType[node.Name]
 	node.IdxToTypeGroup = All_IdxToTypeGroup[node.Name]
 
-	grp := GetTypeGroup("NodeName")
+	grp := GetTypeGroup(node.Name)
 	cntOfField := len(node.IdxToTypeGroup)
 
 	vLen := 0
 	tLen := 0
 	tLenExt := 0
 
-	if IsStructName["NodeName"] {
+	if IsStructName[node.Name] {
 		for i := 0; i < cntOfField; i++ {
 			tLen += TypeToSize[node.IdxToType[i]]
 		}
