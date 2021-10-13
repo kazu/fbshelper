@@ -1,6 +1,8 @@
 package base
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -44,6 +46,13 @@ const (
 	LOG_ERROR LogLevel = iota
 	LOG_WARN
 	LOG_DEBUG
+)
+
+const (
+	BASE_IMPL = iota
+	BASE_NO_LAYER
+	BASE_DOUBLE_LAYER
+	BASE_DIRECT_READER
 )
 
 type LogArgs struct {
@@ -110,6 +119,9 @@ type Base interface {
 	ShouldCheckBound() bool
 	New(Base) Base
 	NewFromBytes([]byte) Base
+	Impl() *BaseImpl
+	Type() uint8
+	Dump(pos int)
 }
 
 // BaseImpl ... Base Object of byte buffer for flatbuffers
@@ -135,6 +147,71 @@ type Diff struct {
 	bytes  []byte
 }
 
+// Include .. check pos with diff range.
+func (d Diff) Include(pos int) bool {
+	return d.Offset <= pos && pos <= d.Offset+len(d.bytes)-1
+}
+
+// Inner undocumented
+func (d Diff) Inner(pos, size int) bool {
+	if !d.Include(pos) {
+		return false
+	}
+	return pos+size <= d.Offset+len(d.bytes)
+}
+
+func (d *Diff) Merge(s *Diff) {
+
+	var nbytes []byte
+	nlen := -1
+
+	if d.Inner(s.Offset, len(s.bytes)) {
+		goto COPY
+	}
+
+	if d.Include(s.Offset) && d.Offset+cap(d.bytes) > s.Offset+len(s.bytes) {
+		goto COPY
+	}
+	nlen = MaxInt(d.Offset+len(d.bytes), s.Offset+len(s.bytes)) - MinInt(d.Offset, s.Offset)
+	nbytes = make([]byte, nlen, nlen*2)
+
+	if d.Include(s.Offset) {
+		copy(nbytes, d.bytes)
+		d.bytes = nbytes
+		goto COPY
+	}
+
+	if d.Offset > s.Offset {
+		copy(nbytes[d.Offset-s.Offset:], d.bytes)
+		copy(nbytes, s.bytes)
+		d.Offset = s.Offset
+		return
+	}
+
+	// d.Offset + len < s.Offset
+	copy(nbytes, d.bytes)
+	copy(nbytes[s.Offset-d.Offset:], s.bytes)
+	d.bytes = nbytes
+	return
+
+COPY:
+	copy(d.bytes[s.Offset-d.Offset:], s.bytes)
+
+	return
+}
+
+// Equal ... return true if equal
+func (d *Diff) Equal(s *Diff) bool {
+	if d.Offset != s.Offset {
+		return false
+	}
+
+	if !bytes.Equal(d.bytes, s.bytes) {
+		return false
+	}
+	return true
+}
+
 // Root manage top node of data.
 type Root struct {
 	*Node
@@ -148,6 +225,16 @@ func IsMatchBit(i, j int) bool {
 	return false
 }
 
+func (b *BaseImpl) Dump(pos int) {
+
+	fmt.Printf("--dump-pos--\n")
+	fmt.Printf("\tpos=0x%x(%d)\n", pos, pos)
+	stdoutDumper := hex.Dumper(os.Stdout)
+	stdoutDumper.Write(b.R(pos))
+	fmt.Print("--dump-end---\n")
+
+}
+
 // NewBaseImpl ... initialize BaseImpl struct via buffer(buf)
 func NewBaseImpl(buf []byte) *BaseImpl {
 	return &BaseImpl{bytes: buf}
@@ -158,6 +245,15 @@ func NewBaseImplByIO(rio io.Reader, cap int) *BaseImpl {
 	b := &BaseImpl{r: rio, bytes: make([]byte, 0, cap)}
 	return b
 }
+func (b *BaseImpl) Type() uint8 { return BASE_IMPL }
+
+func (dst *BaseImpl) overwrite(src *BaseImpl) {
+	dst.r = src.r
+	dst.bytes = src.bytes
+	dst.RDiffs = src.RDiffs
+	dst.Diffs = src.Diffs
+	dst.dirties = src.dirties
+}
 
 // NewFromBytes ... return new BaseImpl instance with byte buffer
 func (b *BaseImpl) NewFromBytes(bytes []byte) Base {
@@ -167,6 +263,16 @@ func (b *BaseImpl) NewFromBytes(bytes []byte) Base {
 // New ... return new Base Interface (instance is BaseImpl)
 func (b *BaseImpl) New(n Base) Base {
 	return n
+}
+
+// BaseImpl undocumented
+func (b *BaseImpl) Impl() *BaseImpl {
+	return b
+}
+
+// Bytes undocumented
+func (b *BaseImpl) Bytes() []byte {
+	return b.bytes
 }
 
 // Next ... provide next root flatbuffers
@@ -268,6 +374,7 @@ func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
 		b.Diffs[i] = diff
 	}
 
+	srcDiffs := src.GetDiffs()
 	if len(src.R(0)) > srcOff {
 		nSize := len(src.R(0)[srcOff:])
 		if nSize > size {
@@ -276,11 +383,8 @@ func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
 
 		diff := Diff{Offset: dstOff, bytes: src.R(0)[srcOff : srcOff+nSize]}
 		b.Diffs = append(b.Diffs, diff)
-		if len(diff.bytes) == size {
-			return
-		}
 	}
-	for _, diff := range src.GetDiffs() {
+	for _, diff := range srcDiffs {
 		if diff.Offset >= srcOff {
 			nDiff := diff
 			if (nDiff.Offset-srcOff)+len(nDiff.bytes) > size {
@@ -291,6 +395,7 @@ func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
 			b.Diffs = append(b.Diffs, nDiff)
 		}
 	}
+	src.SetDiffs(srcDiffs)
 	return
 }
 
@@ -518,7 +623,8 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) Base {
 	copy(newBase.Diffs, b.Diffs)
 
 	for i, diff := range newBase.Diffs {
-		if diff.Offset < pos && diff.Offset+len(diff.bytes) > pos {
+		//if diff.Offset < pos && diff.Offset+len(diff.bytes) > pos {
+		if diff.Offset < pos && diff.Include(pos) {
 			newBase.Diffs = append(newBase.Diffs[:i],
 				append([]Diff{
 					Diff{Offset: diff.Offset, bytes: diff.bytes[:pos-diff.Offset]},
@@ -547,5 +653,33 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) Base {
 
 // ShouldCheckBound .. which check bounding of buffer.
 func (b *BaseImpl) ShouldCheckBound() bool {
+	return true
+}
+
+func (b *BaseImpl) Equal(c *BaseImpl) bool {
+	// if len(b.bytes) != len(c.bytes) {
+	// 	return false
+	// }
+	// if cap(b.bytes) != cap(c.bytes) {
+	// 	return false
+	// }
+
+	// if len(b.bytes) > 0 && &b.bytes[0] != &c.bytes[0] {
+	// 	return false
+	// }
+
+	if !bytes.Equal(b.bytes, c.bytes) {
+		return false
+	}
+
+	if len(b.Diffs) != len(c.Diffs) {
+		return false
+	}
+
+	for i, _ := range b.Diffs {
+		if !b.Diffs[i].Equal(&c.Diffs[i]) {
+			return false
+		}
+	}
 	return true
 }
