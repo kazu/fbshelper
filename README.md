@@ -12,3 +12,6 @@ flatbuffers parser/helper utils for golang
 
 see cmd/fbs-query/README.md
 
+## TODO
+
+- [ ] double layer buffer
