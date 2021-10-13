@@ -188,19 +188,11 @@ func MakeRootWithRecord(key uint64, fID uint64, offset int64, size int64) []byte
 	inv.SetKey(query.FromInt64(int64(key)))
 
 	rec := query.NewRecord()
-	rlen, rbuflen := rec.Len(), rec.LenBuf()
-	cnt := rec.CountOfField()
-	_ = cnt
 	rec.SetFileId(query.FromUint64(fID))
-	rlen, rbuflen = rec.Len(), rec.LenBuf()
 	rec.SetOffset(query.FromInt64(offset))
-	rlen, rbuflen = rec.Len(), rec.LenBuf()
 	rec.SetSize(query.FromInt64(size))
-	rlen, rbuflen = rec.Len(), rec.LenBuf()
 	rec.SetOffsetOfValue(query.FromInt32(0))
-	rlen, rbuflen = rec.Len(), rec.LenBuf()
 	rec.SetValueSize(query.FromInt32(0))
-	rlen, rbuflen = rec.Len(), rec.LenBuf()
 
 	rec2 := query.NewRecord()
 	rec2.SetFileId(query.FromUint64(1))
@@ -211,51 +203,54 @@ func MakeRootWithRecord(key uint64, fID uint64, offset int64, size int64) []byte
 
 	rec.Flatten()
 	rec2.Flatten()
-	_, _ = rlen, rbuflen
-	rlen, rbuflen = rec.Len(), rec.LenBuf()
 	inv.SetValue(rec2)
-	//inv.Flatten()
 
 	rec.Flatten()
 	root.SetRecord(rec)
 
 	root.SetIndexType(query.FromByte(byte(vfs_schema.IndexInvertedMapNum)))
 
-	linv := inv.CountOfField()
-	_ = linv
 	root.SetIndex(&query.Index{CommonNode: inv.CommonNode})
-	//root.SetVersion(query.FromInt32(1))
 
 	root.Flatten()
-
-	l := root.Len()
-	lb := root.LenBuf()
-
-	hoge := root.R(0)[l : lb-1]
-
-	v := root.Version().Int32()
-	_ = v
-
-	_, _, _ = l, lb, hoge
 	return root.R(0)
 }
 
-// func MakeRootWithKeyRecords(keyID2Recird map[uint64]*query.RecordList) []byte {
+func MakeRootWithRecord2(key uint64, fID uint64, offset int64, size int64) []byte {
 
-// 	root := query.NewRoot()
-// 	root.SetVersion(query.FromInt32(1))
-// 	root.WithHeader()
-// 	root.SetIndexType(query.FromByte(byte(vfs_schema.IndexIndexNum)))
-// 	idxNum := query.NewIndexNum()
-// 	idxNum.Base = base.NewNoLayer(idxNum.Base)
-// 	keyrecords := query2.NewKeyRecordList()
-// 	keyrecords.Base = base.NewNoLayer(keyrecords.Base)
+	root := query.NewRoot()
 
-// 	root.SetIndex(&query.Index{CommonNode: idxNum.CommonNode})
+	root.SetVersion(query.FromInt32(1))
+	root.WithHeader()
 
-// 	root.Flatten()
-// 	return root.R(0)
-// }
+	inv := query.NewInvertedMapNum()
+	inv.SetKey(query.FromInt64(int64(key)))
+
+	rec := query.NewRecord()
+	rec.SetFileId(query.FromUint64(fID))
+	rec.SetOffset(query.FromInt64(offset))
+	rec.SetSize(query.FromInt64(size))
+	rec.SetOffsetOfValue(query.FromInt32(0))
+	rec.SetValueSize(query.FromInt32(0))
+
+	rec2 := query.NewRecord()
+	rec2.SetFileId(query.FromUint64(1))
+	rec2.SetOffset(query.FromInt64(2))
+	rec2.SetSize(query.FromInt64(3))
+	rec2.SetOffsetOfValue(query.FromInt32(0))
+	rec2.SetValueSize(query.FromInt32(0))
+
+	inv.SetValue(rec2)
+
+	root.SetRecord(rec)
+
+	root.SetIndexType(query.FromByte(byte(vfs_schema.IndexInvertedMapNum)))
+
+	root.SetIndex(&query.Index{CommonNode: inv.CommonNode})
+
+	root.Flatten()
+	return root.R(0)
+}
 
 type File struct {
 	ID      uint64 `fbs:"Id"`
@@ -268,9 +263,10 @@ func TestMakeRootRecord(t *testing.T) {
 	old := query2.OpenByBuf(MakeRootRecord(612))
 	neo := query2.OpenByBuf(NeoMakeRootRecord(612))
 
-	assert.True(t, old.Equal(neo.CommonNode))
+	neo2 := query2.OpenByBuf(MakeRootWithRecord(612, 666, 12, 34))
 
-	//	assert.True(t, bytes.Equal(old, neo))
+	assert.True(t, old.Equal(neo.CommonNode))
+	assert.True(t, neo2.Equal(neo.CommonNode))
 
 }
 
@@ -1444,6 +1440,8 @@ func Test_CommonList(t *testing.T) {
 		file.SetIndexAt(query2.FromInt64(3000 + int64(i)))
 		file.SetName(base.FromByteList([]byte("namedayoadd")))
 		file.Merge()
+		// c1, e := (*base.List)(cl.CommonNode).At(i)
+		// _, _ = c1, e
 		cl.SetAt(cnt+i, file.CommonNode)
 	}
 
@@ -1750,4 +1748,93 @@ func Test_RecordListEqual(t *testing.T) {
 	assert.Equal(t, elm.Size().Int64(), elm2.Size().Int64())
 	assert.Equal(t, elm.OffsetOfValue().Int32(), elm2.OffsetOfValue().Int32())
 	assert.Equal(t, elm.ValueSize().Int32(), elm2.ValueSize().Int32())
+}
+
+func Test_unsafeFbsInfoLoad(t *testing.T) {
+	type FbsVTable struct {
+		VLen    uint16
+		TLen    uint16
+		Offsets []byte
+	}
+
+	type FbsTable struct {
+		Offset int32
+		Data   []byte
+	}
+
+	type Record struct {
+		FileId        uint64
+		Offset        int64
+		Size          int64
+		OffsetOfValue int32
+		ValueSize     int32
+	}
+
+	i := 0
+	rec := query2.NewRecord()
+	rec.SetFileId(
+		query2.FromUint64(
+			uint64(i + 1)))
+	rec.SetOffset(
+		query2.FromInt64(
+			int64(i + 2)))
+	rec.SetSize(
+		query2.FromInt64(
+			int64(i + 3)))
+	rec.SetOffsetOfValue(
+		query2.FromInt32(
+			int32(i + 4)))
+	rec.SetValueSize(
+		query2.FromInt32(
+			int32(i + 5)))
+	rec.Flatten()
+
+	buf := rec.R(0)
+
+	stdoutDumper := hex.Dumper(os.Stdout)
+	stdoutDumper.Write(buf)
+	b := flatbuffers.NewBuilder(130)
+	b.Finish(vfs_schema.CreateRecord(b, uint64(i+1), int64(i+2), int64(i+3), int32(i+4), int32(i+5)))
+	buf2 := b.FinishedBytes()
+	fmt.Print("\n")
+	stdoutDumper = hex.Dumper(os.Stdout)
+	stdoutDumper.Write(buf2)
+	fmt.Print("\n")
+
+	rec2 := (*Record)(unsafe.Pointer(&buf[0]))
+	assert.Equal(t, int64(i+2), rec2.Offset)
+	assert.Equal(t, int32(i+4), rec2.OffsetOfValue)
+
+	// vtable := (*FbsVTable)(unsafe.Pointer(&buf[0]))
+	// fmt.Printf("&vtable=%x &buf[0]=%x\n", &vtable.VLen, &buf[0])
+	// table :=
+	// 	(*FbsTable)(
+	// 		unsafe.Pointer(
+	// 			uintptr(unsafe.Pointer(&buf[0])) +
+	// 				uintptr(vtable.VLen)))
+
+	// assert.Equal(t, uint16(14), vtable.VLen)
+	// assert.Equal(t, uint16(4), vtable.TLen)
+
+	// assert.Equal(t, int32(20), table.Offset)
+
+}
+
+func Test_ListOfDoubleLayer(t *testing.T) {
+
+	base.SetDefaultBase("DobuleLayer")(&base.DefaultOption)
+
+	rlist := query2.NewRecordList()
+
+	for i := 0; i < 5; i++ {
+		rec := query2.NewRecord()
+		rec.Base = base.NewDoubleLayer(rec.Base)
+		rec.SetFileId(query2.FromUint64(uint64(i)))
+		rec.SetOffset(query2.FromInt64(8))
+		rec.SetSize(query2.FromInt64(7))
+		rec.SetOffsetOfValue(query2.FromInt32(6))
+		rec.SetValueSize(query2.FromInt32(5))
+		rlist.SetAt(i, rec)
+	}
+
 }
