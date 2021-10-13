@@ -15,8 +15,12 @@ type Option func(*OptionState)
 func SetDefaultBase(name string) Option {
 
 	return func(opt *OptionState) {
-		if name == "NoLayer" {
+		switch name {
+		case "NoLayer":
 			opt.base = &NoLayer{}
+			return
+		case "DobuleLayer":
+			opt.base = &DoubleLayer{}
 			return
 		}
 		opt.base = &BaseImpl{}

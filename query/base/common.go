@@ -278,6 +278,16 @@ RESULT:
 	name := All_IdxToName[node.Name][idx]
 	cNode.Name = name
 	cNode.FetchIndex()
+	// a := node.Base.Impl()
+	// b := cNode.Base
+	// _, _ = a, b
+
+	if !IsStructName[node.Name] && !node.VirtualTableIsZero(idx) && !node.Base.Impl().Equal(cNode.Base.Impl()) {
+		Log(LOG_DEBUG, func() LogArgs {
+			return F("FieldAt: Invalid Node=%s idx=%d\n", node.Name, idx)
+		})
+	}
+
 	return cNode
 }
 
@@ -863,6 +873,8 @@ func (node *CommonNode) InsertSpace(pos, size int, isInsert bool) {
 			node.Node.Pos += size
 		}
 		node.Base = newBase
+		//node.Base.Impl().overwrite(newBase.Impl())
+
 	}()
 
 	//FIXME: if dont has root, not update vtable
@@ -888,6 +900,7 @@ func (node *CommonNode) InsertSpace(pos, size int, isInsert bool) {
 			continue
 		}
 		tree.Node.Base = newBase
+		//tree.Node.Base.Impl().overwrite(newBase.Impl())
 		idx, err := loncha.IndexOf(tree.Childs, func(i int) bool {
 			return tree.Childs[i] == cTree
 		})
@@ -1328,7 +1341,7 @@ func (n1 *CommonNode) Equal(n2 *CommonNode) bool {
 		size := TypeToSize[n1.IdxToType[i]]
 
 		f1 := n1.FieldAt(i)
-		f2 := n1.FieldAt(i)
+		f2 := n2.FieldAt(i)
 
 		if len(f1.R(f1.Node.Pos)) < size || len(f2.R(f2.Node.Pos)) < size {
 			return false

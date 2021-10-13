@@ -121,7 +121,7 @@ type Base interface {
 	NewFromBytes([]byte) Base
 	Impl() *BaseImpl
 	Type() uint8
-	Dump(pos int)
+	Dump(int, ...DumpOptFn)
 }
 
 // BaseImpl ... Base Object of byte buffer for flatbuffers
@@ -225,14 +225,49 @@ func IsMatchBit(i, j int) bool {
 	return false
 }
 
-func (b *BaseImpl) Dump(pos int) {
+type DumpOptFn func(opt *DumpOpt)
+type DumpOpt struct {
+	size int
+}
+
+func (opt *DumpOpt) merge(fns ...DumpOptFn) {
+
+	for _, fn := range fns {
+		fn(opt)
+	}
+}
+
+func OptDumpSize(size int) DumpOptFn {
+
+	return func(opt *DumpOpt) {
+		opt.size = size
+	}
+}
+
+func (b *BaseImpl) Dump(pos int, opts ...DumpOptFn) {
+
+	opt := DumpOpt{size: 0}
+	opt.merge(opts...)
 
 	fmt.Printf("--dump-pos--\n")
 	fmt.Printf("\tpos=0x%x(%d)\n", pos, pos)
 	stdoutDumper := hex.Dumper(os.Stdout)
-	stdoutDumper.Write(b.R(pos))
-	fmt.Print("--dump-end---\n")
+	defer func() {
+		fmt.Print("\n--dump-end---\n")
+	}()
 
+	if opt.size == 0 || len(b.R(pos)) > opt.size {
+		stdoutDumper.Write(b.R(pos))
+		return
+	}
+
+	d := &BaseImpl{
+		r:     b.r,
+		bytes: append([]byte{}, b.bytes...),
+		Diffs: append([]Diff{}, b.Diffs...),
+	}
+	d.Flatten()
+	stdoutDumper.Write(d.R(pos))
 }
 
 // NewBaseImpl ... initialize BaseImpl struct via buffer(buf)
@@ -321,6 +356,7 @@ func (b *BaseImpl) R(off int) []byte {
 			return F("base.R(): remain offset=%d lenBuf()=%d \n",
 				off, b.LenBuf())
 		})
+		return nil
 	}
 
 	return b.bytes[off:]

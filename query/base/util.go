@@ -353,10 +353,27 @@ func ApplyRequestNameFields() {
 	return
 }
 
+// RootName undocumented
 var RootName string = ""
 
+// SetRootName undocumented
 func SetRootName(s string) {
 	if len(RootName) == 0 {
 		RootName = s
 	}
+}
+
+// MaxInt ... return maxinum value from two values
+func MaxInt(i, j int) int {
+	if i >= j {
+		return i
+	}
+	return j
+}
+
+func MinInt(i, j int) int {
+	if i > j {
+		return j
+	}
+	return i
 }

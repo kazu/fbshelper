@@ -1,6 +1,7 @@
 package base
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 
@@ -276,6 +277,29 @@ func (node *List) At(i int) (*CommonNode, error) {
 		nNode = NewNode2(node.Base, ptr, true)
 	} else {
 		_ = node.R(ptr + 3)
+
+		recovered := false
+		defer func() {
+			if recovered {
+				return
+			}
+
+			if err := recover(); err != nil {
+				fmt.Printf("ptr=0x%x(%d) start=0x%x pos=0x%x\n", ptr, ptr,
+					ptr-node.NodeList.ValueInfo.Pos+4,
+					node.NodeList.ValueInfo.Pos,
+				)
+				dumpPos := node.NodeList.ValueInfo.Pos - 4
+				node.Dump(dumpPos, OptDumpSize(64))
+				panic(err)
+			}
+		}()
+
+		nPos := ptr + int(flatbuffers.GetUint32(node.R(ptr)))
+		if node.R(nPos) == nil {
+			return nil, ERR_NOT_FOUND
+		}
+
 		nNode = NewNode(node.Base, ptr+int(flatbuffers.GetUint32(node.R(ptr))))
 	}
 
@@ -305,6 +329,10 @@ func (node *List) Last() (*CommonNode, error) {
 // Select ... Select Elements by condtion function
 func (node *List) Select(fn func(m *CommonNode) bool) []*CommonNode {
 	result := make([]*CommonNode, 0, int(node.NodeList.ValueInfo.VLen))
+	// info := node.InfoSlice()
+	cnt := node.Count()
+	_ = cnt
+	// _ = info
 	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
 		if m, err := node.At(i); err == nil && fn(m) {
 			result = append(result, m)
@@ -350,6 +378,14 @@ func (node *List) InfoSlice() Info {
 		ptr := int(node.NodeList.ValueInfo.Pos) + (int(node.NodeList.ValueInfo.VLen)-1)*4
 		vInfo = FbsStringInfo(NewNode(node.Base, ptr+int(flatbuffers.GetUint32(node.R(ptr)))))
 	} else {
+
+		vInfos := make([]Info, 0, node.Count())
+
+		node.Select(func(e *CommonNode) bool {
+			vInfos = append(vInfos, e.Info())
+			return true
+		})
+
 		if elm, err := node.Last(); err == nil {
 			vInfo = elm.Info()
 		}
@@ -482,6 +518,8 @@ func (node *List) SetAt(idx int, elm *CommonNode) error {
 			body_extend = 0
 		}
 		dstPos := 0
+		oldImpl := node.Impl()
+
 		if header_extend > 0 {
 			flatbuffers.WriteUint32(header, uint32(total-vlen*4+vSize))
 			(*CommonNode)(node).InsertBuf(ptr, 4)
@@ -490,6 +528,7 @@ func (node *List) SetAt(idx int, elm *CommonNode) error {
 				_ = dataPtr
 				off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
 				off += 4
+				//diff := node.D(ptrIdx(i), 4)
 				flatbuffers.WriteUint32(node.U(ptrIdx(i), 4), off)
 			}
 			dstPos = ptrIdx(0) + total + header_extend
@@ -498,6 +537,9 @@ func (node *List) SetAt(idx int, elm *CommonNode) error {
 		} else {
 			dstPos = oElm.Node.Pos - vSize
 		}
+
+		t := node.Base.Type()
+		_ = t
 
 		if body_extend > 0 {
 			(*CommonNode)(node).InsertSpace(dstPos, body_extend, false)
@@ -515,6 +557,16 @@ func (node *List) SetAt(idx int, elm *CommonNode) error {
 			elm.Node.Pos-vSize, elm.Node.Size+vSize,
 			dstPos, 0)
 		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+		t = node.Base.Type()
+
+		if body_extend == 0 {
+			return nil
+		}
+
+		if node.Base.Type() == BASE_NO_LAYER || node.Base.Type() == BASE_DOUBLE_LAYER {
+			oldImpl.overwrite(node.Impl())
+		}
+
 		return nil
 	}
 

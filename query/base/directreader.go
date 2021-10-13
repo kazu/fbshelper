@@ -18,6 +18,9 @@ func NewDirectReader(b Base, r io.ReaderAt) DirectReader {
 	return DirectReader{Base: b, r: r}
 }
 
+// Type ... type of Base
+func (b DirectReader) Type() uint8 { return BASE_DIRECT_READER }
+
 // R ... read data.
 func (b DirectReader) R(offset int) (result []byte) {
 	if b.Base.LenBuf() > offset {
@@ -60,6 +63,9 @@ func NewNoLayer(b Base) NoLayer {
 	return NoLayer{}
 }
 
+// Type ... type of Base interface
+func (b NoLayer) Type() uint8 { return BASE_NO_LAYER }
+
 func (b NoLayer) insertBuf(pos, size int) Base {
 	return b.insertSpace(pos, size, true)
 }
@@ -68,9 +74,11 @@ func (b NoLayer) insertSpace(pos, size int, isCreate bool) Base {
 	nImple := b.BaseImpl.insertSpace(pos, size, isCreate).(*BaseImpl)
 
 	if nImple.LenBuf() >= pos+size {
-		b.BaseImpl = nImple
+		//b.BaseImpl = nImple
+		return NoLayer{BaseImpl: nImple}
 	} else {
-		b.BaseImpl = b.BaseImpl.insertSpace(pos, size, true).(*BaseImpl)
+		//b.BaseImpl = b.BaseImpl.insertSpace(pos, size, true).(*BaseImpl)
+		return NoLayer{BaseImpl: b.BaseImpl.insertSpace(pos, size, true).(*BaseImpl)}
 	}
 
 	return b
@@ -103,6 +111,11 @@ func (b NoLayer) R(off int) []byte {
 	newDiff := Diff{Offset: cap(b.bytes), bytes: make([]byte, 0, 512)}
 	b.Diffs = append(b.Diffs, newDiff)
 
+	if off-cap(b.bytes) < 0 || len(newDiff.bytes) < off-cap(b.bytes) {
+		//panic("hoge")
+		return nil
+	}
+
 	return newDiff.bytes[off-cap(b.bytes):]
 
 }
@@ -119,7 +132,7 @@ func (b NoLayer) D(off, size int) *Diff {
 			return &b.Diffs[sn]
 		}
 		off_diff := off - b.Diffs[sn].Offset
-		return &Diff{Offset: off, bytes: b.Diffs[sn].bytes[off_diff:]}
+		return &Diff{Offset: off, bytes: b.Diffs[sn].bytes[off_diff : off_diff+size]}
 	}
 
 	if off+size <= len(b.bytes) {
@@ -145,6 +158,9 @@ func (b NoLayer) U(off, size int) []byte {
 	diff := b.D(off, size)
 	if cap(diff.bytes) < size {
 		diff.bytes = make([]byte, size)
+	}
+	if len(diff.bytes) < size {
+		diff.bytes = diff.bytes[:size:size]
 	}
 	return diff.bytes
 }
@@ -210,4 +226,148 @@ func (b NoLayer) NewFromBytes(bytes []byte) Base {
 // New ... return new NoLayer instance
 func (b NoLayer) New(n Base) Base {
 	return NewNoLayer(n)
+}
+
+// DoubleLayer is BaseImpl with Single Diff
+type DoubleLayer struct {
+	*BaseImpl
+}
+
+// NewDoubleLayer ... return DobuleLayer
+func NewDoubleLayer(b Base) DoubleLayer {
+	if _, already := b.(DoubleLayer); already {
+		return b.(DoubleLayer)
+	}
+	if impl, ok := b.(*BaseImpl); ok {
+
+		if len(impl.Diffs) > 0 {
+			impl.Flatten()
+		}
+		return DoubleLayer{BaseImpl: impl}
+	}
+	return DoubleLayer{}
+
+}
+
+// Type ... type of Base interface
+func (b DoubleLayer) Type() uint8 { return BASE_DOUBLE_LAYER }
+
+func (b DoubleLayer) mergeDiffs() {
+
+	if len(b.Diffs) < 2 {
+		return
+	}
+
+	for i := 1; i < len(b.Diffs); i++ {
+		b.Diffs[0].Merge(&b.Diffs[i])
+	}
+	return
+}
+
+func (b DoubleLayer) insertBuf(pos, size int) Base {
+	return b.insertSpace(pos, size, true)
+}
+
+func (b DoubleLayer) insertSpace(pos, size int, isCreate bool) Base {
+
+	b.mergeDiffs()
+
+	newBase := &BaseImpl{
+		r:     b.r,
+		bytes: b.bytes,
+	}
+	newBase.Diffs = make([]Diff, len(b.Diffs), cap(b.Diffs))
+	copy(newBase.Diffs, b.Diffs)
+
+	if len(newBase.Diffs) == 0 {
+		blen := MaxInt(size, size+len(newBase.bytes)-pos)
+		diff := Diff{Offset: pos, bytes: make([]byte, blen, blen)}
+		defer func() {
+			newBase.Diffs = append(newBase.Diffs, diff)
+		}()
+
+		if len(newBase.bytes) <= pos {
+			return newBase
+		}
+		copy(diff.bytes[:size], newBase.bytes[pos:])
+
+		return newBase
+	}
+
+	diff := &newBase.Diffs[0]
+
+	if diff.Include(pos) {
+
+		if cap(diff.bytes[:pos])-len(diff.bytes[:pos]) >= size {
+			diff.bytes = diff.bytes[:len(diff.bytes)+size]
+			copy(diff.bytes[pos-diff.Offset+size:], diff.bytes[pos-diff.Offset:])
+			copy(diff.bytes[pos-diff.Offset:pos-diff.Offset+size], make([]byte, size, size))
+		} else {
+			nbytes := make([]byte, len(diff.bytes)+size, 2*len(diff.bytes)+size)
+			copy(nbytes, diff.bytes[:pos-diff.Offset])
+			copy(nbytes[pos-diff.Offset+size:], diff.bytes[pos-diff.Offset:])
+			diff.bytes = nbytes
+		}
+		return newBase
+	}
+
+	if diff.Offset > pos {
+		nbytes := make([]byte, len(diff.bytes)+size, 2*(len(diff.bytes)+size))
+		copy(nbytes[size:], diff.bytes)
+		diff.Offset = pos
+		diff.bytes = nbytes
+	} else {
+		nbytes := make([]byte, (pos - diff.Offset + size), 2*(pos-diff.Offset+size))
+		copy(nbytes, diff.bytes)
+		diff.bytes = nbytes
+	}
+
+	return newBase
+
+}
+
+// R ... read buffer
+func (b DoubleLayer) R(off int) []byte {
+
+	b.mergeDiffs()
+
+	return NoLayer{BaseImpl: b.BaseImpl}.R(off)
+}
+
+// D ... return Diff for write
+func (b DoubleLayer) D(off, size int) *Diff {
+
+	b.mergeDiffs()
+
+	if len(b.Diffs) == 0 {
+		b.Diffs = append(b.Diffs, Diff{Offset: off, bytes: make([]byte, size, size*2)})
+		return &b.Diffs[0]
+	}
+
+	return NoLayer{BaseImpl: b.BaseImpl}.D(off, size)
+
+}
+
+// U ... return buffer for update
+func (b DoubleLayer) U(off, size int) []byte {
+	b.mergeDiffs()
+
+	return NoLayer{BaseImpl: b.BaseImpl}.U(off, size)
+}
+
+func (b DoubleLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
+
+	NoLayer{BaseImpl: b.BaseImpl}.Copy(osrc, srcOff, size, dstOff, extend)
+	b.mergeDiffs()
+	return
+}
+
+// NewFromBytes ... return new NoLayer instance with byte buffer.
+func (b DoubleLayer) NewFromBytes(bytes []byte) Base {
+	return NewDoubleLayer(NewBaseImpl(bytes))
+}
+
+// New ... return new NoLayer instance
+func (b DoubleLayer) New(n Base) Base {
+	return NewDoubleLayer(n)
 }

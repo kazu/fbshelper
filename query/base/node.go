@@ -67,6 +67,11 @@ func (n *Node) preLoadVtable() {
 	n.TLen = uint16(flatbuffers.GetVOffsetT(n.R(vPos + 2)))
 
 	for cur := vPos + 4; cur < vPos+vLen; cur += 2 {
+		if len(n.R(cur)) < 2 {
+			a := n.R(cur)
+			_ = a
+			panic("invalid preLoadVtable")
+		}
 		flatbuffers.GetVOffsetT(n.R(cur))
 	}
 }
