@@ -31,6 +31,14 @@ func (node NumListList) At(i int) (result *NumList, e error) {
 	return
 }
 
+func (node NumListList) AtWihoutError(i int) (result *NumList) {
+	result, e := node.At(i)
+	if e != nil {
+		result = nil
+	}
+	return
+}
+
 func (node NumListList) SetAt(i int, v *NumList) error {
 	return (*base.List)(node.CommonNode).SetAt(i, v.CommonNode)
 }
