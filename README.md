@@ -10,8 +10,9 @@ flatbuffers parser/helper utils for golang
 
 ## content 
 
-see cmd/fbs-query/README.md
+show detail 
+- [cmd/fbs-query](cmd/fbs-query): generate flatbuffers query operation code.  
 
 ## TODO
 
-- [ ] double layer buffer
+- [x] double layer buffer
