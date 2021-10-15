@@ -122,6 +122,7 @@ type Base interface {
 	Impl() *BaseImpl
 	Type() uint8
 	Dump(int, ...DumpOptFn)
+	Dup() Base
 }
 
 // BaseImpl ... Base Object of byte buffer for flatbuffers
@@ -298,6 +299,19 @@ func NewBaseImplByIO(rio io.Reader, cap int) *BaseImpl {
 	b := &BaseImpl{r: rio, bytes: make([]byte, 0, cap)}
 	return b
 }
+
+// Dup ... return copied Base.
+func (b *BaseImpl) Dup() (dst Base) {
+
+	dbytes := make([]byte, len(b.R(0)))
+	copy(dbytes, b.R(0))
+
+	dst = b.NewFromBytes(dbytes)
+
+	dst.SetDiffs(b.GetDiffs())
+	return dst
+}
+
 func (b *BaseImpl) Type() uint8 { return BASE_IMPL }
 
 func (dst *BaseImpl) overwrite(src *BaseImpl) {
@@ -439,9 +453,14 @@ func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
 		b.Diffs = append(b.Diffs, diff)
 	}
 	for _, diff := range srcDiffs {
-		if diff.Offset >= srcOff {
+		// if Diff.Inner(srcOff, size) { //FIXME ?
+		if diff.Offset >= srcOff && diff.Offset < srcOff+size {
 			nDiff := diff
 			if (nDiff.Offset-srcOff)+len(nDiff.bytes) > size {
+				l := size - (diff.Offset - srcOff)
+				if l > 0 {
+					l = size
+				}
 				nDiff.bytes = nDiff.bytes[:size-(diff.Offset-srcOff)]
 			}
 			nDiff.Offset -= srcOff
