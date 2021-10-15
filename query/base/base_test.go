@@ -3,6 +3,7 @@ package base_test
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -1538,6 +1539,17 @@ func Test_Add_CommonList(t *testing.T) {
 	assert.Equal(t, file2.Name().Bytes(), file3.Name().Bytes())
 }
 
+func DupBase(src base.Base) (dst base.Base) {
+
+	dbytes := make([]byte, len(src.R(0)))
+	copy(dbytes, src.R(0))
+
+	dst = src.NewFromBytes(dbytes)
+
+	dst.SetDiffs(src.GetDiffs())
+	return dst
+}
+
 func Test_List_Swap(t *testing.T) {
 
 	flist := query2.NewFileList()
@@ -1562,6 +1574,226 @@ func Test_List_Swap(t *testing.T) {
 
 	assert.Equal(t, uint64(4), at0.Id().Uint64())
 	assert.Equal(t, uint64(0), at4.Id().Uint64())
+}
+
+func Test_List_Swap2(t *testing.T) {
+
+	basePrepareFileListFn := func(cnt int) interface{} {
+		flist := query2.NewFileList()
+		flist.Base = base.NewNoLayer(flist.Base)
+
+		for i := 0; i < cnt; i++ {
+			file := query2.NewFile()
+			file.Base = base.NewNoLayer(file.Base)
+			file.SetId(query2.FromUint64(uint64(i * 3)))
+			file.SetIndexAt(query2.FromInt64(2000 + int64(i*3)))
+			file.SetName(base.FromByteList([]byte("namedayo")))
+
+			flist.SetAt(i, file)
+		}
+		return flist
+	}
+
+	baseCheckFileListFn := func(list interface{}, i, j int) error {
+		l, ok := list.(*query2.FileList)
+		if !ok {
+			return errors.New("list is not FileList")
+		}
+
+		oi, e := l.At(i)
+		if e != nil {
+			return fmt.Errorf("l.At(%d) is not found", i)
+		}
+		oi.Base = DupBase(oi.Base)
+
+		oj, e := l.At(j)
+		if e != nil {
+			return fmt.Errorf("l.At(%d) is not found", j)
+		}
+		oj.Base = DupBase(oj.Base)
+
+		l.SwapAt(i, j)
+		if !oi.CommonNode.Equal(l.AtWihoutError(j).CommonNode) {
+			var ob, b strings.Builder
+			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
+			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
+
+			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+				i, j, i, j,
+				ob.String(), b.String(),
+			)
+		}
+
+		if !oj.CommonNode.Equal(l.AtWihoutError(i).CommonNode) {
+			var ob, b strings.Builder
+			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
+			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
+
+			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+				j, i, j, i,
+				b.String(),
+				ob.String(),
+			)
+		}
+		var oib, ojb, ib, jb strings.Builder
+		oi.Dump(oi.Node.Pos, base.OptDumpOut(&oib), base.OptDumpSize(100))
+		l.AtWihoutError(j).Dump(l.AtWihoutError(i).Node.Pos, base.OptDumpOut(&ib), base.OptDumpSize(100))
+		oj.Dump(oi.Node.Pos, base.OptDumpOut(&ojb), base.OptDumpSize(100))
+		l.AtWihoutError(i).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&jb), base.OptDumpSize(100))
+
+		fmt.Printf("i=%d j =%d\n", i, j)
+		fmt.Printf("oi dump %s\n", oib.String())
+		fmt.Printf("i dump %s\n", ib.String())
+		fmt.Printf("oj dump %s\n", ojb.String())
+		fmt.Printf("j dump %s\n", jb.String())
+
+		return nil
+	}
+
+	basePrepareRecordListFn := func(cnt int) interface{} {
+		list := query.NewRecordList()
+		list.Base = base.NewNoLayer(list.Base)
+
+		for i := 0; i < cnt; i++ {
+
+			rec := query.NewRecord()
+			rec.SetFileId(query.FromUint64(uint64(2)))
+			rec.SetOffset(query.FromInt64(int64(i * 2)))
+			list.SetAt(list.Count(), rec)
+		}
+		return list
+	}
+
+	baseCheckRecordListFn := func(list interface{}, i, j int) error {
+		l, ok := list.(*query2.RecordList)
+		if !ok {
+			return errors.New("list is not RecordList")
+		}
+
+		oi, e := l.At(i)
+		if e != nil {
+			return fmt.Errorf("l.At(%d) is not found", i)
+		}
+		oi.Base = DupBase(oi.Base)
+
+		oj, e := l.At(j)
+		if e != nil {
+			return fmt.Errorf("l.At(%d) is not found", j)
+		}
+		oj.Base = DupBase(oj.Base)
+
+		l.SwapAt(i, j)
+		if !oi.CommonNode.Equal(l.AtWihoutError(j).CommonNode) {
+			var ob, b strings.Builder
+			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
+			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
+
+			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+				i, j, i, j,
+				ob.String(), b.String(),
+			)
+		}
+
+		if !oj.CommonNode.Equal(l.AtWihoutError(i).CommonNode) {
+			var ob, b strings.Builder
+			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
+			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
+
+			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+				j, i, j, i,
+				b.String(),
+				ob.String(),
+			)
+		}
+		var oib, ojb, ib, jb strings.Builder
+		oi.Dump(oi.Node.Pos, base.OptDumpOut(&oib), base.OptDumpSize(100))
+		l.AtWihoutError(j).Dump(l.AtWihoutError(i).Node.Pos, base.OptDumpOut(&ib), base.OptDumpSize(100))
+		oj.Dump(oj.Node.Pos, base.OptDumpOut(&ojb), base.OptDumpSize(100))
+		l.AtWihoutError(i).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&jb), base.OptDumpSize(100))
+
+		fmt.Printf("i=%d j =%d\n", i, j)
+		fmt.Printf("oi dump %s\n", oib.String())
+		fmt.Printf("i dump %s\n", ib.String())
+		fmt.Printf("oj dump %s\n", ojb.String())
+		fmt.Printf("j dump %s\n", jb.String())
+
+		return nil
+	}
+
+	tests := []struct {
+		name     string
+		exam     []int
+		listSize int
+		prepare  func(int) interface{}
+		check    func(list interface{}, swapI, sweapJ int) error
+	}{
+		{
+			name: "Table List swap",
+			prepare: func(cnt int) interface{} {
+				return basePrepareFileListFn(cnt)
+			},
+			exam:     []int{0, 4},
+			listSize: 5,
+			check: func(list interface{}, i, j int) error {
+				return baseCheckFileListFn(list, i, j)
+			},
+		},
+		{
+			name: "Table(after append) List swap",
+			prepare: func(cnt int) interface{} {
+				l := basePrepareFileListFn(cnt).(*query2.FileList)
+				file := query2.NewFile()
+				file.Base = base.NewNoLayer(file.Base)
+				file.SetId(query2.FromUint64(uint64(8)))
+				file.SetIndexAt(query2.FromInt64(2000 + int64(8)))
+				file.SetName(base.FromByteList([]byte("namedayo")))
+
+				l.SetAt(l.Count(), file)
+				return l
+			},
+			exam:     []int{3, 5},
+			listSize: 5,
+			check: func(list interface{}, i, j int) error {
+				return baseCheckFileListFn(list, i, j)
+			},
+		},
+		{
+			name: "Struct List swap",
+			prepare: func(cnt int) interface{} {
+				return basePrepareRecordListFn(cnt)
+			},
+			exam:     []int{0, 4},
+			listSize: 5,
+			check: func(list interface{}, i, j int) error {
+				return baseCheckRecordListFn(list, i, j)
+			},
+		},
+		{
+			name: "Struct(after append) List swap",
+			prepare: func(cnt int) interface{} {
+				l := basePrepareRecordListFn(cnt).(*query2.RecordList)
+				i := 9
+				rec := query.NewRecord()
+				rec.SetFileId(query.FromUint64(uint64(2)))
+				rec.SetOffset(query.FromInt64(int64(i)))
+
+				l.SetAt(l.Count(), rec)
+				return l
+			},
+			exam:     []int{3, 5},
+			listSize: 5,
+			check: func(list interface{}, i, j int) error {
+				return baseCheckRecordListFn(list, i, j)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s size=%d i=%d j=%d", tt.name, tt.listSize, tt.exam[0], tt.exam[1]), func(t *testing.T) {
+			list := tt.prepare(tt.listSize)
+			assert.NoError(t, tt.check(list, tt.exam[0], tt.exam[1]))
+		})
+	}
 
 }
 

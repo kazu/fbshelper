@@ -327,6 +327,35 @@ func Test_R(t *testing.T) {
 				return withoutE(root.Index().IndexNum().Maps().At(cnt - 1)).Key().Node.Pos
 			},
 		},
+		// {
+		// 	name:    "Get root.Index().IndexNum().Size()",
+		// 	expect:  &expect,
+		// 	targets: []*query2.Root{&nolayer, &doubleLayer},
+		// 	prepare: func(root *query2.Root, isTarget bool, i int) {
+		// 		idxNum := root.Index().IndexNum()
+		// 		invlist := idxNum.Maps()
+
+		// 		inv := query2.NewInvertedMapNum()
+
+		// 		rec := query2.NewRecord()
+		// 		rec.SetFileId(query2.FromUint64(198 + 1))
+		// 		rec.SetOffset(query2.FromInt64(198 + 2))
+
+		// 		inv.SetKey(query2.FromInt64(98))
+		// 		inv.SetValue(rec)
+
+		// 		invlist.SetAt(invlist.Count(), inv)
+
+		// 		if isTarget {
+		// 			idxNum.SetMaps(invlist)
+		// 			root.SetIndex(&query2.Index{CommonNode: idxNum.CommonNode})
+		// 		}
+		// 	},
+		// 	off: func(root *query2.Root) int {
+		// 		return root.Index().IndexNum().Maps()
+		// 	},
+		// },
+
 	}
 
 	for _, tt := range tests {

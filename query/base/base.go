@@ -147,6 +147,11 @@ type Diff struct {
 	bytes  []byte
 }
 
+// NewDiff .. create Diff from outside package
+func NewDiff(o int, data []byte) Diff {
+	return Diff{Offset: o, bytes: data}
+}
+
 // Include .. check pos with diff range.
 func (d Diff) Include(pos int) bool {
 	return d.Offset <= pos && pos <= d.Offset+len(d.bytes)-1
@@ -228,6 +233,7 @@ func IsMatchBit(i, j int) bool {
 type DumpOptFn func(opt *DumpOpt)
 type DumpOpt struct {
 	size int
+	out  io.Writer
 }
 
 func (opt *DumpOpt) merge(fns ...DumpOptFn) {
@@ -244,16 +250,28 @@ func OptDumpSize(size int) DumpOptFn {
 	}
 }
 
+func OptDumpOut(w io.Writer) DumpOptFn {
+
+	return func(opt *DumpOpt) {
+		opt.out = w
+	}
+}
+
 func (b *BaseImpl) Dump(pos int, opts ...DumpOptFn) {
 
 	opt := DumpOpt{size: 0}
 	opt.merge(opts...)
 
-	fmt.Printf("--dump-pos--\n")
-	fmt.Printf("\tpos=0x%x(%d)\n", pos, pos)
-	stdoutDumper := hex.Dumper(os.Stdout)
+	if opt.out == nil {
+		opt.out = os.Stdout
+	}
+	w := opt.out
+
+	fmt.Fprintf(w, "--dump-pos--\n")
+	fmt.Fprintf(w, "\tpos=0x%x(%d)\n", pos, pos)
+	stdoutDumper := hex.Dumper(w)
 	defer func() {
-		fmt.Print("\n--dump-end---\n")
+		fmt.Fprint(w, "\n--dump-end---\n")
 	}()
 
 	if opt.size == 0 || len(b.R(pos)) > opt.size {
