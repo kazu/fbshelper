@@ -857,13 +857,16 @@ func Test_BaseCopy(t *testing.T) {
 		SrcSize int
 		DstOff  int
 		Extend  int
+		diffs   []base.Diff
 	}{
-		{4, 6, 6, 6},
-		{0, 16, 0, 16},  // add to front
-		{0, 16, 16, 16}, // add to last
-		{4, 4, 4, 0},    // overwrite
-		{4, 4, 0, 0},    // overwrite front
-		{4, 4, 12, 0},   // overwrite back
+		{4, 6, 6, 6, nil},
+		{0, 16, 0, 16, nil},  // add to front
+		{0, 16, 16, 16, nil}, // add to last
+		{4, 4, 4, 0, nil},    // overwrite
+		{4, 4, 0, 0, nil},    // overwrite front
+		{4, 4, 12, 0, nil},   // overwrite back
+		{4, 6, 6, 6, []base.Diff{base.NewDiff(3, []byte{1, 2})}},
+		{4, 6, 6, 6, []base.Diff{base.NewDiff(1, []byte{1, 2})}},
 	}
 	base.SetDefaultBase("NoLayer")(&base.DefaultOption)
 
@@ -876,7 +879,9 @@ func Test_BaseCopy(t *testing.T) {
 
 			node := base.NewNode2(base.NewBase(buf1), 0, true)
 			node2 := base.NewNode2(base.NewBase(buf2), 0, true)
-
+			if tt.diffs != nil {
+				node2.Base.SetDiffs(tt.diffs)
+			}
 			node.Copy(node2.Base, tt.SrcOff, tt.SrcSize, tt.DstOff, tt.Extend)
 
 			assert.Equal(t, node.R(tt.DstOff)[0], node2.R(tt.SrcOff)[0])

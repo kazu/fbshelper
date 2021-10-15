@@ -191,9 +191,9 @@ func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 
 	for _, diff := range srcDiffs {
 		diff.Offset -= srcOff
-		if diff.Offset < 0 && len(diff.bytes)-diff.Offset > 0 {
+		if diff.Offset < 0 && len(diff.bytes)+diff.Offset > 0 {
+			diff.bytes = diff.bytes[-diff.Offset:]
 			diff.Offset = 0
-			diff.bytes = diff.bytes[srcOff:]
 			if len(diff.bytes) > size {
 				diff.bytes = diff.bytes[:size:size]
 			}
