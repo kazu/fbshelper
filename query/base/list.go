@@ -439,12 +439,66 @@ NO_NODE:
 
 }
 
-// SetAt ... Set Element to list
-func (node *List) SetAt(idx int, elm *CommonNode) error {
+// func (list *List) Add(slist *List) error {
 
-	if idx > int(node.NodeList.ValueInfo.VLen) {
-		return ERR_INVALID_INDEX
-	}
+// 	elm, err := slist.First()
+// 	if err != nil {
+// 		//FIXME error
+// 		return fmt.Errorf("(*List).Append(): fail slist.First() err=%s", err)
+// 	}
+// 	g := GetTypeGroup(elm.Name)
+
+// 	if IsFieldBasicType(g) || IsFieldStruct(g) {
+// 		return list.addBasicList(slist)
+// 	}
+
+// 	if IsFieldUnion(g) {
+// 		return ERR_NO_SUPPORT
+// 	}
+
+// 	if IsFieldTable(g) {
+// 		return list.addTableList(slist)
+// 	}
+
+// 	return ERR_NO_SUPPORT
+// }
+
+// func (list *List) vlenAndTotals(slist *List) (vlens []int, totals []int) {
+
+// 	vlens = make([]int, 0, 2)
+// 	totals = make([]int, 0, 2)
+
+// 	for _, node := range []*List{list, slist} {
+// 		if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
+// 			node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+// 		}
+// 		if node.NodeList.ValueInfo.VLen == 0 {
+// 			node.NodeList.ValueInfo.Size = 0
+// 		}
+// 		vlens = append(vlens, int(node.NodeList.ValueInfo.VLen))
+// 		totals = append(totals, int(node.NodeList.ValueInfo.Size))
+// 	}
+// 	return
+// }
+
+// func (list *List) addBasicList(slist *List) error {
+
+// 	for _, elm := range slist.All() {
+// 		if e := list.setStructAt(list.Count(), elm); e != nil {
+// 			return e
+// 		}
+// 	}
+
+// 	return nil
+
+// }
+
+// func (list *List) addTableList(slist *List) error {
+
+// 	return nil
+// }
+
+func (node *List) vlenTotal() (int, int) {
 
 	if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
 		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
@@ -452,124 +506,155 @@ func (node *List) SetAt(idx int, elm *CommonNode) error {
 	if node.NodeList.ValueInfo.VLen == 0 {
 		node.NodeList.ValueInfo.Size = 0
 	}
-	vlen := int(node.NodeList.ValueInfo.VLen)
-	total := node.NodeList.ValueInfo.Size
+
+	return int(node.NodeList.ValueInfo.VLen), node.NodeList.ValueInfo.Size
+
+}
+
+func (node *List) setStructAt(idx int, elm *CommonNode) error {
+
+	if idx > int(node.NodeList.ValueInfo.VLen) {
+		return ERR_INVALID_INDEX
+	}
+
+	vlen, total := node.vlenTotal()
+
+	// new element
+	if elm.Node.Size <= 0 {
+		elm.Node.Size = elm.Info().Size
+	}
+	ptr := int(node.NodeList.ValueInfo.Pos) + idx*elm.Node.Size
+	//node.insertBuf(node.NodeList.ValueInfo.Pos + total, elm.Node.Size)
+	extend := 0
+	if vlen == idx {
+		extend = elm.Node.Size
+	}
+	node.Copy(
+		elm.Base, elm.Node.Pos, elm.Node.Size,
+		ptr, extend)
+
+	total += extend
+	if vlen == idx {
+		vlen++
+		flatbuffers.WriteUint32(node.U(node.NodeList.ValueInfo.Pos-4, 4), uint32(vlen))
+	}
+	node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+	return nil
+
+}
+
+func (node *List) setTableAt(idx int, elm *CommonNode) error {
+
+	if idx > int(node.NodeList.ValueInfo.VLen) {
+		return ERR_INVALID_INDEX
+	}
+
+	vlen, total := node.vlenTotal()
+
+	// new element
+	vSize := elm.CountOfField()*2 + 4
+	oSize := 0
+	var oElm *CommonNode
+	if idx < vlen {
+		oElm, _ = node.At(idx)
+		oSize = oElm.Info().Size
+	}
+	if elm.Node.Size <= 0 {
+		elm.Node.Size = elm.Info().Size
+	}
+	ptrIdx := func(idx int) int {
+		return int(node.NodeList.ValueInfo.Pos) + idx*4
+	}
+	ptr := ptrIdx(idx)
+
+	header := make([]byte, 4)
+
+	//flatbuffers.WriteUint32(off, uint32(total-vlen*4+vSize))
+
+	header_extend := 0
+	body_extend := 0
+	if vlen == idx {
+		header_extend = 4
+	}
+
+	if header_extend > 0 {
+		body_extend = elm.Node.Size + vSize
+	} else {
+		body_extend = elm.Node.Size - oSize
+	}
+	if body_extend < 0 {
+		body_extend = 0
+	}
+	dstPos := 0
+	oldImpl := node.Impl()
+
+	if header_extend > 0 {
+		flatbuffers.WriteUint32(header, uint32(total-vlen*4+vSize))
+		(*CommonNode)(node).InsertBuf(ptr, 4)
+		for i := 0; i < vlen; i++ {
+			dataPtr := ptrIdx(i)
+			_ = dataPtr
+			off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
+			off += 4
+			//diff := node.D(ptrIdx(i), 4)
+			flatbuffers.WriteUint32(node.U(ptrIdx(i), 4), off)
+		}
+		dstPos = ptrIdx(0) + total + header_extend
+		flatbuffers.WriteUint32(node.U(ptrIdx(idx), 4), uint32(dstPos+vSize-ptr))
+		vlen++
+	} else {
+		dstPos = oElm.Node.Pos - vSize
+	}
+
+	t := node.Base.Type()
+	_ = t
+
+	if body_extend > 0 {
+		(*CommonNode)(node).InsertSpace(dstPos, body_extend, false)
+		if header_extend == 0 {
+			for i := idx + 1; i < vlen; i++ {
+				off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
+				off += uint32(body_extend)
+				flatbuffers.WriteUint32(node.U(ptrIdx(i), 4), off)
+			}
+		}
+	}
+	// update vlen
+	flatbuffers.WriteUint32(node.U(ptrIdx(-1), 4), uint32(vlen))
+	node.Copy(elm.Base,
+		elm.Node.Pos-vSize, elm.Node.Size+vSize,
+		dstPos, 0)
+	node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+	t = node.Base.Type()
+
+	if body_extend == 0 {
+		return nil
+	}
+
+	if node.Base.Type() == BASE_NO_LAYER || node.Base.Type() == BASE_DOUBLE_LAYER {
+		oldImpl.overwrite(node.Impl())
+	}
+
+	return nil
+
+}
+
+// SetAt ... Set Element to list
+func (node *List) SetAt(idx int, elm *CommonNode) error {
 
 	g := GetTypeGroup(elm.Name)
 	//ptr := int(node.NodeList.ValueInfo.Pos) + vlen*4
 
 	if IsFieldBasicType(g) || IsFieldStruct(g) {
-		// new element
-		if elm.Node.Size <= 0 {
-			elm.Node.Size = elm.Info().Size
-		}
-		ptr := int(node.NodeList.ValueInfo.Pos) + idx*elm.Node.Size
-		//node.insertBuf(node.NodeList.ValueInfo.Pos + total, elm.Node.Size)
-		extend := 0
-		if vlen == idx {
-			extend = elm.Node.Size
-		}
-		node.Copy(
-			elm.Base, elm.Node.Pos, elm.Node.Size,
-			ptr, extend)
+		return node.setStructAt(idx, elm)
 
-		total += extend
-		if vlen == idx {
-			vlen++
-			flatbuffers.WriteUint32(node.U(node.NodeList.ValueInfo.Pos-4, 4), uint32(vlen))
-		}
-		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
-		return nil
-	} else if IsFieldUnion(g) {
-		return ERR_NO_SUPPORT
-	} else if IsFieldTable(g) {
-		// new element
-		vSize := elm.CountOfField()*2 + 4
-		oSize := 0
-		var oElm *CommonNode
-		if idx < vlen {
-			oElm, _ = node.At(idx)
-			oSize = oElm.Info().Size
-		}
-		if elm.Node.Size <= 0 {
-			elm.Node.Size = elm.Info().Size
-		}
-		ptrIdx := func(idx int) int {
-			return int(node.NodeList.ValueInfo.Pos) + idx*4
-		}
-		ptr := ptrIdx(idx)
-
-		header := make([]byte, 4)
-
-		//flatbuffers.WriteUint32(off, uint32(total-vlen*4+vSize))
-
-		header_extend := 0
-		body_extend := 0
-		if vlen == idx {
-			header_extend = 4
-		}
-
-		if header_extend > 0 {
-			body_extend = elm.Node.Size + vSize
-		} else {
-			body_extend = elm.Node.Size - oSize
-		}
-		if body_extend < 0 {
-			body_extend = 0
-		}
-		dstPos := 0
-		oldImpl := node.Impl()
-
-		if header_extend > 0 {
-			flatbuffers.WriteUint32(header, uint32(total-vlen*4+vSize))
-			(*CommonNode)(node).InsertBuf(ptr, 4)
-			for i := 0; i < vlen; i++ {
-				dataPtr := ptrIdx(i)
-				_ = dataPtr
-				off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
-				off += 4
-				//diff := node.D(ptrIdx(i), 4)
-				flatbuffers.WriteUint32(node.U(ptrIdx(i), 4), off)
-			}
-			dstPos = ptrIdx(0) + total + header_extend
-			flatbuffers.WriteUint32(node.U(ptrIdx(idx), 4), uint32(dstPos+vSize-ptr))
-			vlen++
-		} else {
-			dstPos = oElm.Node.Pos - vSize
-		}
-
-		t := node.Base.Type()
-		_ = t
-
-		if body_extend > 0 {
-			(*CommonNode)(node).InsertSpace(dstPos, body_extend, false)
-			if header_extend == 0 {
-				for i := idx + 1; i < vlen; i++ {
-					off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
-					off += uint32(body_extend)
-					flatbuffers.WriteUint32(node.U(ptrIdx(i), 4), off)
-				}
-			}
-		}
-		// update vlen
-		flatbuffers.WriteUint32(node.U(ptrIdx(-1), 4), uint32(vlen))
-		node.Copy(elm.Base,
-			elm.Node.Pos-vSize, elm.Node.Size+vSize,
-			dstPos, 0)
-		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
-		t = node.Base.Type()
-
-		if body_extend == 0 {
-			return nil
-		}
-
-		if node.Base.Type() == BASE_NO_LAYER || node.Base.Type() == BASE_DOUBLE_LAYER {
-			oldImpl.overwrite(node.Impl())
-		}
-
-		return nil
 	}
-
+	if IsFieldUnion(g) {
+		return ERR_NO_SUPPORT
+	}
+	if IsFieldTable(g) {
+		return node.setTableAt(idx, elm)
+	}
 	return ERR_NO_SUPPORT
 }
 
