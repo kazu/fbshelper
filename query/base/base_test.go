@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"strings"
@@ -22,6 +23,9 @@ import (
 	"github.com/kazu/loncha"
 	"github.com/stretchr/testify/assert"
 )
+
+//var DefaultWriter io.Writer = os.Stdout
+var DefaultWriter io.Writer = ioutil.Discard
 
 func MakeRootFileFbs(id uint64, name string, index_at int64) []byte {
 
@@ -251,6 +255,57 @@ func MakeRootWithRecord2(key uint64, fID uint64, offset int64, size int64) []byt
 
 	root.Flatten()
 	return root.R(0)
+}
+
+func MakeFileList(isNolayer bool, cntOfFile int, startID, incID uint64, offsetIndex int64, nameprefix string) *query2.FileList {
+
+	flist := query2.NewFileList()
+	if isNolayer {
+		flist.Base = base.NewNoLayer(flist.Base)
+	}
+
+	for i := 0; i < cntOfFile; i++ {
+		file := query2.NewFile()
+		if isNolayer {
+			file.Base = base.NewNoLayer(file.Base)
+		}
+		file.SetId(query2.FromUint64(startID + incID*uint64(i)))
+		file.SetIndexAt(query2.FromInt64(int64(startID+incID*uint64(i)) + offsetIndex))
+		file.SetName(
+			base.FromByteList(
+				[]byte(
+					fmt.Sprintf("%s%x", nameprefix, startID+uint64(i)))))
+		flist.SetAt(i, file)
+	}
+	return flist
+}
+
+func MakeRecordList(isNolayer bool, cntOfFile int, startID, incID uint64, offsetIndex int64, nameprefix string) *query2.RecordList {
+
+	list := query2.NewRecordList()
+	if isNolayer {
+		list.Base = base.NewNoLayer(list.Base)
+	}
+
+	for i := 0; i < cntOfFile; i++ {
+		record := query2.NewRecord()
+
+		if isNolayer {
+			if record.Base.Impl() == nil {
+				fmt.Printf("1 b nil  test %d \n", i)
+			}
+			record.Base = base.NewNoLayer(record.Base)
+			if record.Base.Impl() == nil {
+				fmt.Printf("2 b nil  test %d \n", i)
+			}
+		}
+
+		record.SetFileId(query2.FromUint64(startID + incID*uint64(i)))
+		record.SetOffset(query2.FromInt64(int64(startID+incID*uint64(i)) + offsetIndex))
+		record.SetSize(query2.FromInt64(7))
+		list.SetAt(i, record)
+	}
+	return list
 }
 
 type File struct {
@@ -495,7 +550,7 @@ func Test_TraverseInfo(t *testing.T) {
 	q.TraverseInfo(pos, recFn, cond)
 	assert.True(t, len(results) > 0)
 	for _, result := range results {
-		fmt.Printf("%+v\n", result)
+		fmt.Fprintf(DefaultWriter, "%+v\n", result)
 	}
 }
 
@@ -570,14 +625,15 @@ func Test_AllTree(t *testing.T) {
 
 	//var b strings.Builder
 
-	dumpAll(0, tree, os.Stdout)
+	dumpAll(0, tree, DefaultWriter)
+
 	assert.Equal(t, 4, len(tree.Childs))
 }
 
 func Test_AllTree2(t *testing.T) {
 	buf := MakeRootRecord(612)
 	buf1 := NeoMakeRootRecord(612)
-	stdoutDumper := hex.Dumper(os.Stdout)
+	stdoutDumper := hex.Dumper(DefaultWriter)
 
 	type Tree = base.Tree
 
@@ -586,16 +642,16 @@ func Test_AllTree2(t *testing.T) {
 
 	stdoutDumper.Write(buf)
 	fmt.Print("\n")
-	dumpAll(0, tree, os.Stdout)
+	dumpAll(0, tree, DefaultWriter)
 	assert.Equal(t, int32(1), q.Version().Int32())
 
 	q = query2.Open(bytes.NewReader(buf1), 512, base.SetDefaultBase("NoLayer"))
 	tree = q.AllTree()
 
-	stdoutDumper = hex.Dumper(os.Stdout)
+	stdoutDumper = hex.Dumper(DefaultWriter)
 	stdoutDumper.Write(buf1)
 	fmt.Print("\n")
-	dumpAll(0, tree, os.Stdout)
+	dumpAll(0, tree, DefaultWriter)
 
 	assert.Equal(t, int32(1), q.Version().Int32())
 	assert.Equal(t, 4, len(tree.Childs))
@@ -897,7 +953,7 @@ func Test_BaseCopy(t *testing.T) {
 
 func Test_SetFieldAt(t *testing.T) {
 
-	base.SetLogLevel(base.LOG_DEBUG)
+	//base.SetLogLevel(base.LOG_DEBUG)
 	buf := MakeRootFileFbsNoVersion(12, "root_test1.json", 456)
 	buf2 := append([]byte{}, buf...)
 	//buf3 := append([]byte{}, buf...)
@@ -968,7 +1024,7 @@ func Test_SetFieldAt(t *testing.T) {
 	invs.SetKey(base.FromByteList([]byte("inverted")))
 
 	maps := root.Index().IndexString().Maps()
-	query2.RootFromCommon(maps.CommonNode).AllTree().DumpAll(0, os.Stdout)
+	query2.RootFromCommon(maps.CommonNode).AllTree().DumpAll(0, DefaultWriter)
 	maps.SetAt(cnt, invs)
 
 	// replace new element to vector
@@ -992,12 +1048,12 @@ func Test_SetFieldAt(t *testing.T) {
 	assert.Equal(t, []byte("inverted"), query2.InvertedMapStringSingle(root2.Index().IndexString().Maps().At(2)).Key().Bytes())
 	assert.Equal(t, []byte("inverted2"), query2.InvertedMapStringSingle(root2.Index().IndexString().Maps().At(1)).Key().Bytes())
 
-	query2.RootFromCommon(maps.CommonNode).AllTree().DumpAll(0, os.Stdout)
+	query2.RootFromCommon(maps.CommonNode).AllTree().DumpAll(0, DefaultWriter)
 
 }
 
 func Test_NewRootIndexString(t *testing.T) {
-	log.SetLogLevel(log.LOG_DEBUG)
+	//log.SetLogLevel(log.LOG_DEBUG)
 	base.SetDefaultBase("NoLayer")(&base.DefaultOption)
 
 	var e error
@@ -1646,11 +1702,11 @@ func Test_List_Swap2(t *testing.T) {
 		oj.Dump(oi.Node.Pos, base.OptDumpOut(&ojb), base.OptDumpSize(100))
 		l.AtWihoutError(i).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&jb), base.OptDumpSize(100))
 
-		fmt.Printf("i=%d j =%d\n", i, j)
-		fmt.Printf("oi dump %s\n", oib.String())
-		fmt.Printf("i dump %s\n", ib.String())
-		fmt.Printf("oj dump %s\n", ojb.String())
-		fmt.Printf("j dump %s\n", jb.String())
+		fmt.Fprintf(DefaultWriter, "i=%d j =%d\n", i, j)
+		fmt.Fprintf(DefaultWriter, "oi dump %s\n", oib.String())
+		fmt.Fprintf(DefaultWriter, "i dump %s\n", ib.String())
+		fmt.Fprintf(DefaultWriter, "oj dump %s\n", ojb.String())
+		fmt.Fprintf(DefaultWriter, "j dump %s\n", jb.String())
 
 		return nil
 	}
@@ -1716,11 +1772,11 @@ func Test_List_Swap2(t *testing.T) {
 		oj.Dump(oj.Node.Pos, base.OptDumpOut(&ojb), base.OptDumpSize(100))
 		l.AtWihoutError(i).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&jb), base.OptDumpSize(100))
 
-		fmt.Printf("i=%d j =%d\n", i, j)
-		fmt.Printf("oi dump %s\n", oib.String())
-		fmt.Printf("i dump %s\n", ib.String())
-		fmt.Printf("oj dump %s\n", ojb.String())
-		fmt.Printf("j dump %s\n", jb.String())
+		fmt.Fprintf(DefaultWriter, "i=%d j =%d\n", i, j)
+		fmt.Fprintf(DefaultWriter, "oi dump %s\n", oib.String())
+		fmt.Fprintf(DefaultWriter, "i dump %s\n", ib.String())
+		fmt.Fprintf(DefaultWriter, "oj dump %s\n", ojb.String())
+		fmt.Fprintf(DefaultWriter, "j dump %s\n", jb.String())
 
 		return nil
 	}
@@ -2028,15 +2084,14 @@ func Test_unsafeFbsInfoLoad(t *testing.T) {
 
 	buf := rec.R(0)
 
-	stdoutDumper := hex.Dumper(os.Stdout)
+	stdoutDumper := hex.Dumper(DefaultWriter)
 	stdoutDumper.Write(buf)
 	b := flatbuffers.NewBuilder(130)
 	b.Finish(vfs_schema.CreateRecord(b, uint64(i+1), int64(i+2), int64(i+3), int32(i+4), int32(i+5)))
 	buf2 := b.FinishedBytes()
-	fmt.Print("\n")
-	stdoutDumper = hex.Dumper(os.Stdout)
+
+	stdoutDumper = hex.Dumper(DefaultWriter)
 	stdoutDumper.Write(buf2)
-	fmt.Print("\n")
 
 	rec2 := (*Record)(unsafe.Pointer(&buf[0]))
 	assert.Equal(t, int64(i+2), rec2.Offset)
@@ -2082,6 +2137,72 @@ func Test_ListAdd(t *testing.T) {
 	base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
 	defer base.SetL2Current(o, base.FLT_NORMAL)
 
+	tests := []struct {
+		name        string
+		isFileList  bool
+		isNolayer   bool
+		cntOfFile   int
+		startID     uint64
+		incID       uint64
+		offsetIndex int64
+		nameprefix  string
+		posSplit    int
+	}{
+		// {name , isFileList, {isNolayer, cntOfFile, startID, incID, offsetIndex, nameprefix, posSplit}}
+		{"1,1 filelist", true, true, 2, 10, 10, 2000, "2files", 1},
+		{"5,5 filelist ", true, true, 10, 10, 10, 2000, "10files", 5},
+		{"1,1 recordlist ", false, true, 10, 10, 10, 2000, "10files", 5},
+		{"5,5 recordlist ", false, true, 10, 10, 10, 2000, "10files", 5},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s params=%+v\n", tt.name, tt), func(t *testing.T) {
+			cnt := int(tt.cntOfFile) - tt.posSplit
+			if tt.isFileList {
+
+				list0 := MakeFileList(tt.isNolayer, tt.posSplit, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix)
+				list1 := MakeFileList(tt.isNolayer, cnt, tt.startID*2, tt.incID*2, tt.offsetIndex*2, "2"+tt.nameprefix)
+
+				fmt.Printf("list0=%s\n", list0.Dump(0, base.OptDumpSize(10000)))
+				fmt.Printf("list1=%s\n", list1.Dump(0, base.OptDumpSize(10000)))
+
+				e := list0.Add(*list1)
+				assert.NoError(t, e, "fail list0.Add(*list1)")
+
+				assert.Equalf(t, int(tt.cntOfFile), list0.Count(), "list0.cnt=%d list1.cnt=%d", list0.Count(), list1.Count())
+				assert.True(t, list1.AtWihoutError(list1.Count()-1).Equal(*list0.AtWihoutError(list0.Count() - 1)))
+
+				a := list1.AtWihoutError(0)
+				fmt.Printf("list1=%s\n", list1.Dump(0, base.OptDumpSize(10000)))
+				fmt.Printf("list0=%s\n", list0.Dump(0, base.OptDumpSize(10000)))
+				b := list0.AtWihoutError(0)
+				_, _ = a, b
+
+				assert.False(t, list1.AtWihoutError(0).Equal(*list0.AtWihoutError(0)))
+
+			} else {
+
+				list0 := MakeRecordList(tt.isNolayer, tt.posSplit, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix)
+				list1 := MakeRecordList(tt.isNolayer, cnt, tt.startID*2, tt.incID*2, tt.offsetIndex*2, "2"+tt.nameprefix)
+
+				e := list0.Add(*list1)
+				assert.NoError(t, e, "fail list0.Add(*list1)")
+
+				assert.Equalf(t, int(tt.cntOfFile), list0.Count(), "list0.cnt=%d list1.cnt=%d", list0.Count(), list1.Count())
+				assert.True(t, list1.AtWihoutError(list1.Count()-1).Equal(*list0.AtWihoutError(list0.Count() - 1)))
+				// assert.False(t, list1.AtWihoutError(0).Equal(*list0.AtWihoutError(0)))
+			}
+		})
+	}
+
+}
+
+func Test_OldListAdd(t *testing.T) {
+
+	o := log.CurrentLogLevel
+	base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
+	defer base.SetL2Current(o, base.FLT_NORMAL)
+
 	base.SetDefaultBase("DobuleLayer")(&base.DefaultOption)
 	flist := query2.NewFileList()
 
@@ -2116,6 +2237,6 @@ func Test_ListAdd(t *testing.T) {
 
 	assert.Equal(t, 2, flist.Count())
 	if e == nil {
-		assert.Equal(t, 12, f2.Id().Uint64())
+		assert.Equal(t, uint64(12), f2.Id().Uint64())
 	}
 }
