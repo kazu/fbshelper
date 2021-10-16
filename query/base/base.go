@@ -121,7 +121,7 @@ type Base interface {
 	NewFromBytes([]byte) Base
 	Impl() *BaseImpl
 	Type() uint8
-	Dump(int, ...DumpOptFn)
+	Dump(int, ...DumpOptFn) string
 	Dup() Base
 }
 
@@ -164,6 +164,17 @@ func (d Diff) Inner(pos, size int) bool {
 		return false
 	}
 	return pos+size <= d.Offset+len(d.bytes)
+}
+
+func (d Diff) Innerd(pos, size int) bool {
+	if pos > d.Offset {
+		return false
+	}
+
+	if d.Offset+len(d.bytes) < pos+size {
+		return true
+	}
+	return false
 }
 
 func (d *Diff) Merge(s *Diff) {
@@ -258,13 +269,16 @@ func OptDumpOut(w io.Writer) DumpOptFn {
 	}
 }
 
-func (b *BaseImpl) Dump(pos int, opts ...DumpOptFn) {
+func (b *BaseImpl) Dump(pos int, opts ...DumpOptFn) (out string) {
 
 	opt := DumpOpt{size: 0}
 	opt.merge(opts...)
+	var builder strings.Builder
 
 	if opt.out == nil {
-		opt.out = os.Stdout
+		opt.out = &builder
+		defer func() { out = builder.String() }()
+
 	}
 	w := opt.out
 
@@ -287,6 +301,7 @@ func (b *BaseImpl) Dump(pos int, opts ...DumpOptFn) {
 	}
 	d.Flatten()
 	stdoutDumper.Write(d.R(pos))
+	return
 }
 
 // NewBaseImpl ... initialize BaseImpl struct via buffer(buf)
@@ -755,4 +770,47 @@ func (b *BaseImpl) Equal(c *BaseImpl) bool {
 		}
 	}
 	return true
+}
+func (b *BaseImpl) shrink(start, size int) error {
+
+	//bsize := size
+
+	if len(b.bytes) < start {
+		b.bytes = []byte{}
+		goto SETUP_DIFF
+	}
+
+	if start+size < len(b.bytes) {
+		b.bytes = b.bytes[:start+size]
+	}
+
+	if len(b.bytes) >= start {
+		b.bytes = b.bytes[start:]
+	}
+
+SETUP_DIFF:
+
+	loncha.Delete(&b.Diffs, func(i int) bool {
+		if b.Diffs[i].Include(start) || b.Diffs[i].Include(start+size) || b.Diffs[i].Innerd(start, size) {
+			return false
+		}
+		return true
+	})
+
+	for i := range b.Diffs {
+
+		diff := &b.Diffs[i]
+		diff.Offset -= start
+		if diff.Offset < 0 {
+			diff.bytes = diff.bytes[-diff.Offset:]
+			diff.Offset = 0
+		}
+		if diff.Offset+len(diff.bytes) > start+size {
+
+			len := start + size - diff.Offset
+			diff.bytes = diff.bytes[:len]
+		}
+	}
+
+	return nil
 }
