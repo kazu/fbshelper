@@ -1,6 +1,7 @@
 package base
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -251,6 +252,21 @@ func (l *CommonList) VLen() uint32 {
 // List ... List Node as CommonNode.
 type List CommonNode
 
+func (node *List) dup() (l *List) {
+
+	l = &List{}
+	l.NodeList = node.NodeList
+	l.Name = node.Name
+	l.Base = node.Base.Dup()
+	l.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+
+	return
+}
+
+func (node *List) toCommonNode() *CommonNode {
+	return (*CommonNode)(node)
+}
+
 // At ... return Element of list
 func (node *List) At(i int) (*CommonNode, error) {
 
@@ -379,12 +395,12 @@ func (node *List) InfoSlice() Info {
 		vInfo = FbsStringInfo(NewNode(node.Base, ptr+int(flatbuffers.GetUint32(node.R(ptr)))))
 	} else {
 
-		vInfos := make([]Info, 0, node.Count())
+		// vInfos := make([]Info, 0, node.Count())
 
-		node.Select(func(e *CommonNode) bool {
-			vInfos = append(vInfos, e.Info())
-			return true
-		})
+		// node.Select(func(e *CommonNode) bool {
+		// 	vInfos = append(vInfos, e.Info())
+		// 	return true
+		// })
 
 		if elm, err := node.Last(); err == nil {
 			vInfo = elm.Info()
@@ -449,7 +465,7 @@ func (list *List) Add(slist *List) error {
 	g := GetTypeGroup(elm.Name)
 
 	if IsFieldBasicType(g) || IsFieldStruct(g) {
-		return list.addBasicList(slist)
+		return list.addStructList(slist)
 	}
 
 	if IsFieldUnion(g) {
@@ -481,7 +497,19 @@ func (list *List) vlenAndTotals(slist *List) (vlens []int, totals []int) {
 	return
 }
 
-func (list *List) addBasicList(slist *List) error {
+func (node *List) vlenTotal() (int, int) {
+	if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
+		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+	}
+	if node.NodeList.ValueInfo.VLen == 0 {
+		node.NodeList.ValueInfo.Size = 0
+	}
+
+	return int(node.NodeList.ValueInfo.VLen), int(node.NodeList.ValueInfo.Size)
+
+}
+
+func (list *List) addStructList(slist *List) error {
 
 	for _, elm := range slist.All() {
 		if e := list.setStructAt(list.Count(), elm); e != nil {
@@ -493,23 +521,303 @@ func (list *List) addBasicList(slist *List) error {
 
 }
 
-func (list *List) addTableList(slist *List) error {
+func VlensTotals(lists []*List) ([]int, []int) {
+
+	vlens := make([]int, len(lists))
+	totals := make([]int, len(lists))
+
+	for i, list := range lists {
+		vlens[i], totals[i] = list.vlenTotal()
+	}
+	return vlens, totals
+}
+
+func (list *List) updateOffsetToTable(lastIdx, vlen, total, header_extend, vSize int) int {
+	ptrIdx := func(idx int) int {
+		return int(list.NodeList.ValueInfo.Pos) + idx*4
+	}
+	// update all offset to table in current list
+	startToTable := ptrIdx(0)
+	for toTable := startToTable; toTable < vlen*4; toTable += 4 {
+		off := flatbuffers.GetUint32(list.R(toTable))
+		off += 4
+		flatbuffers.WriteUint32(list.U(ptrIdx(toTable), 4), off)
+	}
+
+	// position to store new Data
+	toData := ptrIdx(0) + total + header_extend
+	flatbuffers.WriteUint32(list.U(ptrIdx(lastIdx), 4), uint32(toData+vSize-startToTable))
+
+	return toData
+}
+
+func (list *List) moveOffsetToTable(size int) {
+
+	cnt := list.Count()
+
+	startToTable := int(list.NodeList.ValueInfo.Pos)
+	for toTable := startToTable; toTable < startToTable+cnt*4; toTable += 4 {
+		off := flatbuffers.GetUint32(list.R(toTable))
+		off += uint32(size)
+		flatbuffers.WriteUint32(list.U(toTable, 4), off)
+	}
+}
+
+func (list *List) addTableList(alists ...*List) error {
+
+	vlen, total := list.vlenTotal()
+	_ = total
+
+	list.NodeList.ValueInfo = ValueInfo(list.InfoSlice())
+	oldImpl := list.Impl()
+
+	// lastElm, e := list.Last()
+	// if e != nil {
+	// 	return fmt.Errorf("addTableList(): cannot found last element m=%s", e)
+	// }
+	firstElm, e := list.First()
+	if e != nil {
+		return fmt.Errorf("addTableList(): cannot found first element m=%s", e)
+	}
+	//firstLemn.Node.ValueInfo = ValueInfo(firstElm.Info())
+
+	//lastElmInfo := lastElm.Info()
+	//dataStart := lastElm.Node.Pos + lastElm.TableLen()
+	//dataEnd := lastElm.Node.Pos + list.NodeList.ValueInfo.Size
+	dataEnd := list.NodeList.ValueInfo.Pos + list.NodeList.ValueInfo.Size
+	vtableStart := firstElm.Node.Pos - firstElm.VirtualTableLen()
+	headerEnd := list.NodeList.ValueInfo.Pos + 4*list.Count()
+
+	oalist := alists[0]
+	alist := oalist.dup()
+
+	impl := alist.Impl()
+	_ = impl
+	//impl.shrink(alist.NodeList.ValueInfo.Pos-4, alist.NodeList.ValueInfo.Size)
+	alist.NodeList.ValueInfo = ValueInfo(alist.InfoSlice())
+
+	alastElm, e := alist.Last()
+	if e != nil {
+		return fmt.Errorf("addTableList(): cannot found alast element m=%s", e)
+	}
+	afirstElm, e := alist.First()
+	if e != nil {
+		return fmt.Errorf("addTableList(): cannot found first element m=%s", e)
+	}
+
+	info := alastElm.Info()
+	_ = info
+	//aDataStart := alastElm.Node.Pos + alastElm.TableLen()
+	aDataEnd := alastElm.Node.Pos + alist.NodeList.ValueInfo.Size
+	aVlen := int(alist.NodeList.VLen)
+	aSizeOfHeader := alist.Count() * 4
+	_ = aSizeOfHeader
+
+	avTableStart := afirstElm.Node.Pos - afirstElm.VirtualTableLen()
+	_ = avTableStart
+
+	o := CurrentLogLevel
+	SetLogLevel(LOG_WARN)
+	defer SetLogLevel(o)
+
+	// make space for list data (first element vtable -> list data last
+	//  alist.toCommonNode().InsertSpace(aDataStart, dataEnd-dataStart, false)
+	Log2(L2_DEBUG_IS,
+		L2fmt("B: alist.InsertSpace() alist=%s",
+			alist.Impl().Dump(0, OptDumpSize(500))),
+		L2OptRun(func() L2Run {
+			alist.toCommonNode().InsertSpace(avTableStart, dataEnd-vtableStart, false)
+			if !alist.toCommonNode().InRoot() {
+				alist.moveOffsetToTable(dataEnd - vtableStart)
+			}
+			return nil
+		}),
+		L2fmt("A: alist.InsertSpace(0x%x, 0x%x) alist=%s",
+			avTableStart, dataEnd-vtableStart,
+			alist.Impl().Dump(0, OptDumpSize(500))),
+	)
+
+	// make space for headers of alist
+	// list.toCommonNode().InsertSpace(dataStart, aVlen, false)
+	Log2(L2_DEBUG_IS,
+		L2fmt(
+			"B: make space for headers of alist\n list.InsertSpace() list=%s",
+			list.Impl().Dump(0, OptDumpSize(500)),
+		),
+		L2OptRun(func() L2Run {
+			list.toCommonNode().InsertSpace(headerEnd, aSizeOfHeader, false)
+			if !list.toCommonNode().InRoot() {
+				list.moveOffsetToTable(aSizeOfHeader)
+			}
+			return nil
+		}),
+		L2fmt("A: make space for headers of alist\n list.InsertSpace(0x%x, 0x%x) list=%s",
+			headerEnd, aSizeOfHeader,
+			list.Impl().Dump(0, OptDumpSize(500))),
+	)
+
+	// update all offset to table in current list
+	ptrIdx := func(idx int) int {
+		return int(list.NodeList.ValueInfo.Pos) + idx*4
+	}
+	// startToTable := ptrIdx(0)
+	// for toTable := startToTable; toTable < vlen*4; toTable += 4 {
+	// 	off := flatbuffers.GetUint32(list.R(toTable))
+	// 	off += 4
+	// 	flatbuffers.WriteUint32(list.U(ptrIdx(toTable), 4), off)
+	// }
+
+	//	vlen += aVlen
+	Log2(L2_DEBUG_IS,
+		L2fmt("B: merge list and write vector len\n list.Copy() alist=%s \nlist=%s\n",
+			alist.Impl().Dump(0, OptDumpSize(500)),
+			list.Impl().Dump(0, OptDumpSize(500)),
+		),
+		L2OptRun(func() L2Run {
+			flatbuffers.WriteUint32(list.U(ptrIdx(-1), 4), uint32(vlen+aVlen))
+			list.Copy(alist.Base, alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
+			list.Copy(alist.Base, avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
+			return nil
+		}),
+		L2OptF(func() LogArgs {
+			return F(
+				"B: make space for headers of alist\n list.Copy(alist.Base, 0x%x, 0x%x, 0x%x, 0) \nlist.Copy(alist.Base, 0x%x, 0x%x, 0x%x, 0)   list=%s ",
+				alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd,
+				avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader,
+				list.Impl().Dump(0, OptDumpSize(500)),
+			)
+		}),
+		// L2fmt("B: make space for headers of alist\n list.Copy(alist.Base, 0x%x, 0x%x, 0x%x, 0) \nlist.Copy(alist.Base, 0x%x, 0x%x, 0x%x, 0)   list=%s ",
+		// 	alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd,
+		// 	avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader,
+		// 	list.Impl().Dump(0, OptDumpSize(500))),
+	)
+
+	// flatbuffers.WriteUint32(list.U(ptrIdx(-1), 4), uint32(vlen+aVlen))
+	// list.Copy(alist.Base, alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
+	// list.Copy(alist.Base, avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
+	// //avTableStart + dataEnd-vtableStart
+
+	list.NodeList.ValueInfo = ValueInfo(list.InfoSlice())
+
+	if list.Base.Type() == BASE_NO_LAYER || list.Base.Type() == BASE_DOUBLE_LAYER {
+		oldImpl.overwrite(list.Impl())
+	}
 
 	return nil
 }
 
-func (node *List) vlenTotal() (int, int) {
+func (list *List) NoaddTableList(alists ...*List) error {
 
-	if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
-		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+	vlen, total := list.vlenTotal()
+	_, _ = vlen, total
+	vlens, totals := VlensTotals(alists)
+	_, _ = vlens, totals
+
+	// test only one list
+
+	alist := alists[0]
+
+	elm, err := alist.First()
+	if err != nil {
+		return err
 	}
-	if node.NodeList.ValueInfo.VLen == 0 {
-		node.NodeList.ValueInfo.Size = 0
+
+	vSizePerElm := elm.CountOfField()*2 + 4
+
+	header_extend := alist.Count() * 4
+	if header_extend <= 0 {
+		return errors.New("source list is empty")
 	}
 
-	return int(node.NodeList.ValueInfo.VLen), node.NodeList.ValueInfo.Size
+	body_extend := 0
+	_, _ = header_extend, header_extend
 
+	for _, elm := range alist.All() {
+		elm.Node.Size = elm.Info().Size
+		body_extend += elm.Node.Size + vSizePerElm
+	}
+
+	// expand header and write
+	cntAlist := alist.Count()
+	_ = cntAlist
+	totalAlist := SumInts(totals)
+	_ = totalAlist
+	vlenlAlist := SumInts(vlens)
+	_ = vlenlAlist
+
+	posIdx := func(idx int) int {
+		return int(list.NodeList.ValueInfo.Pos) + idx*4
+	}
+	toTableAtLast := posIdx(list.Count())
+
+	cntBefore := list.Count()
+	header := make([]byte, 4)
+	// ?
+	flatbuffers.WriteUint32(header, uint32(totalAlist-vlenlAlist*4+vSizePerElm*cntAlist))
+	// extend space of setting offset to added elm's table
+	(*CommonNode)(list).InsertBuf(toTableAtLast, 4*cntAlist)
+
+	// update all offset to table
+	idx := cntBefore
+	toData := 0
+	_ = toData
+
+	// FIXME: should tune performance
+	cTotal := total
+	for i, elm := range alist.All() {
+		toData = list.updateOffsetToTable(idx+i, vlen, cTotal, (i+1)*4, vSizePerElm)
+		vlen++
+		cTotal += elm.Info().Size
+	}
+
+	// update all offset to table in current list
+	startToTable := posIdx(0)
+	for toTable := startToTable; toTable < vlen*4; toTable += 4 {
+		off := flatbuffers.GetUint32(list.R(toTable))
+		off += 4
+		flatbuffers.WriteUint32(list.U(posIdx(toTable), 4), off)
+	}
+	// position to store new Data
+	toData = startToTable + total + header_extend
+	// ?
+	//flatbuffers.WriteUint32(list.U(posIdx(idx), 4), uint32(toData+vSizePerElm-startToTable))
+
+	// allocate adding bodies space
+	(*CommonNode)(list).InsertSpace(toData, body_extend, false)
+	// for i := range alist.All() {
+	// 	for toTable := startToTable; toTable < startToTable+vlens[i]*4; toTable += vlens[i] {
+	// 		// slide 4 byte
+	// 		off := flatbuffers.GetUint32(list.R(toTable))
+	// 		off += 4
+	// 		flatbuffers.WriteUint32(list.U(posIdx(toTable), 4), off)
+	// 	}
+	// 	toData = startToTable + total + header_extend
+	// 	idx += vlens[i]
+	// }
+
+	// store vtable for element of adding list
+	for i := idx + 1; i < vlen; i++ {
+		off := flatbuffers.GetUint32(list.R(posIdx(i)))
+		off += uint32(body_extend)
+		flatbuffers.WriteUint32(list.U(posIdx(i), 4), off)
+	}
+
+	return nil
 }
+
+// func (node *List) vlenTotal() (int, int) {
+
+// 	if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
+// 		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+// 	}
+// 	if node.NodeList.ValueInfo.VLen == 0 {
+// 		node.NodeList.ValueInfo.Size = 0
+// 	}
+
+// 	return int(node.NodeList.ValueInfo.VLen), node.NodeList.ValueInfo.Size
+
+// }
 
 func (node *List) setStructAt(idx int, elm *CommonNode) error {
 
@@ -585,32 +893,25 @@ func (node *List) setTableAt(idx int, elm *CommonNode) error {
 	if body_extend < 0 {
 		body_extend = 0
 	}
-	dstPos := 0
+	toData := 0
 	oldImpl := node.Impl()
 
 	if header_extend > 0 {
 		flatbuffers.WriteUint32(header, uint32(total-vlen*4+vSize))
+		// extend space of setting offset to elm's table
 		(*CommonNode)(node).InsertBuf(ptr, 4)
-		for i := 0; i < vlen; i++ {
-			dataPtr := ptrIdx(i)
-			_ = dataPtr
-			off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
-			off += 4
-			//diff := node.D(ptrIdx(i), 4)
-			flatbuffers.WriteUint32(node.U(ptrIdx(i), 4), off)
-		}
-		dstPos = ptrIdx(0) + total + header_extend
-		flatbuffers.WriteUint32(node.U(ptrIdx(idx), 4), uint32(dstPos+vSize-ptr))
+		toData = node.updateOffsetToTable(idx, vlen, total, header_extend, vSize)
 		vlen++
 	} else {
-		dstPos = oElm.Node.Pos - vSize
+		toData = oElm.Node.Pos - vSize
 	}
 
 	t := node.Base.Type()
 	_ = t
 
 	if body_extend > 0 {
-		(*CommonNode)(node).InsertSpace(dstPos, body_extend, false)
+		// store vtable for new element
+		(*CommonNode)(node).InsertSpace(toData, body_extend, false)
 		if header_extend == 0 {
 			for i := idx + 1; i < vlen; i++ {
 				off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
@@ -623,7 +924,7 @@ func (node *List) setTableAt(idx int, elm *CommonNode) error {
 	flatbuffers.WriteUint32(node.U(ptrIdx(-1), 4), uint32(vlen))
 	node.Copy(elm.Base,
 		elm.Node.Pos-vSize, elm.Node.Size+vSize,
-		dstPos, 0)
+		toData, 0)
 	node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
 	t = node.Base.Type()
 
@@ -639,7 +940,9 @@ func (node *List) setTableAt(idx int, elm *CommonNode) error {
 
 }
 
-// SetAt ... Set Element to list
+// SetAt ... Set Element to list.
+//           if elm type is  variable length (examply Table). this operation is heavy.
+//           to add list , should use Add()
 func (node *List) SetAt(idx int, elm *CommonNode) error {
 
 	g := GetTypeGroup(elm.Name)
