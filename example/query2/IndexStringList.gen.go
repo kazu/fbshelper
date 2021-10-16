@@ -31,14 +31,6 @@ func (node IndexStringList) At(i int) (result *IndexString, e error) {
 	return
 }
 
-func (node IndexStringList) AtWihoutError(i int) (result *IndexString) {
-	result, e := node.At(i)
-	if e != nil {
-		result = nil
-	}
-	return
-}
-
 func (node IndexStringList) SetAt(i int, v *IndexString) error {
 	return (*base.List)(node.CommonNode).SetAt(i, v.CommonNode)
 }

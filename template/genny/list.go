@@ -2,29 +2,12 @@ package query
 
 import "github.com/kazu/fbshelper/query/base"
 
-type ListType interface { // genny
-	At(int) (*NodeName, error)
-	AtWihoutError(i int) (result *NodeName)
-	SetAt(i int, v *NodeName) error
-	First() (result *NodeName, e error)
-	Last() (result *NodeName, e error)
-	Select(fn func(*NodeName) bool) (result []*NodeName)
-	Find(fn func(*NodeName) bool) *NodeName
-	All() []*NodeName
-	Count() int
-	SwapAt(i, j int) error
-	SortBy(less func(i, j int) bool) error
-	Search(fn func(*NodeName) bool) *NodeName
-	SearchIndex(fn func(*NodeName) bool) int
-	Inner() abstListType
-}
-
-type abstListType struct {
+type ListType struct { // genny
 	*CommonNode
 }
 
 // NodeName genny
-func NewListType() ListType {
+func NewListType() *ListType {
 
 	list := emptyListType()
 	list.NodeList = &base.NodeList{}
@@ -34,20 +17,17 @@ func NewListType() ListType {
 	return list
 }
 
-func emptyListType() *abstListType {
-	return &abstListType{CommonNode: &base.CommonNode{}}
-}
-func (node abstListType) Inner() abstListType {
-	return node
+func emptyListType() *ListType {
+	return &ListType{CommonNode: &base.CommonNode{}}
 }
 
-func (node abstListType) At(i int) (result *NodeName, e error) {
+func (node ListType) At(i int) (result *NodeName, e error) {
 	result = &NodeName{}
 	result.CommonNode, e = (*base.List)(node.CommonNode).At(i)
 	return
 }
 
-func (node abstListType) AtWihoutError(i int) (result *NodeName) {
+func (node ListType) AtWihoutError(i int) (result *NodeName) {
 	result, e := node.At(i)
 	if e != nil {
 		result = nil
@@ -55,19 +35,19 @@ func (node abstListType) AtWihoutError(i int) (result *NodeName) {
 	return
 }
 
-func (node abstListType) SetAt(i int, v *NodeName) error {
+func (node ListType) SetAt(i int, v *NodeName) error {
 	return (*base.List)(node.CommonNode).SetAt(i, v.CommonNode)
 }
 
-func (node abstListType) First() (result *NodeName, e error) {
+func (node ListType) First() (result *NodeName, e error) {
 	return node.At(0)
 }
 
-func (node abstListType) Last() (result *NodeName, e error) {
+func (node ListType) Last() (result *NodeName, e error) {
 	return node.At(int(node.NodeList.ValueInfo.VLen) - 1)
 }
 
-func (node abstListType) Select(fn func(*NodeName) bool) (result []*NodeName) {
+func (node ListType) Select(fn func(*NodeName) bool) (result []*NodeName) {
 	result = make([]*NodeName, 0, int(node.NodeList.ValueInfo.VLen))
 	commons := (*base.List)(node.CommonNode).Select(func(cm *CommonNode) bool {
 		return fn(&NodeName{CommonNode: cm})
@@ -78,7 +58,7 @@ func (node abstListType) Select(fn func(*NodeName) bool) (result []*NodeName) {
 	return result
 }
 
-func (node abstListType) Find(fn func(*NodeName) bool) *NodeName {
+func (node ListType) Find(fn func(*NodeName) bool) *NodeName {
 	result := &NodeName{}
 	result.CommonNode = (*base.List)(node.CommonNode).Find(func(cm *CommonNode) bool {
 		return fn(&NodeName{CommonNode: cm})
@@ -86,24 +66,24 @@ func (node abstListType) Find(fn func(*NodeName) bool) *NodeName {
 	return result
 }
 
-func (node abstListType) All() []*NodeName {
+func (node ListType) All() []*NodeName {
 	return node.Select(func(*NodeName) bool { return true })
 }
 
-func (node abstListType) Count() int {
+func (node ListType) Count() int {
 	return int(node.NodeList.ValueInfo.VLen)
 }
 
-func (node abstListType) SwapAt(i, j int) error {
+func (node ListType) SwapAt(i, j int) error {
 	return (*List)(node.CommonNode).SwapAt(i, j)
 }
 
-func (node abstListType) SortBy(less func(i, j int) bool) error {
+func (node ListType) SortBy(less func(i, j int) bool) error {
 	return (*List)(node.CommonNode).SortBy(less)
 }
 
 // Search ... binary search
-func (node abstListType) Search(fn func(*NodeName) bool) *NodeName {
+func (node ListType) Search(fn func(*NodeName) bool) *NodeName {
 	result := &NodeName{}
 
 	i := (*base.List)(node.CommonNode).SearchIndex(int((*base.List)(node.CommonNode).VLen()), func(cm *CommonNode) bool {
@@ -116,7 +96,7 @@ func (node abstListType) Search(fn func(*NodeName) bool) *NodeName {
 	return result
 }
 
-func (node abstListType) SearchIndex(fn func(*NodeName) bool) int {
+func (node ListType) SearchIndex(fn func(*NodeName) bool) int {
 
 	i := (*base.List)(node.CommonNode).SearchIndex(int((*base.List)(node.CommonNode).VLen()), func(cm *CommonNode) bool {
 		return fn(&NodeName{CommonNode: cm})
