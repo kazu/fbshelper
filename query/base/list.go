@@ -631,9 +631,11 @@ func (list *List) addTableList(alists ...*List) error {
 			}
 			return nil
 		}),
-		L2fmt("A: alist.InsertSpace(0x%x, 0x%x) alist=%s",
-			avTableStart, dataEnd-vtableStart,
-			alist.Impl().Dump(0, OptDumpSize(500))),
+		L2OptF(func() LogArgs {
+			return F("A: alist.InsertSpace(0x%x, 0x%x) alist=%s",
+				avTableStart, dataEnd-vtableStart,
+				alist.Impl().Dump(0, OptDumpSize(500)))
+		}),
 	)
 
 	// make space for headers of alist
@@ -650,9 +652,11 @@ func (list *List) addTableList(alists ...*List) error {
 			}
 			return nil
 		}),
-		L2fmt("A: make space for headers of alist\n list.InsertSpace(0x%x, 0x%x) list=%s",
-			headerEnd, aSizeOfHeader,
-			list.Impl().Dump(0, OptDumpSize(500))),
+		L2OptF(func() LogArgs {
+			return F("A: make space for headers of alist\n list.InsertSpace(0x%x, 0x%x) list=%s",
+				headerEnd, aSizeOfHeader,
+				list.Impl().Dump(0, OptDumpSize(500)))
+		}),
 	)
 
 	// update all offset to table in current list
@@ -675,7 +679,7 @@ func (list *List) addTableList(alists ...*List) error {
 		L2OptRun(func() L2Run {
 			flatbuffers.WriteUint32(list.U(ptrIdx(-1), 4), uint32(vlen+aVlen))
 			list.Copy(alist.Base, alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
-			list.Copy(alist.Base, avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
+			// list.Copy(alist.Base, avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
 			return nil
 		}),
 		L2OptF(func() LogArgs {
@@ -686,11 +690,8 @@ func (list *List) addTableList(alists ...*List) error {
 				list.Impl().Dump(0, OptDumpSize(500)),
 			)
 		}),
-		// L2fmt("B: make space for headers of alist\n list.Copy(alist.Base, 0x%x, 0x%x, 0x%x, 0) \nlist.Copy(alist.Base, 0x%x, 0x%x, 0x%x, 0)   list=%s ",
-		// 	alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd,
-		// 	avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader,
-		// 	list.Impl().Dump(0, OptDumpSize(500))),
 	)
+	list.Copy(alist.Base, avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
 
 	// flatbuffers.WriteUint32(list.U(ptrIdx(-1), 4), uint32(vlen+aVlen))
 	// list.Copy(alist.Base, alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)

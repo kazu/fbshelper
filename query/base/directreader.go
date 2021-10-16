@@ -60,6 +60,10 @@ func NewNoLayer(b Base) NoLayer {
 	if _, already := b.(NoLayer); already {
 		return b.(NoLayer)
 	}
+	if b.Impl() != nil {
+		return NoLayer{BaseImpl: b.Impl()}
+	}
+
 	return NoLayer{}
 }
 
@@ -186,7 +190,18 @@ func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 		osrc.GetDiffs()...)
 
 	loncha.Delete(&srcDiffs, func(i int) bool {
-		return srcDiffs[i].Offset > srcOff+size || srcDiffs[i].Offset+len(srcDiffs[i].bytes) < srcOff
+
+		diffComp := srcDiffs[i].Inner(srcOff, size) || srcDiffs[i].Include(srcOff) || srcDiffs[i].Included(srcOff, size) || srcDiffs[i].Innerd(srcOff, size)
+		diffComp = !diffComp
+
+		result := srcDiffs[i].Offset > srcOff+size || srcDiffs[i].Offset+len(srcDiffs[i].bytes) <= srcOff
+		_ = result
+		// if result != diffComp {
+		// 	panic("invalid")
+		// }
+
+		//return diffComp
+		return result
 	})
 
 	for _, diff := range srcDiffs {
