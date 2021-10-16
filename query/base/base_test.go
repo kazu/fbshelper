@@ -266,8 +266,8 @@ func TestMakeRootRecord(t *testing.T) {
 
 	neo2 := query2.OpenByBuf(MakeRootWithRecord(612, 666, 12, 34))
 
-	assert.True(t, old.Equal(neo.CommonNode))
-	assert.True(t, neo2.Equal(neo.CommonNode))
+	assert.True(t, old.Equal(neo))
+	assert.True(t, neo2.Equal(neo))
 
 }
 
@@ -2074,4 +2074,48 @@ func Test_ListOfDoubleLayer(t *testing.T) {
 		rlist.SetAt(i, rec)
 	}
 
+}
+
+func Test_ListAdd(t *testing.T) {
+
+	o := log.CurrentLogLevel
+	base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
+	defer base.SetL2Current(o, base.FLT_NORMAL)
+
+	base.SetDefaultBase("DobuleLayer")(&base.DefaultOption)
+	flist := query2.NewFileList()
+
+	file := query2.NewFile()
+	file.SetId(query2.FromUint64(10 + uint64(1)))
+	file.SetIndexAt(query2.FromInt64(2000 + int64(2)))
+	file.SetName(base.FromByteList([]byte("namedayo")))
+
+	flist.SetAt(0, file)
+
+	flist2 := query2.NewFileList()
+
+	file = query2.NewFile()
+	file.SetId(query2.FromUint64(10 + uint64(2)))
+	file.SetIndexAt(query2.FromInt64(2000 + int64(3)))
+	file.SetName(base.FromByteList([]byte("namedayo")))
+
+	flist2.SetAt(0, file)
+
+	e := flist.Add(*flist2)
+	assert.NoError(t, e)
+	f2, e := flist.At(1)
+
+	var bf, bf2, bfile strings.Builder
+	flist2.Impl().Dump(0, base.OptDumpOut(&bf), base.OptDumpSize(100))
+	flist.Impl().Dump(0, base.OptDumpOut(&bf2), base.OptDumpSize(100))
+	file.Impl().Dump(0, base.OptDumpOut(&bfile), base.OptDumpSize(100))
+
+	estr := fmt.Sprintf("flist2=%s\flist=%s\nfile=%s\n", bf.String(), bf2.String(), bfile.String())
+
+	assert.NoError(t, e, estr)
+
+	assert.Equal(t, 2, flist.Count())
+	if e == nil {
+		assert.Equal(t, 12, f2.Id().Uint64())
+	}
 }
