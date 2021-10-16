@@ -158,6 +158,10 @@ func (d Diff) Include(pos int) bool {
 	return d.Offset <= pos && pos <= d.Offset+len(d.bytes)-1
 }
 
+func (d Diff) Included(pos, size int) bool {
+	return pos <= d.Offset && d.Offset <= pos+size-1
+}
+
 // Inner undocumented
 func (d Diff) Inner(pos, size int) bool {
 	if !d.Include(pos) {
