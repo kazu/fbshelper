@@ -115,6 +115,15 @@ func (node NumList) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
 
+func (src NumList) Equal(dst NumList) bool {
+	for i := 0; i < src.CountOfField(); i++ {
+		if !src.FieldAt(i).Equal(dst.FieldAt(i)) {
+			return false
+		}
+	}
+	return true
+}
+
 type NumListWithErr struct {
 	*NumList
 	Err error

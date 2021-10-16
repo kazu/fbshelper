@@ -31,8 +31,19 @@ func (node SymbolList) At(i int) (result *Symbol, e error) {
 	return
 }
 
+func (node SymbolList) AtWihoutError(i int) (result *Symbol) {
+	result, e := node.At(i)
+	if e != nil {
+		result = nil
+	}
+	return
+}
+
 func (node SymbolList) SetAt(i int, v *Symbol) error {
 	return (*base.List)(node.CommonNode).SetAt(i, v.CommonNode)
+}
+func (node SymbolList) Add(v SymbolList) error {
+	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
 func (node SymbolList) First() (result *Symbol, e error) {

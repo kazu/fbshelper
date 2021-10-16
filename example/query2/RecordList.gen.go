@@ -31,8 +31,19 @@ func (node RecordList) At(i int) (result *Record, e error) {
 	return
 }
 
+func (node RecordList) AtWihoutError(i int) (result *Record) {
+	result, e := node.At(i)
+	if e != nil {
+		result = nil
+	}
+	return
+}
+
 func (node RecordList) SetAt(i int, v *Record) error {
 	return (*base.List)(node.CommonNode).SetAt(i, v.CommonNode)
+}
+func (node RecordList) Add(v RecordList) error {
+	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
 func (node RecordList) First() (result *Record, e error) {

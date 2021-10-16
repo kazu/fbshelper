@@ -115,6 +115,15 @@ func (node Hoges) FieldAt(idx int) *base.CommonNode {
 	return node.commonNode().FieldAt(idx)
 }
 
+func (src Hoges) Equal(dst Hoges) bool {
+	for i := 0; i < src.CountOfField(); i++ {
+		if !src.FieldAt(i).Equal(dst.FieldAt(i)) {
+			return false
+		}
+	}
+	return true
+}
+
 type HogesWithErr struct {
 	*Hoges
 	Err error

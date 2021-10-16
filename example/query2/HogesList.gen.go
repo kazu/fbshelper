@@ -31,8 +31,19 @@ func (node HogesList) At(i int) (result *Hoges, e error) {
 	return
 }
 
+func (node HogesList) AtWihoutError(i int) (result *Hoges) {
+	result, e := node.At(i)
+	if e != nil {
+		result = nil
+	}
+	return
+}
+
 func (node HogesList) SetAt(i int, v *Hoges) error {
 	return (*base.List)(node.CommonNode).SetAt(i, v.CommonNode)
+}
+func (node HogesList) Add(v HogesList) error {
+	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
 func (node HogesList) First() (result *Hoges, e error) {
