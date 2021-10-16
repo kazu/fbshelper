@@ -33,8 +33,8 @@ func TestHoge(t *testing.T) {
 	base.SetDefaultBase("DobuleLayer")(&base.DefaultOption)
 	rootdl := query2.OpenByBuf(buf)
 
-	assert.True(t, root.Equal(rootnl.CommonNode))
-	assert.True(t, root.Equal(rootdl.CommonNode))
+	assert.True(t, root.Equal(rootnl))
+	assert.True(t, root.Equal(rootdl))
 
 }
 
@@ -99,9 +99,9 @@ func DupBytes(obuf []byte) []byte {
 
 func Test_RootIndexNum(t *testing.T) {
 
-	withoutE := func(q *query2.InvertedMapNum, e error) *query2.InvertedMapNum {
-		return q
-	}
+	// withoutE := func(q *query2.InvertedMapNum, e error) *query2.InvertedMapNum {
+	// 	return q
+	// }
 
 	base.SetDefaultBase("")(&base.DefaultOption)
 	obuf := MakeRootIndexNum(func() *query2.IndexNum {
@@ -123,8 +123,8 @@ func Test_RootIndexNum(t *testing.T) {
 	doubleLayer := query2.OpenByBuf(buf)
 	doubleLayerCnt := doubleLayer.Index().IndexNum().Maps().Count()
 
-	assert.True(t, expect.Equal(nolayer.CommonNode))
-	assert.True(t, expect.Equal(doubleLayer.CommonNode))
+	assert.True(t, expect.Equal(nolayer))
+	assert.True(t, expect.Equal(doubleLayer))
 
 	assert.Equal(t, expectCnt, nolayerCnt)
 	assert.Equal(t, expectCnt, doubleLayerCnt)
@@ -163,7 +163,8 @@ func Test_RootIndexNum(t *testing.T) {
 				invlist.Impl().R(invlist.NodeList.ValueInfo.Pos-4))
 		}
 
-		assert.True(t, inv.Equal(withoutE(invlist.Last()).CommonNode))
+		//assert.True(t, inv.Equal(withoutE(invlist.Last())))
+		inv.Equal(*invlist.AtWihoutError(invlist.Count() - 1))
 
 		if isDump {
 			HexDump(
@@ -201,8 +202,8 @@ func Test_RootIndexNum(t *testing.T) {
 	base.SetDefaultBase("DoubleLayer")(&base.DefaultOption)
 	editFn(&doubleLayer, true)
 
-	assert.True(t, expect.Equal(nolayer.CommonNode))
-	assert.True(t, expect.Equal(doubleLayer.CommonNode))
+	assert.True(t, expect.Equal(nolayer))
+	assert.True(t, expect.Equal(doubleLayer))
 
 }
 
