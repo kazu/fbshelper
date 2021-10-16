@@ -439,64 +439,64 @@ NO_NODE:
 
 }
 
-// func (list *List) Add(slist *List) error {
+func (list *List) Add(slist *List) error {
 
-// 	elm, err := slist.First()
-// 	if err != nil {
-// 		//FIXME error
-// 		return fmt.Errorf("(*List).Append(): fail slist.First() err=%s", err)
-// 	}
-// 	g := GetTypeGroup(elm.Name)
+	elm, err := slist.First()
+	if err != nil {
+		//FIXME error
+		return fmt.Errorf("(*List).Append(): fail slist.First() err=%s", err)
+	}
+	g := GetTypeGroup(elm.Name)
 
-// 	if IsFieldBasicType(g) || IsFieldStruct(g) {
-// 		return list.addBasicList(slist)
-// 	}
+	if IsFieldBasicType(g) || IsFieldStruct(g) {
+		return list.addBasicList(slist)
+	}
 
-// 	if IsFieldUnion(g) {
-// 		return ERR_NO_SUPPORT
-// 	}
+	if IsFieldUnion(g) {
+		return ERR_NO_SUPPORT
+	}
 
-// 	if IsFieldTable(g) {
-// 		return list.addTableList(slist)
-// 	}
+	if IsFieldTable(g) {
+		return list.addTableList(slist)
+	}
 
-// 	return ERR_NO_SUPPORT
-// }
+	return ERR_NO_SUPPORT
+}
 
-// func (list *List) vlenAndTotals(slist *List) (vlens []int, totals []int) {
+func (list *List) vlenAndTotals(slist *List) (vlens []int, totals []int) {
 
-// 	vlens = make([]int, 0, 2)
-// 	totals = make([]int, 0, 2)
+	vlens = make([]int, 0, 2)
+	totals = make([]int, 0, 2)
 
-// 	for _, node := range []*List{list, slist} {
-// 		if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
-// 			node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
-// 		}
-// 		if node.NodeList.ValueInfo.VLen == 0 {
-// 			node.NodeList.ValueInfo.Size = 0
-// 		}
-// 		vlens = append(vlens, int(node.NodeList.ValueInfo.VLen))
-// 		totals = append(totals, int(node.NodeList.ValueInfo.Size))
-// 	}
-// 	return
-// }
+	for _, node := range []*List{list, slist} {
+		if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
+			node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
+		}
+		if node.NodeList.ValueInfo.VLen == 0 {
+			node.NodeList.ValueInfo.Size = 0
+		}
+		vlens = append(vlens, int(node.NodeList.ValueInfo.VLen))
+		totals = append(totals, int(node.NodeList.ValueInfo.Size))
+	}
+	return
+}
 
-// func (list *List) addBasicList(slist *List) error {
+func (list *List) addBasicList(slist *List) error {
 
-// 	for _, elm := range slist.All() {
-// 		if e := list.setStructAt(list.Count(), elm); e != nil {
-// 			return e
-// 		}
-// 	}
+	for _, elm := range slist.All() {
+		if e := list.setStructAt(list.Count(), elm); e != nil {
+			return e
+		}
+	}
 
-// 	return nil
+	return nil
 
-// }
+}
 
-// func (list *List) addTableList(slist *List) error {
+func (list *List) addTableList(slist *List) error {
 
-// 	return nil
-// }
+	return nil
+}
 
 func (node *List) vlenTotal() (int, int) {
 
