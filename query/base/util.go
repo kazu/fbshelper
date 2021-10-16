@@ -377,3 +377,13 @@ func MinInt(i, j int) int {
 	}
 	return i
 }
+
+// SumInts ... sum of []int
+func SumInts(ints []int) int {
+	sum := 0
+	for _, v := range ints {
+		sum += v
+	}
+
+	return sum
+}
