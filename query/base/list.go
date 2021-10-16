@@ -505,7 +505,7 @@ func (node *List) vlenTotal() (int, int) {
 		node.NodeList.ValueInfo.Size = 0
 	}
 
-	return int(node.NodeList.ValueInfo.VLen), int(node.NodeList.ValueInfo.Size)
+	return int(node.NodeList.ValueInfo.VLen), node.NodeList.ValueInfo.Size
 
 }
 
@@ -533,20 +533,19 @@ func VlensTotals(lists []*List) ([]int, []int) {
 }
 
 func (list *List) updateOffsetToTable(lastIdx, vlen, total, header_extend, vSize int) int {
-	ptrIdx := func(idx int) int {
+	toTable := func(idx int) int {
 		return int(list.NodeList.ValueInfo.Pos) + idx*4
 	}
-	// update all offset to table in current list
-	startToTable := ptrIdx(0)
-	for toTable := startToTable; toTable < vlen*4; toTable += 4 {
-		off := flatbuffers.GetUint32(list.R(toTable))
+	// +4 all offset to table in current list. add new one element
+	for i := 0; i < vlen; i++ {
+		off := flatbuffers.GetUint32(list.R(toTable(i)))
 		off += 4
-		flatbuffers.WriteUint32(list.U(ptrIdx(toTable), 4), off)
+		flatbuffers.WriteUint32(list.U(toTable(i), 4), off)
 	}
 
 	// position to store new Data
-	toData := ptrIdx(0) + total + header_extend
-	flatbuffers.WriteUint32(list.U(ptrIdx(lastIdx), 4), uint32(toData+vSize-startToTable))
+	toData := toTable(0) + total + header_extend
+	flatbuffers.WriteUint32(list.U(toTable(lastIdx), 4), uint32(toData+vSize-toTable(lastIdx)))
 
 	return toData
 }
@@ -944,6 +943,10 @@ func (node *List) setTableAt(idx int, elm *CommonNode) error {
 //           if elm type is  variable length (examply Table). this operation is heavy.
 //           to add list , should use Add()
 func (node *List) SetAt(idx int, elm *CommonNode) error {
+
+	if idx > int(node.NodeList.ValueInfo.VLen) {
+		return ERR_INVALID_INDEX
+	}
 
 	g := GetTypeGroup(elm.Name)
 	//ptr := int(node.NodeList.ValueInfo.Pos) + vlen*4
