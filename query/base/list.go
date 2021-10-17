@@ -7,6 +7,7 @@ import (
 	"math/rand"
 
 	flatbuffers "github.com/google/flatbuffers/go"
+	"github.com/kazu/fbshelper/query/dump"
 	"github.com/kazu/fbshelper/query/log"
 	"github.com/kazu/loncha"
 )
@@ -265,6 +266,12 @@ func (node *List) dup() (l *List) {
 
 func (node *List) toCommonNode() *CommonNode {
 	return (*CommonNode)(node)
+}
+
+// AtWihoutError ... ignore error
+func (node *List) AtWihoutError(i int) *CommonNode {
+	r, _ := node.At(i)
+	return r
 }
 
 // At ... return Element of list
@@ -570,19 +577,11 @@ func (list *List) addTableList(alists ...*List) error {
 	list.NodeList.ValueInfo = ValueInfo(list.InfoSlice())
 	oldImpl := list.Impl()
 
-	// lastElm, e := list.Last()
-	// if e != nil {
-	// 	return fmt.Errorf("addTableList(): cannot found last element m=%s", e)
-	// }
 	firstElm, e := list.First()
 	if e != nil {
 		return fmt.Errorf("addTableList(): cannot found first element m=%s", e)
 	}
-	//firstLemn.Node.ValueInfo = ValueInfo(firstElm.Info())
 
-	//lastElmInfo := lastElm.Info()
-	//dataStart := lastElm.Node.Pos + lastElm.TableLen()
-	//dataEnd := lastElm.Node.Pos + list.NodeList.ValueInfo.Size
 	dataEnd := list.NodeList.ValueInfo.Pos + list.NodeList.ValueInfo.Size
 	vtableStart := firstElm.Node.Pos - firstElm.VirtualTableLen()
 	headerEnd := list.NodeList.ValueInfo.Pos + 4*list.Count()
@@ -590,9 +589,6 @@ func (list *List) addTableList(alists ...*List) error {
 	oalist := alists[0]
 	alist := oalist.dup()
 
-	impl := alist.Impl()
-	_ = impl
-	//impl.shrink(alist.NodeList.ValueInfo.Pos-4, alist.NodeList.ValueInfo.Size)
 	alist.NodeList.ValueInfo = ValueInfo(alist.InfoSlice())
 
 	alastElm, e := alist.Last()
@@ -604,13 +600,9 @@ func (list *List) addTableList(alists ...*List) error {
 		return fmt.Errorf("addTableList(): cannot found first element m=%s", e)
 	}
 
-	info := alastElm.Info()
-	_ = info
-	//aDataStart := alastElm.Node.Pos + alastElm.TableLen()
 	aDataEnd := alastElm.Node.Pos + alist.NodeList.ValueInfo.Size
 	aVlen := int(alist.NodeList.VLen)
 	aSizeOfHeader := alist.Count() * 4
-	_ = aSizeOfHeader
 
 	avTableStart := afirstElm.Node.Pos - afirstElm.VirtualTableLen()
 	_ = avTableStart
@@ -620,89 +612,75 @@ func (list *List) addTableList(alists ...*List) error {
 	defer SetLogLevel(o)
 
 	// make space for list data (first element vtable -> list data last
-	//  alist.toCommonNode().InsertSpace(aDataStart, dataEnd-dataStart, false)
-	Log2(L2_DEBUG_IS,
-		L2fmt("B: alist.InsertSpace() alist=%s",
-			alist.Impl().Dump(0, OptDumpSize(500))),
-		L2OptRun(func() L2Run {
-			alist.toCommonNode().InsertSpace(avTableStart, dataEnd-vtableStart, false)
-			if !alist.toCommonNode().InRoot() {
-				alist.moveOffsetToTable(dataEnd - vtableStart)
-			}
-			return nil
-		}),
-		L2OptF(func() LogArgs {
-			return F("A: alist.InsertSpace(0x%x, 0x%x) alist=%s",
-				avTableStart, dataEnd-vtableStart,
-				alist.Impl().Dump(0, OptDumpSize(500)))
-		}),
-	)
+	adumper := dump.New(alist,
+		func(v interface{}) string {
+			alist := v.(*List)
+			a := alist.Impl().Dump(0, OptDumpSize(500))
+			return a
+		},
+		[]dump.FuncInfo{
+			{"alist", dump.TypeVariable},
+			{"InsertSpace", dump.TypeVariable},
+			{"(avTableStart, dataEnd-vtableStart, false)", dump.TypeParam},
+		})
+	dumper := dump.New(list,
+		func(v interface{}) string {
+			alist := v.(*List)
+			return alist.Impl().Dump(0, OptDumpSize(500))
+		},
+		[]dump.FuncInfo{
+			{"alist", dump.TypeVariable},
+			{"InsertSpace", dump.TypeVariable},
+			{"(avTableStart, dataEnd-vtableStart, false)", dump.TypeParam},
+		})
 
-	// make space for headers of alist
-	// list.toCommonNode().InsertSpace(dataStart, aVlen, false)
-	Log2(L2_DEBUG_IS,
-		L2fmt(
-			"B: make space for headers of alist\n list.InsertSpace() list=%s",
-			list.Impl().Dump(0, OptDumpSize(500)),
-		),
-		L2OptRun(func() L2Run {
-			list.toCommonNode().InsertSpace(headerEnd, aSizeOfHeader, false)
-			if !list.toCommonNode().InRoot() {
-				list.moveOffsetToTable(aSizeOfHeader)
-			}
-			return nil
-		}),
-		L2OptF(func() LogArgs {
-			return F("A: make space for headers of alist\n list.InsertSpace(0x%x, 0x%x) list=%s",
-				headerEnd, aSizeOfHeader,
-				list.Impl().Dump(0, OptDumpSize(500)))
-		}),
-	)
+	adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "B: make space for list data")
 
-	// update all offset to table in current list
+	alist.toCommonNode().InsertSpace(avTableStart, dataEnd-vtableStart, false)
+
+	adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: make space for list data (0x%x,0x%x,0x%v)", avTableStart, dataEnd-vtableStart, false)
+
+	if !alist.toCommonNode().InRoot() {
+		adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "B: move inc offset to Talbe")
+
+		alist.moveOffsetToTable(dataEnd - vtableStart)
+
+		adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: move inc offset to Talbe 0x%x", dataEnd-vtableStart)
+	}
+
+	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "B: make space for headers to insert alist")
+
+	list.toCommonNode().InsertSpace(headerEnd, aSizeOfHeader, false)
+	if !list.toCommonNode().InRoot() {
+		list.moveOffsetToTable(aSizeOfHeader)
+	}
+
+	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: make space for headers to insert alist (0x%x,0x%x,%v)", headerEnd, aSizeOfHeader, false)
+
 	ptrIdx := func(idx int) int {
 		return int(list.NodeList.ValueInfo.Pos) + idx*4
 	}
-	// startToTable := ptrIdx(0)
-	// for toTable := startToTable; toTable < vlen*4; toTable += 4 {
-	// 	off := flatbuffers.GetUint32(list.R(toTable))
-	// 	off += 4
-	// 	flatbuffers.WriteUint32(list.U(ptrIdx(toTable), 4), off)
-	// }
 
-	//	vlen += aVlen
-	Log2(L2_DEBUG_IS,
-		L2fmt("B: merge list and write vector len\n list.Copy() alist=%s \nlist=%s\n",
-			alist.Impl().Dump(0, OptDumpSize(500)),
-			list.Impl().Dump(0, OptDumpSize(500)),
-		),
-		L2OptRun(func() L2Run {
-			flatbuffers.WriteUint32(list.U(ptrIdx(-1), 4), uint32(vlen+aVlen))
-			list.Copy(alist.Base, alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
-			// list.Copy(alist.Base, avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
-			return nil
-		}),
-		L2OptF(func() LogArgs {
-			return F(
-				"B: make space for headers of alist\n list.Copy(alist.Base, 0x%x, 0x%x, 0x%x, 0) \nlist.Copy(alist.Base, 0x%x, 0x%x, 0x%x, 0)   list=%s ",
-				alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd,
-				avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader,
-				list.Impl().Dump(0, OptDumpSize(500)),
-			)
-		}),
-	)
+	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "B: merge list and write vector len")
+	adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "B: merge list and write vector len")
+
+	flatbuffers.WriteUint32(list.U(ptrIdx(-1), 4), uint32(vlen+aVlen))
+	list.Copy(alist.Base, alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
+
+	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: merge list and write vector len (0x%x,0x%x,0x%x,0x%x,)", alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
+
 	list.Copy(alist.Base, avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
 
-	// flatbuffers.WriteUint32(list.U(ptrIdx(-1), 4), uint32(vlen+aVlen))
-	// list.Copy(alist.Base, alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
-	// list.Copy(alist.Base, avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
-	// //avTableStart + dataEnd-vtableStart
+	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: merge list data (0x%x,0x%x,0x%x,0x%x,)", avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
 
 	list.NodeList.ValueInfo = ValueInfo(list.InfoSlice())
 
 	if list.Base.Type() == BASE_NO_LAYER || list.Base.Type() == BASE_DOUBLE_LAYER {
 		oldImpl.overwrite(list.Impl())
 	}
+
+	Log2(L2_DEBUG_IS, L2fmt("list dump history\n %s\n", adumper.String()))
+	Log2(L2_DEBUG_IS, L2fmt("list dump history\n %s\n", dumper.String()))
 
 	return nil
 }

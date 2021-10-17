@@ -2158,85 +2158,61 @@ func Test_ListAdd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s params=%+v\n", tt.name, tt), func(t *testing.T) {
 			cnt := int(tt.cntOfFile) - tt.posSplit
+			var list0, list1 *base.List
 			if tt.isFileList {
 
-				list0 := MakeFileList(tt.isNolayer, tt.posSplit, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix)
-				list1 := MakeFileList(tt.isNolayer, cnt, tt.startID*2, tt.incID*2, tt.offsetIndex*2, "2"+tt.nameprefix)
-
-				fmt.Printf("list0=%s\n", list0.Dump(0, base.OptDumpSize(10000)))
-				fmt.Printf("list1=%s\n", list1.Dump(0, base.OptDumpSize(10000)))
-
-				e := list0.Add(*list1)
-				assert.NoError(t, e, "fail list0.Add(*list1)")
-
-				assert.Equalf(t, int(tt.cntOfFile), list0.Count(), "list0.cnt=%d list1.cnt=%d", list0.Count(), list1.Count())
-				assert.True(t, list1.AtWihoutError(list1.Count()-1).Equal(*list0.AtWihoutError(list0.Count() - 1)))
-
-				a := list1.AtWihoutError(0)
-				fmt.Printf("list1=%s\n", list1.Dump(0, base.OptDumpSize(10000)))
-				fmt.Printf("list0=%s\n", list0.Dump(0, base.OptDumpSize(10000)))
-				b := list0.AtWihoutError(0)
-				_, _ = a, b
-
-				assert.False(t, list1.AtWihoutError(0).Equal(*list0.AtWihoutError(0)))
-
+				list0 = (*base.List)(MakeFileList(tt.isNolayer, tt.posSplit, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix).CommonNode)
+				list1 = (*base.List)(MakeFileList(tt.isNolayer, cnt, tt.startID*2, tt.incID*2, tt.offsetIndex*2, "2"+tt.nameprefix).CommonNode)
 			} else {
-
-				list0 := MakeRecordList(tt.isNolayer, tt.posSplit, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix)
-				list1 := MakeRecordList(tt.isNolayer, cnt, tt.startID*2, tt.incID*2, tt.offsetIndex*2, "2"+tt.nameprefix)
-
-				e := list0.Add(*list1)
-				assert.NoError(t, e, "fail list0.Add(*list1)")
-
-				assert.Equalf(t, int(tt.cntOfFile), list0.Count(), "list0.cnt=%d list1.cnt=%d", list0.Count(), list1.Count())
-				assert.True(t, list1.AtWihoutError(list1.Count()-1).Equal(*list0.AtWihoutError(list0.Count() - 1)))
-				// assert.False(t, list1.AtWihoutError(0).Equal(*list0.AtWihoutError(0)))
+				list0 = (*base.List)(MakeRecordList(tt.isNolayer, tt.posSplit, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix).CommonNode)
+				list1 = (*base.List)(MakeRecordList(tt.isNolayer, cnt, tt.startID*2, tt.incID*2, tt.offsetIndex*2, "2"+tt.nameprefix).CommonNode)
 			}
+
+			e := list0.Add(list1)
+			assert.NoError(t, e, "fail list0.Add(*list1)")
+
+			assert.Equalf(t, int(tt.cntOfFile), list0.Count(), "list0.cnt=%d list1.cnt=%d", list0.Count(), list1.Count())
+			assert.True(t, list1.AtWihoutError(list1.Count()-1).Equal(list0.AtWihoutError(list0.Count()-1)))
+
+			a := list1.AtWihoutError(0)
+			b := list0.AtWihoutError(0)
+			_, _ = a, b
+
+			assert.False(t, list1.AtWihoutError(0).Equal(list0.AtWihoutError(0)))
+
 		})
 	}
 
 }
 
-func Test_OldListAdd(t *testing.T) {
+func RecordIsNotInvalid(r *query.Record) (bool, error) {
 
-	o := log.CurrentLogLevel
-	base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
-	defer base.SetL2Current(o, base.FLT_NORMAL)
-
-	base.SetDefaultBase("DobuleLayer")(&base.DefaultOption)
-	flist := query2.NewFileList()
-
-	file := query2.NewFile()
-	file.SetId(query2.FromUint64(10 + uint64(1)))
-	file.SetIndexAt(query2.FromInt64(2000 + int64(2)))
-	file.SetName(base.FromByteList([]byte("namedayo")))
-
-	flist.SetAt(0, file)
-
-	flist2 := query2.NewFileList()
-
-	file = query2.NewFile()
-	file.SetId(query2.FromUint64(10 + uint64(2)))
-	file.SetIndexAt(query2.FromInt64(2000 + int64(3)))
-	file.SetName(base.FromByteList([]byte("namedayo")))
-
-	flist2.SetAt(0, file)
-
-	e := flist.Add(*flist2)
-	assert.NoError(t, e)
-	f2, e := flist.At(1)
-
-	var bf, bf2, bfile strings.Builder
-	flist2.Impl().Dump(0, base.OptDumpOut(&bf), base.OptDumpSize(100))
-	flist.Impl().Dump(0, base.OptDumpOut(&bf2), base.OptDumpSize(100))
-	file.Impl().Dump(0, base.OptDumpOut(&bfile), base.OptDumpSize(100))
-
-	estr := fmt.Sprintf("flist2=%s\flist=%s\nfile=%s\n", bf.String(), bf2.String(), bfile.String())
-
-	assert.NoError(t, e, estr)
-
-	assert.Equal(t, 2, flist.Count())
-	if e == nil {
-		assert.Equal(t, uint64(12), f2.Id().Uint64())
+	if r.FileId().Uint64() == 0 {
+		return false, fmt.Errorf("FileId() == 0")
 	}
+	if r.Offset().Int64() == 0 {
+		return false, fmt.Errorf("Offset() == 0")
+	}
+	if r.Size().Int64() == 0 {
+		return false, fmt.Errorf("Size() == 0")
+	}
+	return true, nil
+}
+
+func FileIsNotInvalid(f *query.File) (bool, error) {
+
+	if f.Id().Uint64() == 0 {
+		return false, fmt.Errorf("FileId() == 0")
+	}
+	if f.IndexAt().Int64() == 0 {
+		return false, fmt.Errorf("IndexAt() == 0")
+	}
+	if f.Name().Bytes() == nil {
+		return false, fmt.Errorf("Bytes() == nil")
+	}
+	if len(f.Name().Bytes()) == 0 {
+		return false, fmt.Errorf("len(Name().Bytes()) == 0")
+	}
+	return true, nil
+
 }

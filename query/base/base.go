@@ -286,12 +286,7 @@ func (b *BaseImpl) Dump(pos int, opts ...DumpOptFn) (out string) {
 	}
 	w := opt.out
 
-	fmt.Fprintf(w, "--dump-pos--\n")
-	fmt.Fprintf(w, "\tpos=0x%x(%d)\n", pos, pos)
 	stdoutDumper := hex.Dumper(w)
-	defer func() {
-		fmt.Fprint(w, "\n--dump-end---\n")
-	}()
 
 	if opt.size == 0 || len(b.R(pos)) > opt.size {
 		stdoutDumper.Write(b.R(pos))

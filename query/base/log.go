@@ -56,6 +56,21 @@ func SetL2Current(level log.LogLevel, filter byte) {
 
 }
 
+func L2isEnable(param Log2Option) bool {
+	logParam := LogOptParam{state: &LogCurrentState, filter: FLT_NONE, logfns: make([]LogFn, 0, 2)}
+
+	param(&logParam)
+
+	if logParam.state.level < logParam.level {
+		return false
+	}
+	if logParam.state.filter&logParam.filter == 0 {
+		return false
+	}
+	return true
+
+}
+
 // Log2 ... logger with lazy evaluation and filter mode
 func Log2(opts ...Log2Option) (result interface{}) {
 	logParam := LogOptParam{state: &LogCurrentState, filter: FLT_NONE, logfns: make([]LogFn, 0, 2)}
