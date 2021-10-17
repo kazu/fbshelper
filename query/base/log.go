@@ -112,9 +112,18 @@ var (
 	L2_DEBUG_IS Log2Option = L2OptFlag(LOG_DEBUG, FLT_IS)
 )
 
+type LogFmtParam func() []interface{}
+
 func L2fmt(s string, vlist ...interface{}) Log2Option {
 
 	return L2OptF(func() LogArgs {
 		return F(s, vlist...)
+	})
+}
+
+func L2Fmt(s string, fn LogFmtParam) Log2Option {
+
+	return L2OptF(func() LogArgs {
+		return F(s, fn())
 	})
 }

@@ -3,16 +3,19 @@ package base_test
 import (
 	"encoding/hex"
 	"fmt"
-	"os"
 	"testing"
 
 	query2 "github.com/kazu/fbshelper/example/query2"
 	"github.com/kazu/fbshelper/example/vfs_schema"
 	"github.com/kazu/fbshelper/query/base"
+	log "github.com/kazu/fbshelper/query/log"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
+
+	base.SetL2Current(log.LOG_ERROR, base.FLT_NORMAL)
+
 	base.SetDefaultBase("")(&base.DefaultOption)
 	m.Run()
 	base.SetDefaultBase("")(&base.DefaultOption)
@@ -60,10 +63,10 @@ func ToBytes(c *base.CommonNode) []byte {
 }
 
 func HexDump(s string, b []byte) {
-	fmt.Printf("--hexdump--start---\n%s\n", s)
-	stdoutDumper := hex.Dumper(os.Stdout)
+	fmt.Fprintf(DefaultWriter, "--hexdump--start---\n%s\n", s)
+	stdoutDumper := hex.Dumper(DefaultWriter)
 	stdoutDumper.Write(b)
-	fmt.Print("\n--hexdump--end-----\n")
+	fmt.Fprint(DefaultWriter, "\n--hexdump--end-----\n")
 }
 func Test_AddDiffInNoLayer(t *testing.T) {
 

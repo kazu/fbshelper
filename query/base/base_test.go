@@ -1246,55 +1246,6 @@ func (b *BufWriterIO) ReOpen() {
 	b.File, _ = os.OpenFile(name, os.O_RDWR, os.ModePerm)
 }
 
-func Benchmark_DirectBuf(b *testing.B) {
-
-	benchs := []struct {
-		name    string
-		configs []Config
-	}{
-		{
-			name:    "directbuf block=8k  merge-interval-8",
-			configs: []Config{loopCnt(b.N), blockSize(8192), useMerge(true), mInterval(8), useNoLayer(true)},
-		},
-		{
-			name:    "directbuf block=4k  merge-interval-8",
-			configs: []Config{loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(8), useNoLayer(true)},
-		},
-		{
-			name:    "directbuf block=512  merge-interval-8",
-			configs: []Config{loopCnt(b.N), blockSize(512), useMerge(true), mInterval(8), useNoLayer(true)},
-		},
-		{
-			name:    "directbuf block=4k merge-interval-4",
-			configs: []Config{loopCnt(b.N), blockSize(4096), useMerge(true), mInterval(4), useNoLayer(true)},
-		},
-		{
-			name:    "directbuf block=512 merge-interval-4",
-			configs: []Config{loopCnt(b.N), blockSize(512), useMerge(true), mInterval(4), useNoLayer(true)},
-		},
-		{
-			name:    "directbuf block=4k merge-interval-2",
-			configs: []Config{blockSize(4096), useMerge(true), mInterval(2), useNoLayer(true)},
-		},
-		{
-			name:    "directbuf block=512 merge-interval-2",
-			configs: []Config{blockSize(512), useMerge(true), mInterval(2), useNoLayer(true)},
-		},
-	}
-
-	for _, bb := range benchs {
-		b.ResetTimer()
-		b.Run(bb.name, func(b *testing.B) {
-			b.StartTimer()
-			_, deferfn := MakeDirectBufFileList(append(bb.configs, loopCnt(b.N))...)
-			b.StopTimer()
-			deferfn()
-		})
-
-	}
-
-}
-
 type Conf struct {
 	loopCnt    int
 	block      int
@@ -2131,6 +2082,19 @@ func Test_ListOfDoubleLayer(t *testing.T) {
 
 }
 
+// func Test_L2Fmt(t *testing.T) {
+
+// 	o := log.CurrentLogLevel
+// 	base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
+// 	defer base.SetL2Current(o, base.FLT_NORMAL)
+
+// 	base.Log2(base.L2_DEBUG_IS,
+// 		base.L2Fmt("aaa %s ", func() []interface{} {
+// 			return []interface{1, 2}.([]interface{})
+// 		}))
+
+// }
+
 func Test_ListAdd(t *testing.T) {
 
 	o := log.CurrentLogLevel
@@ -2179,6 +2143,27 @@ func Test_ListAdd(t *testing.T) {
 			_, _ = a, b
 
 			assert.False(t, list1.AtWihoutError(0).Equal(list0.AtWihoutError(0)))
+			if tt.isFileList {
+				flist := query2.FileList{CommonNode: (*base.CommonNode)(list0)}
+
+				for _, f := range flist.All() {
+					valid, e := FileIsNotInvalid(f)
+					assert.NoErrorf(t, e, "file\n %s\n", f.Impl().Dump(f.Node.Pos, base.OptDumpSize(1000)))
+					assert.Truef(t, valid, "file\n %s\n", f.Impl().Dump(f.Node.Pos, base.OptDumpSize(1000)))
+
+				}
+
+			} else {
+				rlist := query2.RecordList{CommonNode: (*base.CommonNode)(list0)}
+
+				for _, f := range rlist.All() {
+					valid, e := RecordIsNotInvalid(f)
+					assert.NoErrorf(t, e, "record\n %s\n", f.Impl().Dump(f.Node.Pos, base.OptDumpSize(1000)))
+					assert.Truef(t, valid, "record\n %s\n", f.Impl().Dump(f.Node.Pos, base.OptDumpSize(1000)))
+
+				}
+
+			}
 
 		})
 	}

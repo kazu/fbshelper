@@ -24,6 +24,7 @@ require (
 	go.uber.org/atomic v1.6.0 // indirect
 	go.uber.org/multierr v1.5.0 // indirect
 	go.uber.org/zap v1.15.0 // indirect
+	golang.org/x/perf v0.0.0-20211012211434-03971e389cd3 // indirect
 	golang.org/x/tools v0.0.0-20191029190741-b9c20aec41a5 // indirect
 )
 
