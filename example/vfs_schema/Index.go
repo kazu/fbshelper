@@ -14,6 +14,7 @@ const (
 	IndexInvertedMapNum    Index = 4
 	IndexInvertedMapString Index = 5
 	IndexNumList           Index = 6
+	IndexHoges             Index = 7
 )
 
 var EnumNamesIndex = map[Index]string{
@@ -24,6 +25,7 @@ var EnumNamesIndex = map[Index]string{
 	IndexInvertedMapNum:    "InvertedMapNum",
 	IndexInvertedMapString: "InvertedMapString",
 	IndexNumList:           "NumList",
+	IndexHoges:             "Hoges",
 }
 
 var EnumValuesIndex = map[string]Index{
@@ -34,6 +36,7 @@ var EnumValuesIndex = map[string]Index{
 	"InvertedMapNum":    IndexInvertedMapNum,
 	"InvertedMapString": IndexInvertedMapString,
 	"NumList":           IndexNumList,
+	"Hoges":             IndexHoges,
 }
 
 func (v Index) String() string {
