@@ -65,6 +65,14 @@ func (histories *Histories) Dump(Fmt string, v ...interface{}) {
 	})
 }
 
+func (histories *Histories) DumpWithFlag(flag bool, Fmt string, v ...interface{}) {
+
+	if !flag {
+		return
+	}
+	histories.Dump(Fmt, v...)
+}
+
 func (histories Histories) Strings() (result []string) {
 
 	var b strings.Builder
