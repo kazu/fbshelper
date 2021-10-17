@@ -558,6 +558,15 @@ func (list *List) updateOffsetToTable(lastIdx, vlen, total, header_extend, vSize
 }
 
 func (list *List) moveOffsetToTable(size int) {
+	if CurrentGlobalConfig.useNewMovOfftToTable {
+		list.movOffToTable(size)
+		return
+	}
+
+	list.oldMovOffToTable(size)
+}
+
+func (list *List) oldMovOffToTable(size int) {
 
 	cnt := list.Count()
 
@@ -567,6 +576,31 @@ func (list *List) moveOffsetToTable(size int) {
 		off += uint32(size)
 		flatbuffers.WriteUint32(list.U(toTable, 4), off)
 	}
+}
+
+func (list *List) movOffToTable(size int) {
+
+	cnt := list.Count()
+
+	startToTable := int(list.NodeList.ValueInfo.Pos)
+	sizeToTable := cnt * 4
+	bufs := make([]byte, sizeToTable)
+
+	for toTable := startToTable; toTable < startToTable+sizeToTable; toTable += 4 {
+		off := flatbuffers.GetUint32(list.R(toTable))
+		off += uint32(size)
+		flatbuffers.WriteUint32(bufs[toTable-startToTable:], off)
+
+	}
+	diff := list.D(startToTable, sizeToTable)
+	diff.bytes = bufs
+
+	// must equal pointer
+	if &list.R(startToTable)[0] != &bufs[0] {
+		panic(fmt.Sprintf("movOffToTable %p %p\n",
+			&list.R(startToTable)[0], &bufs[0]))
+	}
+
 }
 
 func (list *List) addTableList(alists ...*List) error {

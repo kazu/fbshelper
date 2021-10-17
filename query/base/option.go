@@ -36,3 +36,19 @@ func NewBaseByIO(rio io.Reader, cap int) Base {
 	bImpl := NewBaseImplByIO(rio, cap)
 	return DefaultOption.base.New(bImpl)
 }
+
+type GlobalConfig struct {
+	useNewMovOfftToTable bool
+}
+
+var CurrentGlobalConfig GlobalConfig = GlobalConfig{useNewMovOfftToTable: true}
+
+type OptGlobalConf func(*GlobalConfig)
+
+func OptUseMovOff(t bool) OptGlobalConf {
+
+	return func(g *GlobalConfig) {
+		g.useNewMovOfftToTable = t
+	}
+
+}
