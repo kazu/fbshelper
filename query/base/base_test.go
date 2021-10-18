@@ -2105,6 +2105,7 @@ func Test_ListAdd(t *testing.T) {
 		name        string
 		isFileList  bool
 		isNolayer   bool
+		useMovOff   bool
 		cntOfFile   int
 		startID     uint64
 		incID       uint64
@@ -2113,10 +2114,12 @@ func Test_ListAdd(t *testing.T) {
 		posSplit    int
 	}{
 		// {name , isFileList, {isNolayer, cntOfFile, startID, incID, offsetIndex, nameprefix, posSplit}}
-		{"1,1 filelist", true, true, 2, 10, 10, 2000, "2files", 1},
-		{"5,5 filelist ", true, true, 10, 10, 10, 2000, "10files", 5},
-		{"1,1 recordlist ", false, true, 10, 10, 10, 2000, "10files", 5},
-		{"5,5 recordlist ", false, true, 10, 10, 10, 2000, "10files", 5},
+
+		{"1,1 filelist", true, true, false, 2, 10, 10, 2000, "2files", 1},
+		{"5,5 filelist ", true, true, false, 10, 10, 10, 2000, "10files", 5},
+		{"5,5 filelist ", true, true, true, 10, 10, 10, 2000, "10files", 5},
+		{"1,1 recordlist ", false, true, false, 10, 10, 10, 2000, "10files", 5},
+		{"5,5 recordlist ", false, true, false, 10, 10, 10, 2000, "10files", 5},
 	}
 
 	for _, tt := range tests {
@@ -2131,6 +2134,7 @@ func Test_ListAdd(t *testing.T) {
 				list0 = (*base.List)(MakeRecordList(tt.isNolayer, tt.posSplit, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix).CommonNode)
 				list1 = (*base.List)(MakeRecordList(tt.isNolayer, cnt, tt.startID*2, tt.incID*2, tt.offsetIndex*2, "2"+tt.nameprefix).CommonNode)
 			}
+			base.OptUseMovOff(tt.useMovOff)(&base.CurrentGlobalConfig)
 
 			e := list0.Add(list1)
 			assert.NoError(t, e, "fail list0.Add(*list1)")

@@ -67,6 +67,12 @@ func NewNoLayer(b Base) NoLayer {
 	return NoLayer{}
 }
 
+// Dup ... return copied Base
+func (b NoLayer) Dup() (dst Base) {
+
+	return NoLayer{BaseImpl: b.BaseImpl.Dup().Impl()}
+}
+
 // Type ... type of Base interface
 func (b NoLayer) Type() uint8 { return BASE_NO_LAYER }
 
@@ -132,11 +138,20 @@ func (b NoLayer) D(off, size int) *Diff {
 	})
 
 	if e == nil && sn >= 0 {
-		if b.Diffs[sn].Offset == off {
-			return &b.Diffs[sn]
+		diff := b.Diffs[sn]
+		loncha.Delete(&b.Diffs, func(i int) bool {
+			return i == sn
+		})
+
+		if diff.Offset == off {
+			b.Diffs = append(b.Diffs, diff)
+			return &b.Diffs[len(b.Diffs)-1]
 		}
-		off_diff := off - b.Diffs[sn].Offset
-		return &Diff{Offset: off, bytes: b.Diffs[sn].bytes[off_diff : off_diff+size]}
+		off_diff := off - diff.Offset
+
+		diff = Diff{Offset: off, bytes: diff.bytes[off_diff : off_diff+size]}
+		b.Diffs = append(b.Diffs, diff)
+		return &b.Diffs[len(b.Diffs)-1]
 	}
 
 	if off+size <= len(b.bytes) {
@@ -262,6 +277,10 @@ func NewDoubleLayer(b Base) DoubleLayer {
 	}
 	return DoubleLayer{}
 
+}
+
+func (b DoubleLayer) Dup() (dst Base) {
+	return DoubleLayer{BaseImpl: b.BaseImpl.Dup().Impl()}
 }
 
 // Type ... type of Base interface
