@@ -138,15 +138,13 @@ func (b NoLayer) D(off, size int) *Diff {
 	})
 
 	if e == nil && sn >= 0 {
-		diff := b.Diffs[sn]
-
-		if diff.Offset == off {
-			loncha.Delete(&b.Diffs, func(i int) bool {
-				return i == sn
-			})
-			b.Diffs = append(b.Diffs, diff)
+		if b.Diffs[sn].Offset == off {
+			if e := b.Impl().moveLastInDiff(sn); e != nil {
+				panic(e.Error())
+			}
 			return &b.Diffs[len(b.Diffs)-1]
 		}
+		diff := b.Diffs[sn]
 		off_diff := off - diff.Offset
 
 		return &Diff{Offset: off, bytes: b.Diffs[sn].bytes[off_diff : off_diff+size]}

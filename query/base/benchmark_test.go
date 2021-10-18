@@ -1,7 +1,9 @@
 package base_test
 
 import (
+	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 
 	query "github.com/kazu/fbshelper/example/query2"
@@ -121,7 +123,7 @@ func MakeRootWithOutFile() *query.Root {
 func Benchmark_AddList(b *testing.B) {
 
 	o := log.CurrentLogLevel
-	base.SetL2Current(log.LOG_WARN, base.FLT_NONE)
+	base.SetL2Current(log.LOG_WARN, base.FLT_IS)
 	defer base.SetL2Current(o, base.FLT_NORMAL)
 
 	appendFileListUseAdd := func(dlist, slist *query.FileList) {
@@ -133,33 +135,49 @@ func Benchmark_AddList(b *testing.B) {
 			dlist.SetAt(dlist.Count(), f)
 		}
 	}
+	_ = appendFileListUseSetAt
 
 	benchs := []struct {
 		name       string
 		isFileList bool
 		isNoLayer  bool
 		useRoot    bool
+		useFlatten bool
+		useMovOff  bool
 		cnt        int
 		Fn         func(dlist, slist *query.FileList)
 	}{
-		{"add filelist_1001 without root use AddAt()", true, true, false, 1001, appendFileListUseAdd},
-		{"add filelist_1001 without root use SetAt()", true, true, false, 1001, appendFileListUseSetAt},
-		{"add filelist_1001 with root use AddAt()", true, true, true, 1001, appendFileListUseAdd},
-		{"add filelist_1001 with root use SetAt()", true, true, true, 1001, appendFileListUseSetAt},
-		{"add filelist_402 without root use AddAt()", true, true, false, 402, appendFileListUseAdd},
-		{"add filelist_402 without root use SetAt()", true, true, false, 402, appendFileListUseSetAt},
-		{"add filelist_202 without root use AddAt()", true, true, false, 202, appendFileListUseAdd},
-		{"add filelist_202 without root use SetAt()", true, true, false, 202, appendFileListUseSetAt},
-		{"add filelist_100 without root use AddAt()", true, true, false, 100, appendFileListUseAdd},
-		{"add filelist_100 without root use SetAt()", true, true, false, 100, appendFileListUseSetAt},
+		{"add filelist_1001 use AddAt() ", true, true, true, false, true, 1001, appendFileListUseAdd},
+		{"add filelist_1001 use SetAt() ", true, true, true, false, true, 1001, appendFileListUseSetAt},
+		{"add filelist_1001 use AddAt() ", true, true, false, false, false, 1001, appendFileListUseAdd},
+		{"add filelist_1001 use SetAt() ", true, true, false, false, false, 1001, appendFileListUseSetAt},
+		{"add filelist_1001 use AddAt() ", true, true, false, true, false, 1001, appendFileListUseAdd},
+		{"add filelist_1001 use SetAt() ", true, true, false, true, false, 1001, appendFileListUseSetAt},
+		{"add filelist_1001 use AddAt() ", true, true, false, false, true, 1001, appendFileListUseAdd},
+		{"add filelist_1001 use SetAt() ", true, true, false, false, true, 1001, appendFileListUseSetAt},
+		{"add filelist_1001 use AddAt() ", true, true, false, true, true, 1001, appendFileListUseAdd},
+		{"add filelist_1001 use SetAt() ", true, true, false, true, true, 1001, appendFileListUseSetAt},
+		{"add filelist_402  use AddAt()", true, true, false, false, true, 402, appendFileListUseAdd},
+		{"add filelist_402  use SetAt()", true, true, false, false, true, 402, appendFileListUseSetAt},
+		{"add filelist_202  use AddAt()", true, true, false, false, true, 202, appendFileListUseAdd},
+		{"add filelist_202  use SetAt()", true, true, false, false, true, 202, appendFileListUseSetAt},
+	}
 
-		// {"add ffilelist_100 with root use AddAt()", true, true, true, 100, appendFileListUseAdd},
-		// {"add filelist_100 with root use SetAt()", true, true, true, 100, appendFileListUseSetAt},
+	flag2str := func(flags ...bool) string {
+		var b strings.Builder
+		for _, flag := range flags {
+			if flag {
+				b.WriteString("T")
+				continue
+			}
+			b.WriteString("F")
+		}
+		return b.String()
 	}
 
 	for _, bb := range benchs {
 
-		b.Run(bb.name, func(b *testing.B) {
+		b.Run(fmt.Sprintf("%s flag=%s", bb.name, flag2str(bb.isFileList, bb.isNoLayer, bb.useRoot, bb.useFlatten, bb.useMovOff)), func(b *testing.B) {
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
@@ -178,18 +196,18 @@ func Benchmark_AddList(b *testing.B) {
 					root.SetIndex(&query.Index{CommonNode: hoges.CommonNode})
 					dlist = root.Index().Hoges().Files()
 				}
-				dlist.Flatten()
-				slist.Flatten()
+				if bb.useFlatten {
+					dlist.Flatten()
+					//slist.Flatten()
+				}
+
+				base.OptUseMovOff(bb.useMovOff)(&base.CurrentGlobalConfig)
 
 				b.StartTimer()
 
 				bb.Fn(dlist, slist)
 
 				b.StopTimer()
-				// if bb.useRoot {
-				// 	cnt := root.Index().Hoges().Files().Count()
-				// 	_ = cnt
-				// }
 
 			}
 		})

@@ -9,6 +9,7 @@ package dump
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -33,7 +34,9 @@ type Histories struct {
 	Variable interface{}
 	DumpFn   DumpFunc
 	logs     []History
+	logCh    chan int
 	fInfo    []FuncInfo
+	wg       sync.WaitGroup
 }
 
 // History ... one history for dump
@@ -54,15 +57,18 @@ func New(variable interface{}, dump DumpFunc, info []FuncInfo) Histories {
 		Variable: variable,
 		DumpFn:   dump,
 		fInfo:    info,
+		logCh:    make(chan int, 100),
 	}
 }
 
 func (histories *Histories) Dump(Fmt string, v ...interface{}) {
 
-	histories.logs = append(histories.logs, History{
+	h := History{
 		Name: fmt.Sprintf(Fmt, v...),
-		Dump: histories.DumpFn(histories.Variable),
-	})
+		Dump: histories.DumpFn(histories.Variable)}
+
+	histories.logs = append(histories.logs, h)
+	histories.logCh <- len(histories.logs) - 1
 }
 
 func (histories *Histories) DumpWithFlag(flag bool, Fmt string, v ...interface{}) {
@@ -73,7 +79,7 @@ func (histories *Histories) DumpWithFlag(flag bool, Fmt string, v ...interface{}
 	histories.Dump(Fmt, v...)
 }
 
-func (histories Histories) Strings() (result []string) {
+func (histories *Histories) Strings() (result []string) {
 
 	var b strings.Builder
 
@@ -116,11 +122,54 @@ func (histories Histories) Strings() (result []string) {
 
 }
 
-func (histories Histories) String() string {
+func (histories *Histories) String() string {
 	var b strings.Builder
 
 	for _, log := range histories.Strings() {
-		fmt.Fprint(&b, log)
+		fmt.Fprint(&b, log+"\n")
 	}
 	return b.String()
+}
+
+func (histories *Histories) StringBy(i int) string {
+	var b strings.Builder
+	log := histories.logs[i]
+
+	if i == 0 {
+		fmt.Fprintf(&b, "%s\n%s\n", log.Name, log.Dump)
+		return b.String()
+	}
+
+	fmt.Fprintln(&b, log.Name)
+	dmp := diffmatchpatch.New()
+	diffs := dmp.DiffMain(histories.logs[i-1].Dump, histories.logs[i].Dump, false)
+	fmt.Fprint(&b, "\n"+dmp.DiffText2(diffs)+"\n")
+	return b.String()
+
+}
+
+func (histories *Histories) Finish() {
+
+	histories.logCh <- -1
+
+	histories.wg.Wait()
+	close(histories.logCh)
+
+}
+
+func (histories *Histories) StreamOut(fn func(string)) {
+	histories.wg.Add(1)
+
+	go histories.streamOut(fn, &histories.wg)
+
+}
+
+func (histories *Histories) streamOut(wFn func(string), wg *sync.WaitGroup) {
+	for i := range histories.logCh {
+		if i == -1 {
+			break
+		}
+		wFn(histories.StringBy(i))
+	}
+	wg.Done()
 }

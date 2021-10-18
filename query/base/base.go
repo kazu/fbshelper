@@ -3,9 +3,11 @@ package base
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/kazu/loncha"
@@ -809,6 +811,24 @@ SETUP_DIFF:
 			len := start + size - diff.Offset
 			diff.bytes = diff.bytes[:len]
 		}
+	}
+
+	return nil
+}
+
+func (b *BaseImpl) moveLastInDiff(idx int) error {
+
+	if len(b.Diffs)-1 == idx {
+		return nil
+	}
+	if len(b.Diffs) <= idx {
+		return errors.New("moveDiff invalid idx")
+	}
+
+	swapFn := reflect.Swapper(b.Diffs)
+
+	for i := idx; i < len(b.Diffs)-1; i++ {
+		swapFn(i, i+1)
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package base
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -584,16 +585,29 @@ func (list *List) movOffToTable(size int) {
 
 	startToTable := int(list.NodeList.ValueInfo.Pos)
 	sizeToTable := cnt * 4
-	bufs := make([]byte, sizeToTable)
+
+	posToOff := map[int]uint32{}
 
 	for toTable := startToTable; toTable < startToTable+sizeToTable; toTable += 4 {
 		off := flatbuffers.GetUint32(list.R(toTable))
 		off += uint32(size)
-		flatbuffers.WriteUint32(bufs[toTable-startToTable:], off)
-
+		posToOff[toTable-startToTable] = off
 	}
-	diff := list.D(startToTable, sizeToTable)
-	diff.bytes = bufs
+
+	bufs := list.U(startToTable, sizeToTable)
+
+	if len(bufs) != sizeToTable {
+		panic(fmt.Sprintf("movOffToTable len=%d cap=%d sizeToTable=%d\n",
+			len(bufs), cap(bufs), sizeToTable))
+	}
+
+	for pos, off := range posToOff {
+		flatbuffers.WriteUint32(bufs[pos:], off)
+		roff := flatbuffers.GetUint32(list.R(pos + startToTable))
+		if off != roff && bytes.Equal(bufs[pos:pos+4], list.R(pos + startToTable)[:4]) {
+			panic(fmt.Sprintf("bufs=%+v data=%+v\n", bufs[pos:pos+4], list.R(pos + startToTable)[0:4]))
+		}
+	}
 
 	// must equal pointer
 	if &list.R(startToTable)[0] != &bufs[0] {
@@ -605,8 +619,7 @@ func (list *List) movOffToTable(size int) {
 
 func (list *List) addTableList(alists ...*List) error {
 
-	vlen, total := list.vlenTotal()
-	_ = total
+	vlen, _ := list.vlenTotal()
 
 	list.NodeList.ValueInfo = ValueInfo(list.InfoSlice())
 	oldImpl := list.Impl()
@@ -639,7 +652,6 @@ func (list *List) addTableList(alists ...*List) error {
 	aSizeOfHeader := alist.Count() * 4
 
 	avTableStart := afirstElm.Node.Pos - afirstElm.VirtualTableLen()
-	_ = avTableStart
 
 	o := CurrentLogLevel
 	SetLogLevel(LOG_WARN)
@@ -668,28 +680,34 @@ func (list *List) addTableList(alists ...*List) error {
 			{"(avTableStart, dataEnd-vtableStart, false)", dump.TypeParam},
 		})
 
+	// adumper.StreamOut(func(s string) {
+	// 	//if L2isEnable(L2_DEBUG_IS) {
+	// 	Log2(L2_DEBUG_IS, L2fmt("alist dump history\n %s\n", s))
+	// 	//}
+	// })
+	// //defer adumper.Finish()
+	// dumper.StreamOut(func(s string) {
+	// 	//if L2isEnable(L2_DEBUG_IS) {
+	// 	Log2(L2_DEBUG_IS, L2fmt("list dump history\n %s\n", s))
+	// 	//}
+	// })
+	//defer dumper.Finish()
+
 	adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "B: make space for list data")
-
 	alist.toCommonNode().InsertSpace(avTableStart, dataEnd-vtableStart, false)
-
-	adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: make space for list data (0x%x,0x%x,0x%v)", avTableStart, dataEnd-vtableStart, false)
+	adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: make space for list data InsertSpace(0x%x,0x%x,%v)", avTableStart, dataEnd-vtableStart, false)
 
 	if !alist.toCommonNode().InRoot() {
-		adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "B: move inc offset to Talbe")
-
 		alist.moveOffsetToTable(dataEnd - vtableStart)
-
 		adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: move inc offset to Talbe 0x%x", dataEnd-vtableStart)
 	}
 
 	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "B: make space for headers to insert alist")
-
 	list.toCommonNode().InsertSpace(headerEnd, aSizeOfHeader, false)
 	if !list.toCommonNode().InRoot() {
 		list.moveOffsetToTable(aSizeOfHeader)
 	}
-
-	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: make space for headers to insert alist (0x%x,0x%x,%v)", headerEnd, aSizeOfHeader, false)
+	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: make space for headers to insert alist moveOffsetToTable(0x%x,0x%x,%v)", headerEnd, aSizeOfHeader, false)
 
 	ptrIdx := func(idx int) int {
 		return int(list.NodeList.ValueInfo.Pos) + idx*4
@@ -701,20 +719,22 @@ func (list *List) addTableList(alists ...*List) error {
 	flatbuffers.WriteUint32(list.U(ptrIdx(-1), 4), uint32(vlen+aVlen))
 	list.Copy(alist.Base, alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
 
-	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: merge list and write vector len (0x%x,0x%x,0x%x,0x%x,)", alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
+	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: merge list and write vector len Copy(0x%x,0x%x,0x%x,0x%x)", alist.NodeList.ValueInfo.Pos, aSizeOfHeader, headerEnd, 0)
 
 	list.Copy(alist.Base, avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
+	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: merge list data Copy(0x%x,0x%x,0x%x,0x%x)", avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
 
-	dumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: merge list data (0x%x,0x%x,0x%x,0x%x,)", avTableStart+dataEnd-vtableStart, aDataEnd-avTableStart, dataEnd+aSizeOfHeader, 0)
-
-	list.NodeList.ValueInfo = ValueInfo(list.InfoSlice())
+	Log2(L2_DEBUG_IS, L2fmt("alist dump history\n %s\n", adumper.String()))
+	Log2(L2_DEBUG_IS, L2fmt("list dump history\n %s\n", dumper.String()))
 
 	if list.Base.Type() == BASE_NO_LAYER || list.Base.Type() == BASE_DOUBLE_LAYER {
 		oldImpl.overwrite(list.Impl())
 	}
 
-	Log2(L2_DEBUG_IS, L2fmt("list dump history\n %s\n", adumper.String()))
-	Log2(L2_DEBUG_IS, L2fmt("list dump history\n %s\n", dumper.String()))
+	// adumper.Finish()
+	// dumper.Finish()
+
+	list.NodeList.ValueInfo = ValueInfo(list.InfoSlice())
 
 	return nil
 }
