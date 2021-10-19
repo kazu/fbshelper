@@ -46,6 +46,14 @@ func (node InvertedMapStringList) Add(v InvertedMapStringList) error {
 	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
+func (node InvertedMapStringList) Range(start, last int) *InvertedMapStringList {
+	l := (*base.List)(node.CommonNode).New(base.OptRange(start, last))
+	if l == nil {
+		return nil
+	}
+	return &InvertedMapStringList{CommonNode: (*base.CommonNode)(l)}
+}
+
 func (node InvertedMapStringList) First() (result *InvertedMapString, e error) {
 	return node.At(0)
 }

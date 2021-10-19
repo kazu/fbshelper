@@ -46,6 +46,14 @@ func (node RecordList) Add(v RecordList) error {
 	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
+func (node RecordList) Range(start, last int) *RecordList {
+	l := (*base.List)(node.CommonNode).New(base.OptRange(start, last))
+	if l == nil {
+		return nil
+	}
+	return &RecordList{CommonNode: (*base.CommonNode)(l)}
+}
+
 func (node RecordList) First() (result *Record, e error) {
 	return node.At(0)
 }

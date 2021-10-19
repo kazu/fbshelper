@@ -42,6 +42,14 @@ func (node ListType) Add(v ListType) error {
 	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
+func (node ListType) Range(start, last int) *ListType {
+	l := (*base.List)(node.CommonNode).New(base.OptRange(start, last))
+	if l == nil {
+		return nil
+	}
+	return &ListType{CommonNode: (*base.CommonNode)(l)}
+}
+
 func (node ListType) First() (result *NodeName, e error) {
 	return node.At(0)
 }

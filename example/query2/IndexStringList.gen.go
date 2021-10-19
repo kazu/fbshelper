@@ -46,6 +46,14 @@ func (node IndexStringList) Add(v IndexStringList) error {
 	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
+func (node IndexStringList) Range(start, last int) *IndexStringList {
+	l := (*base.List)(node.CommonNode).New(base.OptRange(start, last))
+	if l == nil {
+		return nil
+	}
+	return &IndexStringList{CommonNode: (*base.CommonNode)(l)}
+}
+
 func (node IndexStringList) First() (result *IndexString, e error) {
 	return node.At(0)
 }

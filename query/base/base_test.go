@@ -2203,6 +2203,7 @@ func Test_ListNewOptRange(t *testing.T) {
 		name        string
 		isFileList  bool
 		isNolayer   bool
+		useRange    bool
 		cntOfFile   int
 		startOfSub  int
 		lastOfSub   int
@@ -2211,20 +2212,34 @@ func Test_ListNewOptRange(t *testing.T) {
 		offsetIndex int64
 		nameprefix  string
 	}{
-		{"10 filelist   ", true, true, 10, 2, 5, 10, 10, 2000, "10files"},
-		{"10 recordlist ", false, true, 10, 3, 4, 10, 10, 2000, "10files"},
+		// {"10 filelist   ", true, true, false, 10, 2, 5, 10, 10, 2000, "10files"},
+		// {"10 recordlist ", false, true, false, 10, 3, 4, 10, 10, 2000, "10files"},
+		{"10 filelist   ", true, true, true, 10, 2, 5, 10, 10, 2000, "10files"},
+		{"10 recordlist ", false, true, true, 10, 3, 4, 10, 10, 2000, "10files"},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s params=%+v\n", tt.name, tt), func(t *testing.T) {
-			var list0 *base.List
+			var list0, list1 *base.List
 			if tt.isFileList {
 				list0 = (*base.List)(MakeFileList(tt.isNolayer, tt.cntOfFile, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix).CommonNode)
 			} else {
 				list0 = (*base.List)(MakeRecordList(tt.isNolayer, tt.cntOfFile, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix).CommonNode)
 			}
 
-			list1 := list0.New(base.OptRange(tt.startOfSub, tt.lastOfSub))
+			if tt.useRange && tt.isFileList {
+				l0 := query2.FileList{CommonNode: (*base.CommonNode)(list0)}
+
+				list1 = (*base.List)(l0.Range(tt.startOfSub, tt.lastOfSub).CommonNode)
+
+			} else if tt.useRange && !tt.isFileList {
+				l0 := query2.RecordList{CommonNode: (*base.CommonNode)(list0)}
+				list1 = (*base.List)(l0.Range(tt.startOfSub, tt.lastOfSub).CommonNode)
+
+			} else {
+				list1 = list0.New(base.OptRange(tt.startOfSub, tt.lastOfSub))
+			}
+
 			assert.NotNil(t, list1)
 			assert.Equalf(t, int(tt.lastOfSub-tt.startOfSub+1), list1.Count(), "list0.cnt=%d list1.cnt=%d", list0.Count(), list1.Count())
 

@@ -46,6 +46,14 @@ func (node NumListList) Add(v NumListList) error {
 	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
+func (node NumListList) Range(start, last int) *NumListList {
+	l := (*base.List)(node.CommonNode).New(base.OptRange(start, last))
+	if l == nil {
+		return nil
+	}
+	return &NumListList{CommonNode: (*base.CommonNode)(l)}
+}
+
 func (node NumListList) First() (result *NumList, e error) {
 	return node.At(0)
 }

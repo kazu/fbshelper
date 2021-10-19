@@ -46,6 +46,14 @@ func (node HogesList) Add(v HogesList) error {
 	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
+func (node HogesList) Range(start, last int) *HogesList {
+	l := (*base.List)(node.CommonNode).New(base.OptRange(start, last))
+	if l == nil {
+		return nil
+	}
+	return &HogesList{CommonNode: (*base.CommonNode)(l)}
+}
+
 func (node HogesList) First() (result *Hoges, e error) {
 	return node.At(0)
 }

@@ -46,6 +46,14 @@ func (node SymbolsList) Add(v SymbolsList) error {
 	return (*base.List)(node.CommonNode).Add((*base.List)(v.CommonNode))
 }
 
+func (node SymbolsList) Range(start, last int) *SymbolsList {
+	l := (*base.List)(node.CommonNode).New(base.OptRange(start, last))
+	if l == nil {
+		return nil
+	}
+	return &SymbolsList{CommonNode: (*base.CommonNode)(l)}
+}
+
 func (node SymbolsList) First() (result *Symbols, e error) {
 	return node.At(0)
 }
