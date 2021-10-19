@@ -15,4 +15,5 @@ show detail
 ## TODO
 
 - [x] double layer buffer
-- [x] Add list to list 
+- [x] Add list to list
+- [ ] Split list
