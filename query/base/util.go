@@ -364,18 +364,26 @@ func SetRootName(s string) {
 }
 
 // MaxInt ... return maxinum value from two values
-func MaxInt(i, j int) int {
-	if i >= j {
-		return i
+func MaxInt(vals ...int) (r int) {
+	r = vals[0]
+
+	for _, v := range vals {
+		if v > r {
+			r = v
+		}
 	}
-	return j
+	return
 }
 
-func MinInt(i, j int) int {
-	if i > j {
-		return j
+func MinInt(vals ...int) (r int) {
+	r = vals[0]
+
+	for _, v := range vals {
+		if v < r {
+			r = v
+		}
 	}
-	return i
+	return
 }
 
 // SumInts ... sum of []int

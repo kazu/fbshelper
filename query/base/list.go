@@ -1181,3 +1181,239 @@ func FromByteList(bytes []byte) *List {
 
 	return (*List)(common)
 }
+
+func (node *List) toTable(i int) int {
+
+	return int(node.NodeList.ValueInfo.Pos) + i*4
+
+}
+
+func (node *List) new() (nList *List) {
+
+	nList = &List{}
+	nList.NodeList = &NodeList{}
+	nList.Name = node.Name
+
+	nList.InitList()
+	switch node.Base.Type() {
+	case BASE_IMPL:
+		nList.Base = nList.Base.Impl()
+	case BASE_NO_LAYER:
+		nList.Base = NewNoLayer(nList.Base)
+	case BASE_DOUBLE_LAYER:
+		nList.Base = NewDoubleLayer(nList.Base)
+	}
+	return nList
+}
+
+// New ... return new list
+//              if ListOptionge was not set, return empty list
+//              if OptRange was set, return sub list by range
+func (node *List) New(optFns ...ListOpt) (sub *List) {
+
+	if len(optFns) == 0 {
+		return node.new()
+	}
+	opt := DefaultListOpt()
+	idx, cnt, e := node.setupOptRange(&opt, optFns...)
+	if e != nil {
+		return nil
+	}
+
+	if node.Count() <= idx {
+		return nil
+	}
+
+	sub = node.new()
+
+	sizeToTable := cnt * 4
+
+	dumper := dump.New(sub,
+		func(v interface{}) string {
+			sub := v.(*List)
+			return sub.Impl().Dump(0, OptDumpSize(500))
+		},
+		[]dump.FuncInfo{
+			{"sub", dump.TypeVariable},
+			{"SubList", dump.TypeVariable},
+		})
+
+	odumper := dump.New(sub,
+		func(v interface{}) string {
+			//sub := v.(*List)
+			return node.Impl().Dump(0, OptDumpSize(500))
+		},
+		[]dump.FuncInfo{
+			{"sub", dump.TypeVariable},
+			{"SubList", dump.TypeVariable},
+		})
+	odumper.Dump("list ")
+	Log2(L2OptFlag(LOG_DEBUG, FLT_NORMAL), L2fmt("list dump \n %s\n", odumper.String()))
+
+	//copy header
+	bufs := sub.U(sub.toTable(0), 4*cnt)
+
+	posToOff := map[int]uint32{}
+
+	for toTable := node.toTable(idx); toTable < node.toTable(idx)+sizeToTable; toTable += 4 {
+		off := flatbuffers.GetUint32(node.R(toTable))
+		posToOff[toTable-node.toTable(idx)] = off
+	}
+	Log2(L2OptFlag(LOG_DEBUG, FLT_NORMAL),
+		L2fmt("copy header 0x%x size=0x%x -> 0x%x\n",
+			node.toTable(idx), sizeToTable, sub.toTable(0)))
+
+	dStart := -1
+	dEnd := -1
+	// find data range
+	isTable := true
+	for i := idx; i < idx+cnt; i++ {
+		elm, begin, e := node.atWithBegin(i)
+		if i == idx && isTable && elm.Node.Pos == begin {
+			isTable = false
+		}
+		if e != nil {
+			Log2(L2OptFlag(LOG_WARN, FLT_NORMAL), L2fmt("list.At(%d) err=%s", i, e.Error()))
+			continue
+		}
+		if i == idx {
+			dStart = begin
+		}
+
+		if dStart > begin {
+			dStart = begin
+		}
+		if dEnd < elm.Node.Pos+elm.Info().Size {
+			dEnd = elm.Node.Pos + elm.Info().Size
+		}
+	}
+
+	// skip space in vector header
+	skipSize := (node.Count() - idx - cnt) * 4
+
+	// skip data space before idx
+	skipSize += dStart - node.toTable(node.Count())
+
+	if !isTable {
+		goto NO_TABLE
+	}
+
+	Log2(L2OptFlag(LOG_DEBUG, FLT_NORMAL),
+		L2fmt("sub.Copy(0x%x, 0x%x, 0x%x, 0)\n",
+			dStart, dEnd-dStart,
+			sub.toTable(0)+sizeToTable),
+	)
+	Log2(L2OptFlag(LOG_DEBUG, FLT_NORMAL), L2fmt("skipsize =0x%x\n", skipSize))
+	sub.Copy(node.Base.Dup(), dStart, dEnd-dStart, sub.toTable(0)+sizeToTable, 0)
+
+	for pos, off := range posToOff {
+		flatbuffers.WriteUint32(bufs[pos:], off-uint32(skipSize))
+	}
+
+	goto FINISH
+NO_TABLE:
+
+	sub.Copy(node.Base.Dup(), dStart, dEnd-dStart, sub.toTable(0), 0)
+
+FINISH:
+
+	flatbuffers.WriteUint32(sub.R(sub.Node.Pos-4), uint32(cnt))
+
+	dumper.Dump("A: SubList()")
+
+	Log2(L2OptFlag(LOG_DEBUG, FLT_NORMAL), L2fmt("sub dump history\n %s\n", dumper.String()))
+	sub.NodeList.ValueInfo = ValueInfo(sub.InfoSlice())
+	return sub
+
+}
+
+func (node *List) atWithBegin(i int) (*CommonNode, int, error) {
+
+	elm, e := node.At(i)
+	if e != nil {
+		return elm, -1, e
+	}
+
+	grp := node.typeGroupOfChild()
+	if IsFieldBasicType(grp) || IsFieldStruct(grp) {
+		return elm, elm.Node.Pos, nil
+	}
+
+	return elm, elm.Node.Pos - elm.VirtualTableLen(), nil
+
+}
+
+func (node *List) typeGroupOfChild() int {
+
+	tName := node.Name[2:]
+	return GetTypeGroup(tName)
+
+}
+
+type ListOption struct {
+	start, last int
+}
+
+type ListOpt func(*ListOption)
+
+type ListOpts []ListOpt
+
+func (opts ListOpts) Apply(opt *ListOption) {
+
+	for _, o := range opts {
+		o(opt)
+	}
+
+}
+func DefaultListOpt() ListOption {
+
+	return ListOption{start: -1, last: -1}
+
+}
+
+func OptRange(start, last int) ListOpt {
+
+	return func(s *ListOption) {
+		s.start = start
+		s.last = last
+	}
+}
+
+func (o *ListOption) hasError() error {
+
+	if o.last < o.start {
+		return errors.New("out of range")
+	}
+
+	if o.start < 0 {
+		return errors.New("out of range")
+	}
+
+	return nil
+
+}
+
+func (o *ListOption) toParam() (idx, cnt int) {
+
+	return o.start, o.last - o.start + 1
+}
+
+func (node *List) setupOpt(opt *ListOption, optFns ...ListOpt) error {
+
+	ListOpts(optFns).Apply(opt)
+	if opt.hasError() != nil {
+		return opt.hasError()
+	}
+	return nil
+}
+
+func (node *List) setupOptRange(opt *ListOption, optFns ...ListOpt) (int, int, error) {
+
+	if e := node.setupOpt(opt, optFns...); e != nil {
+		return -1, -1, e
+	}
+	idx, cnt := opt.toParam()
+
+	return idx, cnt, nil
+
+}

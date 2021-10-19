@@ -2082,18 +2082,37 @@ func Test_ListOfDoubleLayer(t *testing.T) {
 
 }
 
-// func Test_L2Fmt(t *testing.T) {
+func RecordIsNotInvalid(r *query.Record) (bool, error) {
 
-// 	o := log.CurrentLogLevel
-// 	base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
-// 	defer base.SetL2Current(o, base.FLT_NORMAL)
+	if r.FileId().Uint64() == 0 {
+		return false, fmt.Errorf("FileId() == 0")
+	}
+	if r.Offset().Int64() == 0 {
+		return false, fmt.Errorf("Offset() == 0")
+	}
+	if r.Size().Int64() == 0 {
+		return false, fmt.Errorf("Size() == 0")
+	}
+	return true, nil
+}
 
-// 	base.Log2(base.L2_DEBUG_IS,
-// 		base.L2Fmt("aaa %s ", func() []interface{} {
-// 			return []interface{1, 2}.([]interface{})
-// 		}))
+func FileIsNotInvalid(f *query.File) (bool, error) {
 
-// }
+	if f.Id().Uint64() == 0 {
+		return false, fmt.Errorf("FileId() == 0")
+	}
+	if f.IndexAt().Int64() == 0 {
+		return false, fmt.Errorf("IndexAt() == 0")
+	}
+	if f.Name().Bytes() == nil {
+		return false, fmt.Errorf("Bytes() == nil")
+	}
+	if len(f.Name().Bytes()) == 0 {
+		return false, fmt.Errorf("len(Name().Bytes()) == 0")
+	}
+	return true, nil
+
+}
 
 func Test_ListAdd(t *testing.T) {
 
@@ -2174,34 +2193,62 @@ func Test_ListAdd(t *testing.T) {
 
 }
 
-func RecordIsNotInvalid(r *query.Record) (bool, error) {
+func Test_ListNewOptRange(t *testing.T) {
 
-	if r.FileId().Uint64() == 0 {
-		return false, fmt.Errorf("FileId() == 0")
-	}
-	if r.Offset().Int64() == 0 {
-		return false, fmt.Errorf("Offset() == 0")
-	}
-	if r.Size().Int64() == 0 {
-		return false, fmt.Errorf("Size() == 0")
-	}
-	return true, nil
-}
+	o := log.CurrentLogLevel
+	base.SetL2Current(log.LOG_DEBUG, base.FLT_NORMAL)
+	defer base.SetL2Current(o, base.FLT_NORMAL)
 
-func FileIsNotInvalid(f *query.File) (bool, error) {
+	tests := []struct {
+		name        string
+		isFileList  bool
+		isNolayer   bool
+		cntOfFile   int
+		startOfSub  int
+		lastOfSub   int
+		startID     uint64
+		incID       uint64
+		offsetIndex int64
+		nameprefix  string
+	}{
+		{"10 filelist   ", true, true, 10, 2, 5, 10, 10, 2000, "10files"},
+		{"10 recordlist ", false, true, 10, 3, 4, 10, 10, 2000, "10files"},
+	}
 
-	if f.Id().Uint64() == 0 {
-		return false, fmt.Errorf("FileId() == 0")
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s params=%+v\n", tt.name, tt), func(t *testing.T) {
+			var list0 *base.List
+			if tt.isFileList {
+				list0 = (*base.List)(MakeFileList(tt.isNolayer, tt.cntOfFile, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix).CommonNode)
+			} else {
+				list0 = (*base.List)(MakeRecordList(tt.isNolayer, tt.cntOfFile, tt.startID, tt.incID, tt.offsetIndex, tt.nameprefix).CommonNode)
+			}
+
+			list1 := list0.New(base.OptRange(tt.startOfSub, tt.lastOfSub))
+			assert.NotNil(t, list1)
+			assert.Equalf(t, int(tt.lastOfSub-tt.startOfSub+1), list1.Count(), "list0.cnt=%d list1.cnt=%d", list0.Count(), list1.Count())
+
+			if tt.isFileList {
+				flist := query2.FileList{CommonNode: (*base.CommonNode)(list1)}
+
+				for _, f := range flist.All() {
+					valid, e := FileIsNotInvalid(f)
+					assert.NoErrorf(t, e, "file\n %s\n", f.Impl().Dump(f.Node.Pos, base.OptDumpSize(1000)))
+					assert.Truef(t, valid, "file\n %s\n", f.Impl().Dump(f.Node.Pos, base.OptDumpSize(1000)))
+				}
+			} else {
+				rlist := query2.RecordList{CommonNode: (*base.CommonNode)(list1)}
+				for _, f := range rlist.All() {
+					valid, e := RecordIsNotInvalid(f)
+					assert.NoErrorf(t, e, "record\n %s\n", f.Impl().Dump(f.Node.Pos, base.OptDumpSize(1000)))
+					assert.Truef(t, valid, "record\n %s\n", f.Impl().Dump(f.Node.Pos, base.OptDumpSize(1000)))
+				}
+			}
+
+			assert.True(t, list1.AtWihoutError(0).Equal(list0.AtWihoutError(tt.startOfSub)))
+			assert.True(t, list1.AtWihoutError(tt.lastOfSub-tt.startOfSub).Equal(list0.AtWihoutError(tt.lastOfSub)))
+
+		})
 	}
-	if f.IndexAt().Int64() == 0 {
-		return false, fmt.Errorf("IndexAt() == 0")
-	}
-	if f.Name().Bytes() == nil {
-		return false, fmt.Errorf("Bytes() == nil")
-	}
-	if len(f.Name().Bytes()) == 0 {
-		return false, fmt.Errorf("len(Name().Bytes()) == 0")
-	}
-	return true, nil
 
 }
