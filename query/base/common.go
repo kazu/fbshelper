@@ -19,6 +19,9 @@ type CommonNode struct {
 	Name           string
 	IdxToType      map[int]int
 	IdxToTypeGroup map[int]int
+
+	// for sorting of List
+	lessFn func(i, j int) bool
 }
 
 // Info ... return information of node

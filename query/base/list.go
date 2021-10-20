@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"sort"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/kazu/fbshelper/query/dump"
@@ -619,12 +619,27 @@ func (list *List) movOffToTable(size int) {
 
 func (list *List) addTableList(alists ...*List) error {
 
+	if alists[0].Count() == 0 {
+		return nil
+	}
+
+	if list.Count() == 0 {
+		oalist := alists[0]
+		alist := oalist.dup()
+		list.Base = alist.Base.Dup()
+		list.NodeList.ValueInfo.Pos = alist.NodeList.ValueInfo.Pos
+		list.NodeList.ValueInfo = ValueInfo(list.InfoSlice())
+		return nil
+	}
+
 	vlen, _ := list.vlenTotal()
 
 	list.NodeList.ValueInfo = ValueInfo(list.InfoSlice())
 	oldImpl := list.Impl()
 
-	firstElm, e := list.First()
+	firstElm, e := list.At(list.indexOnMaxPos(false))
+	lastElm, _ := list.At(list.indexOnMaxPos(true))
+	_ = lastElm
 	if e != nil {
 		return fmt.Errorf("addTableList(): cannot found first element m=%s", e)
 	}
@@ -638,11 +653,11 @@ func (list *List) addTableList(alists ...*List) error {
 
 	alist.NodeList.ValueInfo = ValueInfo(alist.InfoSlice())
 
-	alastElm, e := alist.Last()
+	alastElm, e := alist.At(alist.indexOnMaxPos(true))
 	if e != nil {
 		return fmt.Errorf("addTableList(): cannot found alast element m=%s", e)
 	}
-	afirstElm, e := alist.First()
+	afirstElm, e := alist.At(alist.indexOnMaxPos(false))
 	if e != nil {
 		return fmt.Errorf("addTableList(): cannot found first element m=%s", e)
 	}
@@ -657,7 +672,6 @@ func (list *List) addTableList(alists ...*List) error {
 	SetLogLevel(LOG_WARN)
 	defer SetLogLevel(o)
 
-	// make space for list data (first element vtable -> list data last
 	adumper := dump.New(alist,
 		func(v interface{}) string {
 			alist := v.(*List)
@@ -680,19 +694,7 @@ func (list *List) addTableList(alists ...*List) error {
 			{"(avTableStart, dataEnd-vtableStart, false)", dump.TypeParam},
 		})
 
-	// adumper.StreamOut(func(s string) {
-	// 	//if L2isEnable(L2_DEBUG_IS) {
-	// 	Log2(L2_DEBUG_IS, L2fmt("alist dump history\n %s\n", s))
-	// 	//}
-	// })
-	// //defer adumper.Finish()
-	// dumper.StreamOut(func(s string) {
-	// 	//if L2isEnable(L2_DEBUG_IS) {
-	// 	Log2(L2_DEBUG_IS, L2fmt("list dump history\n %s\n", s))
-	// 	//}
-	// })
-	//defer dumper.Finish()
-
+	// make space for list data (first element vtable -> list data last
 	adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "B: make space for list data")
 	alist.toCommonNode().InsertSpace(avTableStart, dataEnd-vtableStart, false)
 	adumper.DumpWithFlag(L2isEnable(L2_DEBUG_IS), "A: make space for list data InsertSpace(0x%x,0x%x,%v)", avTableStart, dataEnd-vtableStart, false)
@@ -738,118 +740,6 @@ func (list *List) addTableList(alists ...*List) error {
 
 	return nil
 }
-
-func (list *List) NoaddTableList(alists ...*List) error {
-
-	vlen, total := list.vlenTotal()
-	_, _ = vlen, total
-	vlens, totals := VlensTotals(alists)
-	_, _ = vlens, totals
-
-	// test only one list
-
-	alist := alists[0]
-
-	elm, err := alist.First()
-	if err != nil {
-		return err
-	}
-
-	vSizePerElm := elm.CountOfField()*2 + 4
-
-	header_extend := alist.Count() * 4
-	if header_extend <= 0 {
-		return errors.New("source list is empty")
-	}
-
-	body_extend := 0
-	_, _ = header_extend, header_extend
-
-	for _, elm := range alist.All() {
-		elm.Node.Size = elm.Info().Size
-		body_extend += elm.Node.Size + vSizePerElm
-	}
-
-	// expand header and write
-	cntAlist := alist.Count()
-	_ = cntAlist
-	totalAlist := SumInts(totals)
-	_ = totalAlist
-	vlenlAlist := SumInts(vlens)
-	_ = vlenlAlist
-
-	posIdx := func(idx int) int {
-		return int(list.NodeList.ValueInfo.Pos) + idx*4
-	}
-	toTableAtLast := posIdx(list.Count())
-
-	cntBefore := list.Count()
-	header := make([]byte, 4)
-	// ?
-	flatbuffers.WriteUint32(header, uint32(totalAlist-vlenlAlist*4+vSizePerElm*cntAlist))
-	// extend space of setting offset to added elm's table
-	(*CommonNode)(list).InsertBuf(toTableAtLast, 4*cntAlist)
-
-	// update all offset to table
-	idx := cntBefore
-	toData := 0
-	_ = toData
-
-	// FIXME: should tune performance
-	cTotal := total
-	for i, elm := range alist.All() {
-		toData = list.updateOffsetToTable(idx+i, vlen, cTotal, (i+1)*4, vSizePerElm)
-		vlen++
-		cTotal += elm.Info().Size
-	}
-
-	// update all offset to table in current list
-	startToTable := posIdx(0)
-	for toTable := startToTable; toTable < vlen*4; toTable += 4 {
-		off := flatbuffers.GetUint32(list.R(toTable))
-		off += 4
-		flatbuffers.WriteUint32(list.U(posIdx(toTable), 4), off)
-	}
-	// position to store new Data
-	toData = startToTable + total + header_extend
-	// ?
-	//flatbuffers.WriteUint32(list.U(posIdx(idx), 4), uint32(toData+vSizePerElm-startToTable))
-
-	// allocate adding bodies space
-	(*CommonNode)(list).InsertSpace(toData, body_extend, false)
-	// for i := range alist.All() {
-	// 	for toTable := startToTable; toTable < startToTable+vlens[i]*4; toTable += vlens[i] {
-	// 		// slide 4 byte
-	// 		off := flatbuffers.GetUint32(list.R(toTable))
-	// 		off += 4
-	// 		flatbuffers.WriteUint32(list.U(posIdx(toTable), 4), off)
-	// 	}
-	// 	toData = startToTable + total + header_extend
-	// 	idx += vlens[i]
-	// }
-
-	// store vtable for element of adding list
-	for i := idx + 1; i < vlen; i++ {
-		off := flatbuffers.GetUint32(list.R(posIdx(i)))
-		off += uint32(body_extend)
-		flatbuffers.WriteUint32(list.U(posIdx(i), 4), off)
-	}
-
-	return nil
-}
-
-// func (node *List) vlenTotal() (int, int) {
-
-// 	if node.NodeList.ValueInfo.Pos == 0 || node.NodeList.ValueInfo.VLen == 0 || node.NodeList.ValueInfo.Size == 0 {
-// 		node.NodeList.ValueInfo = ValueInfo(node.InfoSlice())
-// 	}
-// 	if node.NodeList.ValueInfo.VLen == 0 {
-// 		node.NodeList.ValueInfo.Size = 0
-// 	}
-
-// 	return int(node.NodeList.ValueInfo.VLen), node.NodeList.ValueInfo.Size
-
-// }
 
 func (node *List) setStructAt(idx int, elm *CommonNode) error {
 
@@ -1056,6 +946,10 @@ func (node *List) SwapAt(i, j int) error {
 		return log.ERR_INVALID_INDEX
 	}
 
+	if i == j {
+		return nil
+	}
+
 	if node.isDirectList() {
 		size := node.offsetOfList()
 		node.Flatten()
@@ -1090,42 +984,19 @@ func (node *List) SwapAt(i, j int) error {
 
 }
 
+func (node *List) Len() int           { return int(node.VLen()) }
+func (node *List) Swap(i, j int)      { node.SwapAt(i, j) }
+func (node *List) Less(i, j int) bool { return node.lessFn(i, j) }
+
 // SortBy ... sort of List
 func (node *List) SortBy(less func(i, j int) bool) error {
 	if !node.IsList() {
 		return log.ERR_NO_SUPPORT
 	}
 
-	left, right := 0, int(node.VLen()-1)
-
-	return node.quicksort(left, right, less)
-
-}
-
-func (node *List) quicksort(left, right int, less func(i, j int) bool) error {
-	if !node.IsList() {
-		return log.ERR_NO_SUPPORT
-	}
-
-	len := (right - left + 1)
-	if len < 2 {
-		return nil
-	}
-
-	pivot := rand.Int() % len
-
-	node.SwapAt(pivot, right)
-
-	for i := 0; i < len; i++ {
-		if less(i, right) {
-			node.SwapAt(left, i)
-			left++
-		}
-	}
-	node.SwapAt(left, right)
-
-	node.quicksort(0, left-1, less)
-	node.quicksort(left+1, len-2-left, less)
+	node.lessFn = less
+	sort.Sort(node)
+	node.lessFn = nil
 
 	return nil
 }
@@ -1325,6 +1196,36 @@ FINISH:
 	sub.NodeList.ValueInfo = ValueInfo(sub.InfoSlice())
 	return sub
 
+}
+
+func (node *List) indexOnMaxPos(t bool) (idx int) {
+
+	pos := 0
+	idx = -1
+	for i, elm := range node.All() {
+		if i == 0 {
+			if t {
+				pos = elm.Node.Pos + elm.Info().Size
+			} else {
+				pos = elm.Node.Pos
+			}
+			idx = i
+			continue
+		}
+
+		if t {
+			if epos := elm.Node.Pos + elm.Info().Size; epos > pos {
+				pos = epos
+				idx = i
+			}
+		} else {
+			if epos := elm.Node.Pos; epos < pos {
+				pos = epos
+				idx = i
+			}
+		}
+	}
+	return
 }
 
 func (node *List) atWithBegin(i int) (*CommonNode, int, error) {

@@ -324,7 +324,16 @@ func (b *BaseImpl) Dup() (dst Base) {
 
 	dst = b.NewFromBytes(dbytes)
 
-	dst.SetDiffs(b.GetDiffs())
+	diffs := make([]Diff, 0, cap(b.GetDiffs()))
+
+	for _, diff := range b.GetDiffs() {
+		dbytes := make([]byte, len(diff.bytes), cap(diff.bytes))
+		copy(dbytes, diff.bytes)
+		diffs = append(diffs, Diff{Offset: diff.Offset, bytes: dbytes})
+
+	}
+	dst.SetDiffs(diffs)
+
 	return dst
 }
 
