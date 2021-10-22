@@ -1001,6 +1001,18 @@ func (node *List) SortBy(less func(i, j int) bool) error {
 	return nil
 }
 
+// IsSorted ... return true if list is sorted
+func (node *List) IsSorted(less func(i, j int) bool) (result bool) {
+	result = false
+	if !node.IsList() {
+		return
+	}
+	node.lessFn = less
+	result = sort.IsSorted(node)
+	node.lessFn = nil
+	return
+}
+
 // SearchIndex ... binary search
 // copy/modify from golang.org/src/sort/search.go
 func (node *List) SearchIndex(n int, fn func(c *CommonNode) bool) int {
