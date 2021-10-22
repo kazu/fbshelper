@@ -67,6 +67,10 @@ func NewNoLayer(b Base) NoLayer {
 	return NoLayer{}
 }
 
+// FIXME: should impleent WriteAt for performance
+// func (b NoLayer) WriteAt(p []byte, oi int64) (n int, err error) {
+//}
+
 // Dup ... return copied Base
 func (b NoLayer) Dup() (dst Base) {
 

@@ -125,6 +125,11 @@ type Base interface {
 	Type() uint8
 	Dump(int, ...DumpOptFn) string
 	Dup() Base
+	// for io interface
+	Read([]byte) (int, error)
+	ReadAt([]byte, int64) (int, error)
+	Write(p []byte) (n int, err error)
+	WriteAt([]byte, int64) (int, error)
 }
 
 // BaseImpl ... Base Object of byte buffer for flatbuffers
@@ -136,6 +141,9 @@ type BaseImpl struct {
 	RDiffs  []Diff
 	Diffs   []Diff
 	dirties []Dirty
+
+	// for io interface
+	seekCur int
 }
 
 // Dirty ... Dirty
@@ -296,23 +304,61 @@ func (b *BaseImpl) Dump(pos int, opts ...DumpOptFn) (out string) {
 	}
 
 	d := &BaseImpl{
-		r:     b.r,
-		bytes: append([]byte{}, b.bytes...),
-		Diffs: append([]Diff{}, b.Diffs...),
+		r:       b.r,
+		bytes:   append([]byte{}, b.bytes...),
+		Diffs:   append([]Diff{}, b.Diffs...),
+		seekCur: 0,
 	}
 	d.Flatten()
 	stdoutDumper.Write(d.R(pos))
 	return
 }
 
+func (b *BaseImpl) Read(p []byte) (n int, e error) {
+
+	n, e = b.ReadAt(p, int64(b.seekCur))
+	b.seekCur += n
+	return
+}
+
+func (b *BaseImpl) ReadAt(p []byte, oi int64) (int, error) {
+
+	i := int(oi)
+	bl := len(p)
+	if bl > len(b.R(i)) {
+		bl = len(b.R(i))
+	}
+	copy(p, b.R(i)[:bl])
+
+	return bl, nil
+}
+
+func (b *BaseImpl) Write(p []byte) (n int, err error) {
+
+	n, err = b.WriteAt(p, int64(b.seekCur))
+	b.seekCur += n
+	return
+}
+
+func (b *BaseImpl) WriteAt(p []byte, oi int64) (n int, err error) {
+	i := int(oi)
+
+	diff := Diff{Offset: i, bytes: make([]byte, len(p))}
+	copy(diff.bytes, p)
+	n = len(diff.bytes)
+
+	b.Diffs = append(b.Diffs, diff)
+	return
+}
+
 // NewBaseImpl ... initialize BaseImpl struct via buffer(buf)
 func NewBaseImpl(buf []byte) *BaseImpl {
-	return &BaseImpl{bytes: buf}
+	return &BaseImpl{bytes: buf, seekCur: 0}
 }
 
 // NewBaseImplByIO ... return new BaseImpl instance with io.Reader
 func NewBaseImplByIO(rio io.Reader, cap int) *BaseImpl {
-	b := &BaseImpl{r: rio, bytes: make([]byte, 0, cap)}
+	b := &BaseImpl{r: rio, bytes: make([]byte, 0, cap), seekCur: 0}
 	return b
 }
 
@@ -371,8 +417,9 @@ func (b *BaseImpl) Bytes() []byte {
 // this is mainly for streaming data.
 func (b *BaseImpl) Next(skip int) Base {
 	newBase := &BaseImpl{
-		r:     b.r,
-		bytes: b.bytes,
+		r:       b.r,
+		bytes:   b.bytes,
+		seekCur: 0,
 	}
 	newBase.bytes = newBase.bytes[skip:]
 	if cap(b.bytes) > skip {
@@ -712,8 +759,9 @@ func (b *BaseImpl) insertBuf(pos, size int) Base {
 func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) Base {
 
 	newBase := &BaseImpl{
-		r:     b.r,
-		bytes: b.bytes,
+		r:       b.r,
+		bytes:   b.bytes,
+		seekCur: 0,
 	}
 
 	newBase.Diffs = make([]Diff, len(b.Diffs), cap(b.Diffs))
