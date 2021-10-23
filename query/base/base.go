@@ -112,7 +112,7 @@ func (p *ParamIO) merge(opts ...OptIO) {
 	}
 }
 
-func OptIOSize(require int) OptIO {
+func Size(require int) OptIO {
 
 	return func(p *ParamIO) {
 		p.req = require
@@ -122,7 +122,7 @@ func OptIOSize(require int) OptIO {
 
 func NewParamOpt(opts ...OptIO) (p *ParamIO) {
 
-	p = &ParamIO{}
+	p = &ParamIO{req: 0}
 	p.merge(opts...)
 
 	return
@@ -327,8 +327,8 @@ func (b *BaseImpl) Dump(pos int, opts ...DumpOptFn) (out string) {
 
 	stdoutDumper := hex.Dumper(w)
 
-	if opt.size == 0 || len(b.R(pos)) > opt.size {
-		stdoutDumper.Write(b.R(pos))
+	if opt.size == 0 || len(b.R(pos, Size(opt.size))) > opt.size {
+		stdoutDumper.Write(b.R(pos, Size(opt.size)))
 		return
 	}
 
@@ -350,16 +350,14 @@ func (b *BaseImpl) Read(p []byte) (n int, e error) {
 	return
 }
 
-func (b *BaseImpl) ReadAt(p []byte, oi int64) (int, error) {
+func (b *BaseImpl) ReadAt(p []byte, i int64) (int, error) {
 
-	i := int(oi)
-	bl := len(p)
-	if bl > len(b.R(i)) {
-		bl = len(b.R(i))
-	}
-	copy(p, b.R(i)[:bl])
+	bytes := b.R(int(i), Size(len(p)))
+	l := len(bytes)
 
-	return bl, nil
+	copy(p, b.R(int(i), Size(l))[:l])
+
+	return l, nil
 }
 
 func (b *BaseImpl) Write(p []byte) (n int, err error) {
@@ -485,7 +483,7 @@ func (b *BaseImpl) R(off int, opts ...OptIO) []byte {
 	_ = param
 
 	if len(b.Diffs) == 0 {
-		return b.readerR(off)
+		return b.readerR(off, opts...)
 	}
 
 	n, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
@@ -513,31 +511,31 @@ func (b *BaseImpl) R(off int, opts ...OptIO) []byte {
 	return b.bytes[off:]
 }
 
-func (b *BaseImpl) readerR(off int) []byte {
+func (b *BaseImpl) readerR(off int, opts ...OptIO) []byte {
+	p := NewParamOpt(opts...)
+	_ = p
 
 	var n int
 	var e error
 RETRY:
 
 	n, e = loncha.LastIndexOf(b.RDiffs, func(i int) bool {
-		return b.RDiffs[i].Offset <= off && off < (b.RDiffs[i].Offset+len(b.RDiffs[i].bytes))
+		return b.RDiffs[i].Offset <= off && off+p.req <= (b.RDiffs[i].Offset+len(b.RDiffs[i].bytes))
 	})
 	if e == nil && n >= 0 {
 		return b.RDiffs[n].bytes[(off - b.RDiffs[n].Offset):]
 	}
 
-	if off+32 >= len(b.bytes) {
-		err := b.expandBuf(off - len(b.bytes) + 32)
-		if off < len(b.bytes) {
+	if off+p.req > len(b.bytes) {
+		err := b.loadBuf(off, p.req)
+		if off+p.req < len(b.bytes) {
 			goto RETURN_BYTES
 		}
-
 		if err != nil {
 			return nil
 		}
-		if len(b.bytes) < off {
-			goto RETRY
-		}
+		goto RETRY
+
 	}
 RETURN_BYTES:
 
@@ -672,6 +670,80 @@ func calcBufSize(req int) int {
 	}
 
 	return i * 4096
+
+}
+
+func (b *BaseImpl) loadBuf(offset, size int) error {
+	if !b.HasIoReader() {
+		return ERR_READ_BUFFER
+	}
+
+	if !b.HasIoReader() && cap(b.bytes)-len(b.bytes) < size {
+		return ERR_READ_BUFFER
+	}
+
+	// expand buffer
+	if cap(b.bytes) >= offset+size && len(b.bytes) < offset+size {
+		blen := len(b.bytes)
+		b.bytes = b.bytes[:offset+size]
+		n, err := io.ReadAtLeast(b.r, b.bytes[blen:], len(b.bytes[blen:]))
+		if n < len(b.bytes[blen:]) {
+			dec := len(b.bytes[blen:]) - n
+			b.bytes = b.bytes[:len(b.bytes)-dec]
+		}
+		if err != nil {
+			return ERR_READ_BUFFER
+		}
+		return err
+	}
+
+	// not expand b.bytes
+	b.bytes = b.bytes[:len(b.bytes):len(b.bytes)]
+
+	// if offset + size innner diff , already return readerR()
+	n, e := loncha.LastIndexOf(b.RDiffs, func(i int) bool {
+		return b.RDiffs[i].Offset <= offset
+	})
+	var diff *Diff
+	_ = diff
+	if n <= 0 || e != nil {
+		reader, ok := b.r.(io.ReaderAt)
+		if ok {
+			ncap := calcBufSize(MaxInt(size, DEFAULT_BUF_CAP))
+			diff := Diff{Offset: offset, bytes: make([]byte, size, ncap)}
+			n, err := reader.ReadAt(diff.bytes, int64(offset))
+			if n < size && n > 0 {
+				diff.bytes = diff.bytes[:n]
+			}
+			b.RDiffs = append(b.RDiffs, diff)
+			return err
+		}
+
+	}
+	diff = &b.RDiffs[n]
+
+	// expand cap
+	if diff.Offset+cap(diff.bytes) <= offset+size {
+		ncap := calcBufSize(MaxInt(size+offset-diff.Offset, DEFAULT_BUF_CAP))
+		ndiff := Diff{Offset: diff.Offset,
+			bytes: make([]byte, len(diff.bytes), ncap)}
+
+		copy(ndiff.bytes, diff.bytes)
+		b.RDiffs[n] = ndiff
+		diff = &b.RDiffs[n]
+	}
+
+	// expand diff and load
+	inc := offset + size - diff.Offset + len(diff.bytes)
+	diff.bytes = diff.bytes[:len(diff.bytes)+inc]
+
+	n, err := io.ReadAtLeast(b.r,
+		diff.bytes[offset-diff.Offset:], len(diff.bytes[offset-diff.Offset:]))
+
+	if n < len(diff.bytes[offset-diff.Offset:]) && n > 0 {
+		diff.bytes = diff.bytes[:offset-diff.Offset+n]
+	}
+	return err
 
 }
 

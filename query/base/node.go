@@ -61,36 +61,36 @@ func (n *Node) vtable() {
 
 func (n *Node) preLoadVtable() {
 
-	vOffset := int(flatbuffers.GetUOffsetT(n.R(n.Pos)))
+	vOffset := int(flatbuffers.GetUOffsetT(n.R(n.Pos, Size(4))))
 	vPos := int(n.Pos) - vOffset
-	vLen := int(flatbuffers.GetVOffsetT(n.R(vPos)))
-	n.TLen = uint16(flatbuffers.GetVOffsetT(n.R(vPos + 2)))
+	vLen := int(flatbuffers.GetVOffsetT(n.R(vPos, Size(2))))
+	n.TLen = uint16(flatbuffers.GetVOffsetT(n.R(vPos+2, Size(2))))
 
 	for cur := vPos + 4; cur < vPos+vLen; cur += 2 {
-		if len(n.R(cur)) < 2 {
+		if len(n.R(cur, Size(2))) < 2 {
 			a := n.R(cur)
 			_ = a
 			panic("invalid preLoadVtable")
 		}
-		flatbuffers.GetVOffsetT(n.R(cur))
+		flatbuffers.GetVOffsetT(n.R(cur, Size(2)))
 	}
 }
 
 // FbsString ... return []bytes for string data
 func FbsString(node *Node) []byte {
 	pos := node.VirtualTable(0)
-	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
-	sLen := int(flatbuffers.GetUint32(node.R(pos + sLenOff)))
+	sLenOff := int(flatbuffers.GetUint32(node.R(pos, Size(4))))
+	sLen := int(flatbuffers.GetUint32(node.R(pos+sLenOff, Size(4))))
 	start := pos + sLenOff + flatbuffers.SizeUOffsetT
 
-	return node.R(start)[:sLen]
+	return node.R(start, Size(sLen))[:sLen]
 }
 
 // FbsStringInfo ... return Node Infomation for FbsString
 func FbsStringInfo(node *Node) Info {
 	pos := node.VirtualTable(0)
-	sLenOff := int(flatbuffers.GetUint32(node.R(pos)))
-	sLen := flatbuffers.GetUint32(node.R(pos + sLenOff))
+	sLenOff := int(flatbuffers.GetUint32(node.R(pos, Size(4))))
+	sLen := flatbuffers.GetUint32(node.R(pos+sLenOff, Size(4)))
 	start := pos + sLenOff + flatbuffers.SizeUOffsetT
 
 	return Info{Pos: start, Size: int(sLen)}
@@ -118,8 +118,8 @@ func (node *Node) ValueInfoPosList(vIdx int) (info ValueInfo) {
 		return info
 	}
 
-	vLenOff := int(flatbuffers.GetUint32(node.R(vPos)))
-	vLen := flatbuffers.GetUint32(node.R(vPos + vLenOff))
+	vLenOff := int(flatbuffers.GetUint32(node.R(vPos, Size(4))))
+	vLen := flatbuffers.GetUint32(node.R(vPos+vLenOff, Size(4)))
 	start := vPos + vLenOff + flatbuffers.SizeUOffsetT
 
 	info.Pos = int(start)
@@ -191,7 +191,7 @@ type Value struct {
 }
 
 func (v Value) String() string {
-	return string(v.R(v.S)[:v.E])
+	return string(v.R(v.S, Size(v.E))[:v.E])
 }
 
 // mock
@@ -209,7 +209,7 @@ func (node *Node) Byte() byte {
 		return 0
 	}
 
-	return flatbuffers.GetByte(node.R(node.Pos))
+	return flatbuffers.GetByte(node.R(node.Pos, Size(1)))
 }
 
 func (node *Node) Bool() bool {
@@ -217,7 +217,7 @@ func (node *Node) Bool() bool {
 		return false
 	}
 
-	return flatbuffers.GetBool(node.R(node.Pos))
+	return flatbuffers.GetBool(node.R(node.Pos, Size(1)))
 }
 
 func (node *Node) Uint8() uint8 {
@@ -225,7 +225,7 @@ func (node *Node) Uint8() uint8 {
 		return 0
 	}
 
-	return flatbuffers.GetUint8(node.R(node.Pos))
+	return flatbuffers.GetUint8(node.R(node.Pos, Size(1)))
 }
 
 func (node *Node) Uint16() uint16 {
@@ -233,7 +233,7 @@ func (node *Node) Uint16() uint16 {
 		return 0
 	}
 
-	return flatbuffers.GetUint16(node.R(node.Pos))
+	return flatbuffers.GetUint16(node.R(node.Pos, Size(2)))
 }
 
 func (node *Node) Uint32() uint32 {
@@ -241,7 +241,7 @@ func (node *Node) Uint32() uint32 {
 		return 0
 	}
 
-	return flatbuffers.GetUint32(node.R(node.Pos))
+	return flatbuffers.GetUint32(node.R(node.Pos, Size(4)))
 }
 
 func (node *Node) Uint64() uint64 {
@@ -249,7 +249,7 @@ func (node *Node) Uint64() uint64 {
 		return 0
 	}
 
-	return flatbuffers.GetUint64(node.R(node.Pos))
+	return flatbuffers.GetUint64(node.R(node.Pos, Size(8)))
 }
 
 func (node *Node) Int8() int8 {
@@ -265,7 +265,7 @@ func (node *Node) Int16() int16 {
 		return 0
 	}
 
-	return flatbuffers.GetInt16(node.R(node.Pos))
+	return flatbuffers.GetInt16(node.R(node.Pos, Size(2)))
 }
 
 func (node *Node) Int32() int32 {
@@ -273,7 +273,7 @@ func (node *Node) Int32() int32 {
 		return 0
 	}
 
-	return flatbuffers.GetInt32(node.R(node.Pos))
+	return flatbuffers.GetInt32(node.R(node.Pos, Size(4)))
 }
 
 func (node *Node) Int64() int64 {
@@ -281,7 +281,7 @@ func (node *Node) Int64() int64 {
 		return 0
 	}
 
-	return flatbuffers.GetInt64(node.R(node.Pos))
+	return flatbuffers.GetInt64(node.R(node.Pos, Size(8)))
 }
 
 func (node *Node) Float32() float32 {
@@ -289,7 +289,7 @@ func (node *Node) Float32() float32 {
 		return 0
 	}
 
-	return flatbuffers.GetFloat32(node.R(node.Pos))
+	return flatbuffers.GetFloat32(node.R(node.Pos, Size(4)))
 }
 
 func (node *Node) Float64() float64 {
@@ -297,14 +297,14 @@ func (node *Node) Float64() float64 {
 		return 0
 	}
 
-	return flatbuffers.GetFloat64(node.R(node.Pos))
+	return flatbuffers.GetFloat64(node.R(node.Pos, Size(8)))
 }
 
 func (node *Node) Bytes() []byte {
 	if node == nil {
 		return nil
 	}
-	return node.R(node.Pos)[:node.Size]
+	return node.R(node.Pos, Size(node.Size))[:node.Size]
 }
 
 // VirtualTableIsZero ... return checking VTable is empty
@@ -316,28 +316,28 @@ func (node *Node) VirtualTableIsZero(idx int) bool {
 // VirtualTable ... return VTable.
 func (node *Node) VirtualTable(idx int) int {
 
-	voff := flatbuffers.GetUint32(node.R(node.Pos))
+	voff := flatbuffers.GetUint32(node.R(node.Pos, Size(4)))
 	vPos := node.Pos - int(voff)
 
 	if node.ShouldCheckBound() && node.LenBuf() <= int(vPos)+4+idx*2 {
 		return node.Pos
 	}
 
-	tOffset := flatbuffers.GetUint16(node.R(int(vPos) + 4 + idx*2))
+	tOffset := flatbuffers.GetUint16(node.R(int(vPos)+4+idx*2, Size(2)))
 	return node.Pos + int(tOffset)
 }
 
 // TableLen ... return table length in VTable.
 func (node *Node) TableLen() int {
-	voff := flatbuffers.GetUint32(node.R(node.Pos))
+	voff := flatbuffers.GetUint32(node.R(node.Pos, Size(4)))
 	vPos := node.Pos - int(voff)
-	return int(flatbuffers.GetUint16(node.R(int(vPos) + 2)))
+	return int(flatbuffers.GetUint16(node.R(int(vPos)+2, Size(2))))
 }
 
 func (node *Node) VirtualTableLen() int {
-	voff := flatbuffers.GetUint32(node.R(node.Pos))
+	voff := flatbuffers.GetUint32(node.R(node.Pos, Size(4)))
 	vPos := node.Pos - int(voff)
-	return int(flatbuffers.GetUint16(node.R(int(vPos))))
+	return int(flatbuffers.GetUint16(node.R(int(vPos), Size(2))))
 }
 
 func (node *Node) Table(idx int) int {
@@ -345,7 +345,7 @@ func (node *Node) Table(idx int) int {
 	if node.VirtualTableIsZero(idx) {
 		return -1
 	}
-	return pos + int(flatbuffers.GetUint32(node.R(pos)))
+	return pos + int(flatbuffers.GetUint32(node.R(pos, Size(4))))
 }
 
 func (node *NodeList) clearValueInfoOnDirty() {

@@ -24,7 +24,7 @@ func (b DirectReader) Type() uint8 { return BASE_DIRECT_READER }
 // R ... read data.
 func (b DirectReader) R(offset int, opts ...OptIO) (result []byte) {
 	if b.IO.LenBuf() > offset {
-		return b.IO.R(offset)
+		return b.IO.R(offset, opts...)
 	}
 	bLen := b.IO.LenBuf()
 	result = make([]byte, 128)
@@ -100,37 +100,20 @@ func (b NoLayer) insertSpace(pos, size int, isCreate bool) IO {
 
 // R ... read buffer
 func (b NoLayer) R(off int, opts ...OptIO) []byte {
+	p := NewParamOpt(opts...)
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
-		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
+		return b.Diffs[i].Offset <= off && off+MaxInt(1, p.req) <= (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
 	})
 	if e == nil && sn >= 0 {
 		return b.Diffs[sn].bytes[off-b.Diffs[sn].Offset:]
 	}
 
-	if off < len(b.bytes) {
+	if off+p.req < len(b.bytes) {
 		return b.bytes[off:]
 	}
 
-	// MENTION: should check off +32 ?
-	if off+8 < cap(b.bytes) {
-		if b.expandBuf(off-len(b.bytes)+32) == nil || off < len(b.bytes) {
-			return b.bytes[off:]
-		}
-	}
-
-	log.Log(LOG_WARN, log.Printf("NoyLayer.R(%d) invalid len(bytes)=%d cap(bytes)=%d\n",
-		off, len(b.bytes), cap(b.bytes)))
-
-	newDiff := Diff{Offset: cap(b.bytes), bytes: make([]byte, 0, 512)}
-	b.Diffs = append(b.Diffs, newDiff)
-
-	if off-cap(b.bytes) < 0 || len(newDiff.bytes) < off-cap(b.bytes) {
-		//panic("hoge")
-		return nil
-	}
-
-	return newDiff.bytes[off-cap(b.bytes):]
+	return b.Impl().R(off, opts...)
 
 }
 
@@ -369,7 +352,7 @@ func (b DoubleLayer) R(off int, opts ...OptIO) []byte {
 
 	b.mergeDiffs()
 
-	return NoLayer{BaseImpl: b.BaseImpl}.R(off)
+	return NoLayer{BaseImpl: b.BaseImpl}.R(off, opts...)
 }
 
 // D ... return Diff for write

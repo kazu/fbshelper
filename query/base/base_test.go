@@ -1630,7 +1630,7 @@ func Test_List_Swap2(t *testing.T) {
 			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
 			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
 
-			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+			return fmt.Errorf("1: swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
 				i, j, i, j,
 				ob.String(), b.String(),
 			)
@@ -1641,7 +1641,7 @@ func Test_List_Swap2(t *testing.T) {
 			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
 			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
 
-			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+			return fmt.Errorf("2: swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
 				j, i, j, i,
 				b.String(),
 				ob.String(),
@@ -1696,11 +1696,12 @@ func Test_List_Swap2(t *testing.T) {
 
 		l.SwapAt(i, j)
 		if !oi.CommonNode.Equal(l.AtWihoutError(j).CommonNode) {
+			oi.CommonNode.Equal(l.AtWihoutError(j).CommonNode)
 			var ob, b strings.Builder
 			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
 			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
 
-			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+			return fmt.Errorf("1: swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
 				i, j, i, j,
 				ob.String(), b.String(),
 			)
@@ -1711,7 +1712,7 @@ func Test_List_Swap2(t *testing.T) {
 			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
 			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
 
-			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+			return fmt.Errorf("2: swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
 				j, i, j, i,
 				b.String(),
 				ob.String(),

@@ -64,7 +64,7 @@ func (l *CommonList) WriteDataAll() (e error) {
 		pos := elm.Node.Pos - vSize
 		elm.Node.Size = elm.Info().Size
 		size := elm.Node.Size + vSize
-		l.dataW.Write(l.R(pos)[:size])
+		l.dataW.Write(l.R(pos, Size(size))[:size])
 		l.dCur = i
 		l.dLen += size
 	}
@@ -72,7 +72,7 @@ func (l *CommonList) WriteDataAll() (e error) {
 	_ = last
 
 	//remove writed data area
-	bytes := l.R(0)
+	bytes := l.R(0, Size(first.Node.Pos-vSize))
 	bytes = bytes[0 : first.Node.Pos-vSize : first.Node.Pos-vSize]
 	l.IO = l.IO.NewFromBytes(bytes)
 
@@ -128,9 +128,9 @@ func (l *CommonList) WriteElm(elm *CommonNode, pos, size int) {
 		l.dLen += size
 	}()
 	if len(l.GetDiffs()) == 0 {
-		l.dataW.Write(elm.R(pos)[:size])
+		l.dataW.Write(elm.R(pos, Size(size))[:size])
 		//remove writed data area
-		bytes := l.R(0)
+		bytes := l.R(0, Size(pos+size))
 		if len(bytes) >= pos+size {
 			bytes = bytes[0 : pos+size : pos+size]
 			l.IO = NewBase(bytes)
@@ -144,6 +144,7 @@ func (l *CommonList) WriteElm(elm *CommonNode, pos, size int) {
 		//w.WriteAt(elm.R(0), int64(l.dLen+pos))
 		cur := l.dLen //wStart
 
+		//FIXME: set size ?
 		w.WriteAt(elm.R(0), int64(cur))
 
 		for i := range elm.GetDiffs() {
@@ -205,14 +206,14 @@ func (dst *CommonList) Add(src *CommonList) (nList *CommonList, e error) {
 	for i := 0; i < int((*List)(dst.CommonNode).VLen()); i++ {
 		cur2 = 4 + i*4
 		flatbuffers.WriteUint32(nList.U(4+i*4, 4),
-			flatbuffers.GetUint32(dst.R(dst.NodeList.ValueInfo.Pos+i*4))+(*List)(src.CommonNode).VLen()*4)
+			flatbuffers.GetUint32(dst.R(dst.NodeList.ValueInfo.Pos+i*4, Size(4)))+(*List)(src.CommonNode).VLen()*4)
 	}
 
 	cur := int((*List)(dst.CommonNode).VLen()) * 4
 
 	for i := 0; i < int((*List)(src.CommonNode).VLen()); i++ {
 		flatbuffers.WriteUint32(nList.U(cur+i*4+4, 4),
-			flatbuffers.GetUint32(src.R(src.NodeList.ValueInfo.Pos+i*4))+uint32(dst.dLen))
+			flatbuffers.GetUint32(src.R(src.NodeList.ValueInfo.Pos+i*4, Size(4)))+uint32(dst.dLen))
 	}
 	nList.Node.Pos = 4
 	nList.NodeList.ValueInfo = dst.NodeList.ValueInfo
@@ -319,7 +320,7 @@ func (node *List) At(i int) (*CommonNode, error) {
 		// 	}
 		// }()
 
-		nPos := ptr + int(flatbuffers.GetUint32(node.R(ptr)))
+		nPos := ptr + int(flatbuffers.GetUint32(node.R(ptr, Size(4))))
 		if node.R(nPos) == nil {
 			return nil, ERR_NOT_FOUND
 		}
@@ -384,7 +385,7 @@ func (node *List) All() []*CommonNode {
 
 // VLen ... return Length of flatbuffers's Virtual Table
 func (node *List) VLen() uint32 {
-	return flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos - flatbuffers.SizeUOffsetT))
+	return flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos-flatbuffers.SizeUOffsetT, Size(4)))
 }
 
 // InfoSlice ... return infomation of List
@@ -400,7 +401,7 @@ func (node *List) InfoSlice() Info {
 		vInfo = Info{Pos: ptr, Size: size}
 	} else if IsFieldBytes(grp) {
 		ptr := int(node.NodeList.ValueInfo.Pos) + (int(node.NodeList.ValueInfo.VLen)-1)*4
-		vInfo = FbsStringInfo(NewNode(node.IO, ptr+int(flatbuffers.GetUint32(node.R(ptr)))))
+		vInfo = FbsStringInfo(NewNode(node.IO, ptr+int(flatbuffers.GetUint32(node.R(ptr, Size(4))))))
 	} else {
 
 		// vInfos := make([]Info, 0, node.Count())
@@ -414,7 +415,7 @@ func (node *List) InfoSlice() Info {
 			vInfo = elm.Info()
 		}
 	}
-	info.VLen = flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos - 4))
+	info.VLen = flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos-4, Size(4)))
 	if info.VLen == 0 {
 		info.Size = 0
 	}
@@ -449,10 +450,10 @@ func (node *List) SearchInfoSlice(pos int, fn RecFn, condFn CondFn) {
 NO_NODE:
 	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
 		ptr := int(node.NodeList.ValueInfo.Pos) + i*4
-		start := ptr + int(flatbuffers.GetUint32(node.R(ptr)))
+		start := ptr + int(flatbuffers.GetUint32(node.R(ptr, Size(4))))
 		size := info.Size
 		if i+1 < int(node.NodeList.ValueInfo.Pos) {
-			size = ptr + 4 + int(flatbuffers.GetUint32(node.R(ptr+4))) - start
+			size = ptr + 4 + int(flatbuffers.GetUint32(node.R(ptr+4, Size(4)))) - start
 		}
 		cInfo := Info{Pos: start, Size: size}
 		if condFn(pos, info) {
@@ -546,7 +547,7 @@ func (list *List) updateOffsetToTable(lastIdx, vlen, total, header_extend, vSize
 	}
 	// +4 all offset to table in current list. add new one element
 	for i := 0; i < vlen; i++ {
-		off := flatbuffers.GetUint32(list.R(toTable(i)))
+		off := flatbuffers.GetUint32(list.R(toTable(i), Size(4)))
 		off += 4
 		flatbuffers.WriteUint32(list.U(toTable(i), 4), off)
 	}
@@ -573,7 +574,7 @@ func (list *List) oldMovOffToTable(size int) {
 
 	startToTable := int(list.NodeList.ValueInfo.Pos)
 	for toTable := startToTable; toTable < startToTable+cnt*4; toTable += 4 {
-		off := flatbuffers.GetUint32(list.R(toTable))
+		off := flatbuffers.GetUint32(list.R(toTable, Size(4)))
 		off += uint32(size)
 		flatbuffers.WriteUint32(list.U(toTable, 4), off)
 	}
@@ -589,7 +590,7 @@ func (list *List) movOffToTable(size int) {
 	posToOff := map[int]uint32{}
 
 	for toTable := startToTable; toTable < startToTable+sizeToTable; toTable += 4 {
-		off := flatbuffers.GetUint32(list.R(toTable))
+		off := flatbuffers.GetUint32(list.R(toTable, Size(4)))
 		off += uint32(size)
 		posToOff[toTable-startToTable] = off
 	}
@@ -603,9 +604,9 @@ func (list *List) movOffToTable(size int) {
 
 	for pos, off := range posToOff {
 		flatbuffers.WriteUint32(bufs[pos:], off)
-		roff := flatbuffers.GetUint32(list.R(pos + startToTable))
-		if off != roff && bytes.Equal(bufs[pos:pos+4], list.R(pos + startToTable)[:4]) {
-			panic(fmt.Sprintf("bufs=%+v data=%+v\n", bufs[pos:pos+4], list.R(pos + startToTable)[0:4]))
+		roff := flatbuffers.GetUint32(list.R(pos+startToTable, Size(4)))
+		if off != roff && bytes.Equal(bufs[pos:pos+4], list.R(pos+startToTable, Size(4))[:4]) {
+			panic(fmt.Sprintf("bufs=%+v data=%+v\n", bufs[pos:pos+4], list.R(pos+startToTable, Size(4))[0:4]))
 		}
 	}
 
@@ -836,7 +837,7 @@ func (node *List) setTableAt(idx int, elm *CommonNode) error {
 		(*CommonNode)(node).InsertSpace(toData, body_extend, false)
 		if header_extend == 0 {
 			for i := idx + 1; i < vlen; i++ {
-				off := flatbuffers.GetUint32(node.R(ptrIdx(i)))
+				off := flatbuffers.GetUint32(node.R(ptrIdx(i), Size(4)))
 				off += uint32(body_extend)
 				flatbuffers.WriteUint32(node.U(ptrIdx(i), 4), off)
 			}
@@ -972,8 +973,8 @@ func (node *List) SwapAt(i, j int) error {
 	iPtr := int(node.NodeList.ValueInfo.Pos) + i*size
 	jPtr := int(node.NodeList.ValueInfo.Pos) + j*size
 
-	iOffset := int(flatbuffers.GetUint32(node.R(iPtr)))
-	jOffset := int(flatbuffers.GetUint32(node.R(jPtr)))
+	iOffset := int(flatbuffers.GetUint32(node.R(iPtr, Size(4))))
+	jOffset := int(flatbuffers.GetUint32(node.R(jPtr, Size(4))))
 	iOffset -= (jPtr - iPtr)
 	jOffset -= (iPtr - jPtr)
 
@@ -1142,7 +1143,7 @@ func (node *List) New(optFns ...ListOpt) (sub *List) {
 	posToOff := map[int]uint32{}
 
 	for toTable := node.toTable(idx); toTable < node.toTable(idx)+sizeToTable; toTable += 4 {
-		off := flatbuffers.GetUint32(node.R(toTable))
+		off := flatbuffers.GetUint32(node.R(toTable, Size(4)))
 		posToOff[toTable-node.toTable(idx)] = off
 	}
 	Log2(L2OptFlag(LOG_DEBUG, FLT_NORMAL),
@@ -1203,7 +1204,7 @@ NO_TABLE:
 
 FINISH:
 
-	flatbuffers.WriteUint32(sub.R(sub.Node.Pos-4), uint32(cnt))
+	flatbuffers.WriteUint32(sub.R(sub.Node.Pos-4, Size(4)), uint32(cnt))
 
 	dumper.Dump("A: SubList()")
 
