@@ -165,7 +165,7 @@ type IO interface {
 // read from r and store bytes.
 // Diffs has jounals for writing
 type BaseImpl struct {
-	r       io.Reader
+	r       ReaderWithAt
 	bytes   []byte
 	RDiffs  []Diff
 	Diffs   []Diff
@@ -385,7 +385,7 @@ func NewBaseImpl(buf []byte) *BaseImpl {
 
 // NewBaseImplByIO ... return new BaseImpl instance with io.Reader
 func NewBaseImplByIO(rio io.Reader, cap int) *BaseImpl {
-	b := &BaseImpl{r: rio, bytes: make([]byte, 0, cap), seekCur: 0}
+	b := &BaseImpl{r: NewReaderAt(rio), bytes: make([]byte, 0, cap), seekCur: 0}
 	return b
 }
 
@@ -686,15 +686,12 @@ func (b *BaseImpl) loadBuf(offset, size int) error {
 	if cap(b.bytes) >= offset+size && len(b.bytes) < offset+size {
 		blen := len(b.bytes)
 		b.bytes = b.bytes[:offset+size]
-		n, err := io.ReadAtLeast(b.r, b.bytes[blen:], len(b.bytes[blen:]))
-		if n < len(b.bytes[blen:]) {
-			dec := len(b.bytes[blen:]) - n
-			b.bytes = b.bytes[:len(b.bytes)-dec]
-		}
-		if err != nil {
-			return ERR_READ_BUFFER
+		n, err := b.r.ReadAt(b.bytes[blen:offset+size], int64(blen))
+		if n > 0 {
+			b.bytes = b.bytes[:blen+n]
 		}
 		return err
+
 	}
 
 	// not expand b.bytes
@@ -706,21 +703,26 @@ func (b *BaseImpl) loadBuf(offset, size int) error {
 	})
 	var diff *Diff
 	_ = diff
-	if n <= 0 || e != nil {
-		reader, ok := b.r.(io.ReaderAt)
-		if ok {
-			ncap := calcBufSize(MaxInt(size, DEFAULT_BUF_CAP))
-			diff := Diff{Offset: offset, bytes: make([]byte, size, ncap)}
-			n, err := reader.ReadAt(diff.bytes, int64(offset))
-			if n < size && n > 0 {
-				diff.bytes = diff.bytes[:n]
-			}
-			b.RDiffs = append(b.RDiffs, diff)
-			return err
+	if n < 0 || e != nil {
+		ncap := calcBufSize(MaxInt(size, DEFAULT_BUF_CAP))
+		diff := Diff{Offset: offset, bytes: make([]byte, size, ncap)}
+		var n int
+		var err error
+	LOAD_CAP:
+		n, err = b.r.ReadAt(diff.bytes, int64(offset))
+		if errMust, ok := err.(ErrorMustRead); ok {
+			b.loadBuf(errMust.ToParam())
+			goto LOAD_CAP
 		}
+		if n > 0 {
+			diff.bytes = diff.bytes[:n]
+		}
+		b.RDiffs = append(b.RDiffs, diff)
+		return err
 
 	}
 	diff = &b.RDiffs[n]
+	//ol := len(diff.bytes)
 
 	// expand cap
 	if diff.Offset+cap(diff.bytes) <= offset+size {
@@ -734,16 +736,18 @@ func (b *BaseImpl) loadBuf(offset, size int) error {
 	}
 
 	// expand diff and load
-	inc := offset + size - diff.Offset + len(diff.bytes)
+	inc := offset + size - (diff.Offset + len(diff.bytes))
 	diff.bytes = diff.bytes[:len(diff.bytes)+inc]
 
-	n, err := io.ReadAtLeast(b.r,
-		diff.bytes[offset-diff.Offset:], len(diff.bytes[offset-diff.Offset:]))
+	n, e = b.r.ReadAt(diff.bytes[offset-diff.Offset:], int64(offset))
+	if errMust, ok := e.(ErrorMustRead); ok {
+		b.loadBuf(errMust.ToParam())
+	}
 
 	if n < len(diff.bytes[offset-diff.Offset:]) && n > 0 {
 		diff.bytes = diff.bytes[:offset-diff.Offset+n]
 	}
-	return err
+	return e
 
 }
 

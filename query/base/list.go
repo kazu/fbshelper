@@ -301,7 +301,7 @@ func (node *List) At(i int) (*CommonNode, error) {
 	if IsFieldBasicType(grp) || IsFieldStruct(grp) {
 		nNode = NewNode2(node.IO, ptr, true)
 	} else {
-		_ = node.R(ptr + 3)
+		//_ = node.R(ptr + 3)
 
 		// recovered := false
 		// defer func() {
@@ -321,11 +321,11 @@ func (node *List) At(i int) (*CommonNode, error) {
 		// }()
 
 		nPos := ptr + int(flatbuffers.GetUint32(node.R(ptr, Size(4))))
-		if node.R(nPos) == nil {
+		if node.R(nPos, Size(4)) == nil {
 			return nil, ERR_NOT_FOUND
 		}
 
-		nNode = NewNode(node.IO, ptr+int(flatbuffers.GetUint32(node.R(ptr))))
+		nNode = NewNode(node.IO, ptr+int(flatbuffers.GetUint32(node.R(ptr, Size(4)))))
 	}
 
 	cNode := &CommonNode{}
