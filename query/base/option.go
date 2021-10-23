@@ -3,7 +3,7 @@ package base
 import "io"
 
 type OptionState struct {
-	base Base
+	base IO
 }
 
 var DefaultOption OptionState = OptionState{
@@ -28,11 +28,11 @@ func SetDefaultBase(name string) Option {
 }
 
 // NewBase initialize Base struct via buffer(buf)
-func NewBase(bytes []byte) Base {
+func NewBase(bytes []byte) IO {
 	return DefaultOption.base.NewFromBytes(bytes)
 }
 
-func NewBaseByIO(rio io.Reader, cap int) Base {
+func NewBaseByIO(rio io.Reader, cap int) IO {
 	bImpl := NewBaseImplByIO(rio, cap)
 	return DefaultOption.base.New(bImpl)
 }

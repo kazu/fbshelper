@@ -9,24 +9,24 @@ import (
 
 // DirectReader ... is Base without buffer in data area
 type DirectReader struct {
-	Base
+	IO
 	r io.ReaderAt
 }
 
 // NewDirectReader ... return new DirectReader instance.
-func NewDirectReader(b Base, r io.ReaderAt) DirectReader {
-	return DirectReader{Base: b, r: r}
+func NewDirectReader(b IO, r io.ReaderAt) DirectReader {
+	return DirectReader{IO: b, r: r}
 }
 
 // Type ... type of Base
 func (b DirectReader) Type() uint8 { return BASE_DIRECT_READER }
 
 // R ... read data.
-func (b DirectReader) R(offset int) (result []byte) {
-	if b.Base.LenBuf() > offset {
-		return b.Base.R(offset)
+func (b DirectReader) R(offset int, opts ...OptIO) (result []byte) {
+	if b.IO.LenBuf() > offset {
+		return b.IO.R(offset)
 	}
-	bLen := b.Base.LenBuf()
+	bLen := b.IO.LenBuf()
 	result = make([]byte, 128)
 	n, err := b.r.ReadAt(result, int64(offset-bLen))
 	result = result[:n]
@@ -52,7 +52,7 @@ type NoLayer struct {
 }
 
 // NewNoLayer ... return new NoLayer instnace. b must be BaseImpl/NoLayer
-func NewNoLayer(b Base) NoLayer {
+func NewNoLayer(b IO) NoLayer {
 	impl, ok := b.(*BaseImpl)
 	if ok {
 		return NoLayer{BaseImpl: impl}
@@ -72,7 +72,7 @@ func NewNoLayer(b Base) NoLayer {
 //}
 
 // Dup ... return copied Base
-func (b NoLayer) Dup() (dst Base) {
+func (b NoLayer) Dup() (dst IO) {
 
 	return NoLayer{BaseImpl: b.BaseImpl.Dup().Impl()}
 }
@@ -80,11 +80,11 @@ func (b NoLayer) Dup() (dst Base) {
 // Type ... type of Base interface
 func (b NoLayer) Type() uint8 { return BASE_NO_LAYER }
 
-func (b NoLayer) insertBuf(pos, size int) Base {
+func (b NoLayer) insertBuf(pos, size int) IO {
 	return b.insertSpace(pos, size, true)
 }
 
-func (b NoLayer) insertSpace(pos, size int, isCreate bool) Base {
+func (b NoLayer) insertSpace(pos, size int, isCreate bool) IO {
 	nImple := b.BaseImpl.insertSpace(pos, size, isCreate).(*BaseImpl)
 
 	if nImple.LenBuf() >= pos+size {
@@ -99,7 +99,7 @@ func (b NoLayer) insertSpace(pos, size int, isCreate bool) Base {
 }
 
 // R ... read buffer
-func (b NoLayer) R(off int) []byte {
+func (b NoLayer) R(off int, opts ...OptIO) []byte {
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
 		return b.Diffs[i].Offset <= off && off < (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
@@ -185,7 +185,7 @@ func (b NoLayer) U(off, size int) []byte {
 }
 
 // Copy ... copy buffer from Base
-func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
+func (b NoLayer) Copy(osrc IO, srcOff, size, dstOff, extend int) {
 
 	if cap(b.bytes) > dstOff {
 		if len(b.bytes) > dstOff {
@@ -249,12 +249,12 @@ func (b NoLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 }
 
 // NewFromBytes ... return new NoLayer instance with byte buffer.
-func (b NoLayer) NewFromBytes(bytes []byte) Base {
+func (b NoLayer) NewFromBytes(bytes []byte) IO {
 	return NewNoLayer(NewBaseImpl(bytes))
 }
 
 // New ... return new NoLayer instance
-func (b NoLayer) New(n Base) Base {
+func (b NoLayer) New(n IO) IO {
 	return NewNoLayer(n)
 }
 
@@ -264,7 +264,7 @@ type DoubleLayer struct {
 }
 
 // NewDoubleLayer ... return DobuleLayer
-func NewDoubleLayer(b Base) DoubleLayer {
+func NewDoubleLayer(b IO) DoubleLayer {
 	if _, already := b.(DoubleLayer); already {
 		return b.(DoubleLayer)
 	}
@@ -279,7 +279,7 @@ func NewDoubleLayer(b Base) DoubleLayer {
 
 }
 
-func (b DoubleLayer) Dup() (dst Base) {
+func (b DoubleLayer) Dup() (dst IO) {
 	return DoubleLayer{BaseImpl: b.BaseImpl.Dup().Impl()}
 }
 
@@ -302,11 +302,11 @@ func (b DoubleLayer) mergeDiffs() {
 	return
 }
 
-func (b DoubleLayer) insertBuf(pos, size int) Base {
+func (b DoubleLayer) insertBuf(pos, size int) IO {
 	return b.insertSpace(pos, size, true)
 }
 
-func (b DoubleLayer) insertSpace(pos, size int, isCreate bool) Base {
+func (b DoubleLayer) insertSpace(pos, size int, isCreate bool) IO {
 
 	b.mergeDiffs()
 
@@ -365,7 +365,7 @@ func (b DoubleLayer) insertSpace(pos, size int, isCreate bool) Base {
 }
 
 // R ... read buffer
-func (b DoubleLayer) R(off int) []byte {
+func (b DoubleLayer) R(off int, opts ...OptIO) []byte {
 
 	b.mergeDiffs()
 
@@ -393,7 +393,7 @@ func (b DoubleLayer) U(off, size int) []byte {
 	return NoLayer{BaseImpl: b.BaseImpl}.U(off, size)
 }
 
-func (b DoubleLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
+func (b DoubleLayer) Copy(osrc IO, srcOff, size, dstOff, extend int) {
 
 	NoLayer{BaseImpl: b.BaseImpl}.Copy(osrc, srcOff, size, dstOff, extend)
 	b.mergeDiffs()
@@ -401,11 +401,11 @@ func (b DoubleLayer) Copy(osrc Base, srcOff, size, dstOff, extend int) {
 }
 
 // NewFromBytes ... return new NoLayer instance with byte buffer.
-func (b DoubleLayer) NewFromBytes(bytes []byte) Base {
+func (b DoubleLayer) NewFromBytes(bytes []byte) IO {
 	return NewDoubleLayer(NewBaseImpl(bytes))
 }
 
 // New ... return new NoLayer instance
-func (b DoubleLayer) New(n Base) Base {
+func (b DoubleLayer) New(n IO) IO {
 	return NewDoubleLayer(n)
 }

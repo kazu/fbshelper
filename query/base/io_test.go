@@ -43,7 +43,7 @@ func TestHoge(t *testing.T) {
 
 func ToBaseImpl(c *base.CommonNode) *base.BaseImpl {
 
-	switch v := c.Base.(type) {
+	switch v := c.IO.(type) {
 	case base.NoLayer:
 		return v.BaseImpl
 	case base.DoubleLayer:
@@ -370,13 +370,13 @@ func Test_R(t *testing.T) {
 			for i, target := range tt.targets {
 				tt.prepare(target, true, i)
 				off := tt.off(target)
-				testR(expect.Base, target.Base, eOff, off, t)
+				testR(expect.IO, target.IO, eOff, off, t)
 			}
 		})
 	}
 
 }
 
-func testR(expect base.Base, target base.Base, eoff, off int, t *testing.T) {
+func testR(expect base.IO, target base.IO, eoff, off int, t *testing.T) {
 	assert.Equal(t, expect.R(eoff), target.R(off)[:len(expect.R(eoff))])
 }

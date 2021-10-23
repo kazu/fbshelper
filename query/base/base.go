@@ -99,32 +99,61 @@ func Log(l LogLevel, fn LogFn) {
 
 }
 
-// Base ... low level buffer
-type Base interface {
-	Next(skip int) Base
+type ParamIO struct {
+	req int
+}
+
+type OptIO func(*ParamIO)
+
+func (p *ParamIO) merge(opts ...OptIO) {
+
+	for _, optFn := range opts {
+		optFn(p)
+	}
+}
+
+func OptIOSize(require int) OptIO {
+
+	return func(p *ParamIO) {
+		p.req = require
+	}
+
+}
+
+func NewParamOpt(opts ...OptIO) (p *ParamIO) {
+
+	p = &ParamIO{}
+	p.merge(opts...)
+
+	return
+}
+
+// IO ... low level buffer
+type IO interface {
+	Next(skip int) IO
 	HasIoReader() bool
-	R(off int) []byte
+	R(off int, opts ...OptIO) []byte
 	D(off, size int) *Diff
 	C(off, size int, src []byte) error
-	Copy(src Base, srcOff, size, dstOff, extend int)
+	Copy(src IO, srcOff, size, dstOff, extend int)
 	U(off, size int) []byte
 	LenBuf() int
 	Merge() // Deprecated: should use Flatten()
 	Flatten()
 	Dedup()
 	ClearValueInfoOnDirty(node *NodeList)
-	insertBuf(pos, size int) Base
-	insertSpace(pos, size int, isCreate bool) Base
+	insertBuf(pos, size int) IO
+	insertSpace(pos, size int, isCreate bool) IO
 	AddDirty(Dirty)
 	GetDiffs() []Diff
 	SetDiffs([]Diff)
 	ShouldCheckBound() bool
-	New(Base) Base
-	NewFromBytes([]byte) Base
+	New(IO) IO
+	NewFromBytes([]byte) IO
 	Impl() *BaseImpl
 	Type() uint8
 	Dump(int, ...DumpOptFn) string
-	Dup() Base
+	Dup() IO
 	// for io interface
 	Read([]byte) (int, error)
 	ReadAt([]byte, int64) (int, error)
@@ -363,7 +392,7 @@ func NewBaseImplByIO(rio io.Reader, cap int) *BaseImpl {
 }
 
 // Dup ... return copied Base.
-func (b *BaseImpl) Dup() (dst Base) {
+func (b *BaseImpl) Dup() (dst IO) {
 
 	dbytes := make([]byte, len(b.R(0)))
 	copy(dbytes, b.R(0))
@@ -402,12 +431,12 @@ func (dst *BaseImpl) overwrite(src *BaseImpl) {
 }
 
 // NewFromBytes ... return new BaseImpl instance with byte buffer
-func (b *BaseImpl) NewFromBytes(bytes []byte) Base {
+func (b *BaseImpl) NewFromBytes(bytes []byte) IO {
 	return NewBaseImpl(bytes)
 }
 
 // New ... return new Base Interface (instance is BaseImpl)
-func (b *BaseImpl) New(n Base) Base {
+func (b *BaseImpl) New(n IO) IO {
 	return n
 }
 
@@ -423,7 +452,7 @@ func (b *BaseImpl) Bytes() []byte {
 
 // Next ... provide next root flatbuffers
 // this is mainly for streaming data.
-func (b *BaseImpl) Next(skip int) Base {
+func (b *BaseImpl) Next(skip int) IO {
 	newBase := &BaseImpl{
 		r:       b.r,
 		bytes:   b.bytes,
@@ -451,7 +480,10 @@ func (b *BaseImpl) HasIoReader() bool {
 
 // R ... is access buffer data
 // Base cannot access byte buffer directly.
-func (b *BaseImpl) R(off int) []byte {
+func (b *BaseImpl) R(off int, opts ...OptIO) []byte {
+	param := NewParamOpt(opts...)
+	_ = param
+
 	if len(b.Diffs) == 0 {
 		return b.readerR(off)
 	}
@@ -530,7 +562,7 @@ func (b *BaseImpl) C(off, size int, src []byte) error {
 }
 
 // Copy ... Copy buffer from src to b as BaseImplt
-func (b *BaseImpl) Copy(src Base, srcOff, size, dstOff, extend int) {
+func (b *BaseImpl) Copy(src IO, srcOff, size, dstOff, extend int) {
 
 	if len(b.bytes) > dstOff {
 		diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
@@ -831,10 +863,10 @@ func (b *BaseImpl) AddDirty(d Dirty) {
 	b.dirties = append(b.dirties, d)
 
 }
-func (b *BaseImpl) insertBuf(pos, size int) Base {
+func (b *BaseImpl) insertBuf(pos, size int) IO {
 	return b.insertSpace(pos, size, true)
 }
-func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) Base {
+func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) IO {
 
 	newBase := &BaseImpl{
 		r:       b.r,

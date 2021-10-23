@@ -10,7 +10,7 @@ import (
 // Pos is start position of buffer
 // ValueInfos is information of pointted fields
 type Node struct {
-	Base
+	IO
 	Pos  int
 	Size int
 	TLen uint16
@@ -42,13 +42,13 @@ type NodePath struct {
 // Node share buffer in same tree.
 //    Base is buffer
 //    pos is start position in Base's buffer
-func NewNode(b Base, pos int) *Node {
+func NewNode(b IO, pos int) *Node {
 	return NewNode2(b, pos, false)
 }
 
 // NewNode2 ...  provide skip to initialize Vtable
-func NewNode2(b Base, pos int, noLoadVTable bool) *Node {
-	node := &Node{Base: b, Pos: pos, Size: -1}
+func NewNode2(b IO, pos int, noLoadVTable bool) *Node {
+	node := &Node{IO: b, Pos: pos, Size: -1}
 	if !noLoadVTable {
 		node.preLoadVtable()
 	}
@@ -130,13 +130,13 @@ func (node *Node) ValueInfoPosList(vIdx int) (info ValueInfo) {
 }
 
 func (node *Node) ValueTable(vIdx int) *Node {
-	return NewNode(node.Base,
+	return NewNode(node.IO,
 		node.Table(vIdx))
 }
 
 func (node *Node) ValueStruct(vIdx int) *Node {
 
-	return NewNode2(node.Base, node.VirtualTable(vIdx), true)
+	return NewNode2(node.IO, node.VirtualTable(vIdx), true)
 
 }
 
@@ -144,7 +144,7 @@ func (node *Node) ValueList(vIdx int) NodeList {
 
 	info := node.ValueInfoPosList(vIdx)
 
-	return NodeList{Node: NewNode(node.Base, node.Pos),
+	return NodeList{Node: NewNode(node.IO, node.Pos),
 		ValueInfo: info}
 }
 
@@ -353,8 +353,8 @@ func (node *NodeList) clearValueInfoOnDirty() {
 }
 
 func (node *Node) BaseToNoLayer() {
-	if _, already := node.Base.(NoLayer); already {
+	if _, already := node.IO.(NoLayer); already {
 		return
 	}
-	node.Base = NewNoLayer(node.Base)
+	node.IO = NewNoLayer(node.IO)
 }

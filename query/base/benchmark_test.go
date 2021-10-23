@@ -86,7 +86,7 @@ func MakeRootWithOutRecord(key uint64, fID uint64, offset int64, size int64) *qu
 	root.SetIndex(&query.Index{CommonNode: inv.CommonNode})
 
 	root.Flatten()
-	root.Base = base.NewNoLayer(root.Base)
+	root.IO = base.NewNoLayer(root.IO)
 	return root
 }
 
@@ -116,7 +116,7 @@ func MakeRootWithOutFile() *query.Root {
 	//root.SetIndex(&query.Index{CommonNode: hoge.CommonNode})
 
 	root.Flatten()
-	root.Base = base.NewNoLayer(root.Base)
+	root.IO = base.NewNoLayer(root.IO)
 	return root
 }
 
@@ -191,7 +191,7 @@ func Benchmark_AddList(b *testing.B) {
 					root = MakeRootWithOutFile()
 
 					hoges := query2.NewHoges()
-					hoges.Base = base.NewNoLayer(hoges.Base)
+					hoges.IO = base.NewNoLayer(hoges.IO)
 					hoges.SetFiles(dlist)
 					root.SetIndex(&query.Index{CommonNode: hoges.CommonNode})
 					dlist = root.Index().Hoges().Files()

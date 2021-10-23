@@ -234,7 +234,7 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 				break
 			}
 		}
-		result.Node = NewNode2(node.Node.Base, pos, true)
+		result.Node = NewNode2(node.Node.IO, pos, true)
 
 		goto RESULT
 	}
@@ -254,7 +254,7 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 		valInfo := node.ValueInfoPosBytes(idx)
 		valInfo.VLen = uint32(valInfo.Size)
 
-		nNode := NewNode2(node.Base, valInfo.Pos, true)
+		nNode := NewNode2(node.IO, valInfo.Pos, true)
 		nNode.Size = valInfo.Size
 		result.Node = nNode
 		result.ValueInfo = valInfo
@@ -267,7 +267,7 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 		result.Node = node.ValueTable(idx)
 
 	} else if IsFieldBasicType(grp) {
-		result.Node = NewNode2(node.Base, node.VirtualTable(idx), true)
+		result.Node = NewNode2(node.IO, node.VirtualTable(idx), true)
 		result.Node.Size = TypeToSize[node.IdxToType[idx]]
 
 	} else {
@@ -285,7 +285,7 @@ RESULT:
 	// b := cNode.Base
 	// _, _ = a, b
 
-	if !IsStructName[node.Name] && !node.VirtualTableIsZero(idx) && !node.Base.Impl().Equal(cNode.Base.Impl()) {
+	if !IsStructName[node.Name] && !node.VirtualTableIsZero(idx) && !node.IO.Impl().Equal(cNode.IO.Impl()) {
 		Log(LOG_DEBUG, func() LogArgs {
 			return F("FieldAt: Invalid Node=%s idx=%d\n", node.Name, idx)
 		})
@@ -830,7 +830,7 @@ func (node *CommonNode) FindTree(cond TreeCond) <-chan *Tree {
 func (node *CommonNode) root() *CommonNode {
 	common := &CommonNode{}
 	common.NodeList = &NodeList{}
-	common.Node = NewNode(node.Base, int(flatbuffers.GetUOffsetT(node.R(0))))
+	common.Node = NewNode(node.IO, int(flatbuffers.GetUOffsetT(node.R(0))))
 	common.Name = RootName
 	common.FetchIndex()
 	return common
@@ -865,7 +865,7 @@ func (node *CommonNode) InsertBuf(pos, size int) {
 // InsertSpace ... insert buffer in pos position.
 func (node *CommonNode) InsertSpace(pos, size int, isInsert bool) {
 
-	newBase := node.Base.insertSpace(pos, size, isInsert)
+	newBase := node.IO.insertSpace(pos, size, isInsert)
 
 	defer func() {
 		if node.IsList() {
@@ -875,7 +875,7 @@ func (node *CommonNode) InsertSpace(pos, size int, isInsert bool) {
 		} else if node.Node.Pos > pos {
 			node.Node.Pos += size
 		}
-		node.Base = newBase
+		node.IO = newBase
 		//node.Base.Impl().overwrite(newBase.Impl())
 
 	}()
@@ -902,7 +902,7 @@ func (node *CommonNode) InsertSpace(pos, size int, isInsert bool) {
 		if tree.Node.Name == node.Name && tree.Node.Node.Pos == node.Node.Pos {
 			continue
 		}
-		tree.Node.Base = newBase
+		tree.Node.IO = newBase
 		//tree.Node.Base.Impl().overwrite(newBase.Impl())
 		idx, err := loncha.IndexOf(tree.Childs, func(i int) bool {
 			return tree.Childs[i] == cTree
@@ -955,7 +955,7 @@ func (node *CommonNode) movePosOnList(i, pos, size int) {
 		flatbuffers.WriteUint32(node.U(ptr, SizeOfuint32), nextOff)
 	}
 
-	node.Base.AddDirty(Dirty{Pos: node.NodeList.ValueInfo.Pos})
+	node.IO.AddDirty(Dirty{Pos: node.NodeList.ValueInfo.Pos})
 
 }
 
@@ -1136,7 +1136,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 				pos += TypeToSize[node.IdxToType[i]]
 			} else {
 				size := TypeToSize[node.IdxToType[i]]
-				node.Copy(fNode.Base, fNode.Node.Pos, size, pos, 0)
+				node.Copy(fNode.IO, fNode.Node.Pos, size, pos, 0)
 				return nil
 			}
 		}
@@ -1167,7 +1167,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		}
 		extend := fNode.Node.Size - oFieldSize
 		dstPos := node.Table(idx)
-		node.Copy(fNode.Base,
+		node.Copy(fNode.IO,
 			fNode.NodeList.ValueInfo.Pos-4, fNode.NodeList.ValueInfo.Size+4,
 			dstPos, extend)
 
@@ -1186,14 +1186,14 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 
 		if !node.VirtualTableIsZero(idx) {
 			//if node.VTable[idx] > 0 {
-			node.Copy(fNode.Base,
+			node.Copy(fNode.IO,
 				fNode.Node.Pos, size,
 				node.VirtualTable(idx), 0)
 
 			return nil
 		}
 		wPos := node.insertVTable(idx, size)
-		node.Copy(fNode.Base, fNode.Node.Pos, size, wPos, 0)
+		node.Copy(fNode.IO, fNode.Node.Pos, size, wPos, 0)
 
 		node.preLoadVtable()
 		return nil
@@ -1215,7 +1215,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 			// write tlen in Vtable
 			node.InsertBuf(wPos+4, vSize+fNode.Node.Size)
 			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(vSize)+4) // +2 require ?
-			node.Copy(fNode.Base, fNode.Node.Pos-vSize, fNode.Node.Size+vSize,
+			node.Copy(fNode.IO, fNode.Node.Pos-vSize, fNode.Node.Size+vSize,
 				wPos+4, fNode.Node.Size+vSize)
 			node.preLoadVtable()
 			return nil
@@ -1226,7 +1226,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 			extend = 0
 		}
 		dstPos := node.Table(idx) - vSize
-		node.Copy(fNode.Base, fNode.Node.Pos-vSize, fNode.Node.Size+vSize, dstPos, extend)
+		node.Copy(fNode.IO, fNode.Node.Pos-vSize, fNode.Node.Size+vSize, dstPos, extend)
 
 		return nil
 	}
