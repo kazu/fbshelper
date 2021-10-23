@@ -302,22 +302,22 @@ func (node *List) At(i int) (*CommonNode, error) {
 	} else {
 		_ = node.R(ptr + 3)
 
-		recovered := false
-		defer func() {
-			if recovered {
-				return
-			}
+		// recovered := false
+		// defer func() {
+		// 	if recovered {
+		// 		return
+		// 	}
 
-			if err := recover(); err != nil {
-				fmt.Printf("ptr=0x%x(%d) start=0x%x pos=0x%x\n", ptr, ptr,
-					ptr-node.NodeList.ValueInfo.Pos+4,
-					node.NodeList.ValueInfo.Pos,
-				)
-				dumpPos := node.NodeList.ValueInfo.Pos - 4
-				node.Dump(dumpPos, OptDumpSize(64))
-				panic(err)
-			}
-		}()
+		// 	if err := recover(); err != nil {
+		// 		fmt.Printf("ptr=0x%x(%d) start=0x%x pos=0x%x\n", ptr, ptr,
+		// 			ptr-node.NodeList.ValueInfo.Pos+4,
+		// 			node.NodeList.ValueInfo.Pos,
+		// 		)
+		// 		dumpPos := node.NodeList.ValueInfo.Pos - 4
+		// 		node.Dump(dumpPos, OptDumpSize(64))
+		// 		panic(err)
+		// 	}
+		// }()
 
 		nPos := ptr + int(flatbuffers.GetUint32(node.R(ptr)))
 		if node.R(nPos) == nil {
@@ -994,9 +994,10 @@ func (node *List) SortBy(less func(i, j int) bool) error {
 		return log.ERR_NO_SUPPORT
 	}
 
-	node.lessFn = less
+	var o func(i, j int) bool
+	node.lessFn, o = less, node.lessFn
 	sort.Sort(node)
-	node.lessFn = nil
+	node.lessFn = o
 
 	return nil
 }
@@ -1007,9 +1008,11 @@ func (node *List) IsSorted(less func(i, j int) bool) (result bool) {
 	if !node.IsList() {
 		return
 	}
-	node.lessFn = less
+
+	var o func(i, j int) bool
+	node.lessFn, o = less, node.lessFn
 	result = sort.IsSorted(node)
-	node.lessFn = nil
+	node.lessFn = o
 	return
 }
 

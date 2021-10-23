@@ -376,9 +376,17 @@ func (b *BaseImpl) Dup() (dst Base) {
 		dbytes := make([]byte, len(diff.bytes), cap(diff.bytes))
 		copy(dbytes, diff.bytes)
 		diffs = append(diffs, Diff{Offset: diff.Offset, bytes: dbytes})
-
 	}
 	dst.SetDiffs(diffs)
+
+	rdiffs := make([]Diff, 0, cap(b.RDiffs))
+
+	for _, diff := range b.RDiffs {
+		dbytes := make([]byte, len(diff.bytes), cap(diff.bytes))
+		copy(dbytes, diff.bytes)
+		diffs = append(rdiffs, Diff{Offset: diff.Offset, bytes: dbytes})
+	}
+	dst.Impl().RDiffs = rdiffs
 
 	return dst
 }
@@ -455,6 +463,13 @@ func (b *BaseImpl) R(off int) []byte {
 		return b.Diffs[n].bytes[(off - b.Diffs[n].Offset):]
 	}
 
+	n, e = loncha.LastIndexOf(b.RDiffs, func(i int) bool {
+		return b.RDiffs[i].Offset <= off && off < (b.RDiffs[i].Offset+len(b.RDiffs[i].bytes))
+	})
+	if e == nil && n >= 0 {
+		return b.RDiffs[n].bytes[(off - b.RDiffs[n].Offset):]
+	}
+
 	if len(b.bytes) < off {
 		Log(LOG_WARN, func() LogArgs {
 			return F("base.R(): remain offset=%d lenBuf()=%d \n",
@@ -468,7 +483,11 @@ func (b *BaseImpl) R(off int) []byte {
 
 func (b *BaseImpl) readerR(off int) []byte {
 
-	n, e := loncha.LastIndexOf(b.RDiffs, func(i int) bool {
+	var n int
+	var e error
+RETRY:
+
+	n, e = loncha.LastIndexOf(b.RDiffs, func(i int) bool {
 		return b.RDiffs[i].Offset <= off && off < (b.RDiffs[i].Offset+len(b.RDiffs[i].bytes))
 	})
 	if e == nil && n >= 0 {
@@ -476,8 +495,19 @@ func (b *BaseImpl) readerR(off int) []byte {
 	}
 
 	if off+32 >= len(b.bytes) {
-		b.expandBuf(off - len(b.bytes) + 32)
+		err := b.expandBuf(off - len(b.bytes) + 32)
+		if off < len(b.bytes) {
+			goto RETURN_BYTES
+		}
+
+		if err != nil {
+			return nil
+		}
+		if len(b.bytes) < off {
+			goto RETRY
+		}
 	}
+RETURN_BYTES:
 
 	return b.bytes[off:]
 }
@@ -599,6 +629,20 @@ func (b *BaseImpl) U(off, size int) []byte {
 	return diff.bytes
 }
 
+func calcBufSize(req int) int {
+
+	i := req / 4096
+	if i%4096 != 0 {
+		i++
+	}
+	if i == 0 {
+		i++
+	}
+
+	return i * 4096
+
+}
+
 // FIXME:  support base.RDiff
 func (b *BaseImpl) expandBuf(plus int) error {
 	if !b.HasIoReader() && cap(b.bytes)-len(b.bytes) < plus {
@@ -608,10 +652,37 @@ func (b *BaseImpl) expandBuf(plus int) error {
 	if !b.HasIoReader() {
 		return nil
 	}
+	inc := 0
 	if cap(b.bytes) < len(b.bytes)+plus {
-		diff := Diff{Offset: len(b.bytes), bytes: make([]byte, 0, DEFAULT_BUF_CAP)}
-		n, err := io.ReadAtLeast(b.r, diff.bytes, plus)
-		if n < plus || err != nil {
+		if cap(b.bytes) > len(b.bytes) {
+			b.bytes = b.bytes[:len(b.bytes):len(b.bytes)]
+		}
+	}
+
+	if cap(b.bytes) < len(b.bytes)+(plus-inc) {
+		lastDiff := &Diff{Offset: len(b.bytes), bytes: []byte{}}
+
+		if len(b.RDiffs) > 0 {
+			lastDiff = &b.RDiffs[len(b.RDiffs)-1]
+		}
+		// expand last diff
+		if cap(lastDiff.bytes)-len(lastDiff.bytes) > plus-inc {
+			lastOldLen := len(lastDiff.bytes)
+			lastDiff.bytes = lastDiff.bytes[:cap(lastDiff.bytes)]
+			n, err := io.ReadAtLeast(b.r, lastDiff.bytes[lastOldLen:], plus-inc)
+			if n < (plus-inc) || err != nil {
+				lastDiff.bytes = lastDiff.bytes[:lastOldLen+n]
+				return ERR_READ_BUFFER
+			}
+			return nil
+		}
+		lastOff := lastDiff.Offset + len(lastDiff.bytes)
+
+		ncap := calcBufSize(MaxInt(plus-inc, DEFAULT_BUF_CAP))
+
+		diff := Diff{Offset: lastOff, bytes: make([]byte, plus-inc, ncap)}
+		n, err := io.ReadAtLeast(b.r, diff.bytes, plus-inc)
+		if n < (plus-inc) || err != nil {
 			diff.bytes = diff.bytes[:n]
 			if n > 0 {
 				b.RDiffs = append(b.RDiffs, diff)
@@ -619,6 +690,7 @@ func (b *BaseImpl) expandBuf(plus int) error {
 			return ERR_READ_BUFFER
 		}
 		b.RDiffs = append(b.RDiffs, diff)
+		return nil
 	}
 
 	l := len(b.bytes)
@@ -635,11 +707,17 @@ func (b *BaseImpl) expandBuf(plus int) error {
 // LenBuf ... size of buffer
 func (b *BaseImpl) LenBuf() int {
 
-	if len(b.Diffs) < 1 {
+	if len(b.Diffs) < 1 && len(b.RDiffs) < 1 {
 		return len(b.bytes)
 	}
 
 	max := len(b.bytes)
+	for i := range b.RDiffs {
+		if b.RDiffs[i].Offset+len(b.RDiffs[i].bytes) > max {
+			max = b.RDiffs[i].Offset + len(b.RDiffs[i].bytes)
+		}
+	}
+
 	for i := range b.Diffs {
 		if b.Diffs[i].Offset+len(b.Diffs[i].bytes) > max {
 			max = b.Diffs[i].Offset + len(b.Diffs[i].bytes)

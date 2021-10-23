@@ -292,6 +292,10 @@ func (b DoubleLayer) mergeDiffs() {
 		return
 	}
 
+	for i := 0; i < len(b.RDiffs); i++ {
+		b.Diffs[0].Merge(&b.RDiffs[i])
+	}
+
 	for i := 1; i < len(b.Diffs); i++ {
 		b.Diffs[0].Merge(&b.Diffs[i])
 	}
