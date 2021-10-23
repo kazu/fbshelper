@@ -70,7 +70,7 @@ func OpenByBuf(buf []byte, opts ...base.Option) Root {
 	return result
 }
 
-func toRoot(b base.Base) Root {
+func toRoot(b base.IO) Root {
 	common := &CommonNode{}
 	common.NodeList = &base.NodeList{}
 	common.Node = base.NewNode(b, int(flatbuffers.GetUOffsetT(b.R(0))))
@@ -93,7 +93,7 @@ func (node Root) Next() Root {
 		return node
 	}
 
-	newBase := node.Base.Next(start)
+	newBase := node.IO.Next(start)
 
 	root := Root{}
 	root.CommonNode = emptyCommonNode()
