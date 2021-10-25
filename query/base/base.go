@@ -785,7 +785,7 @@ func (b *BaseImpl) loadBuf(offset, size int) error {
 		if capLimit > 0 && capLimit < ncap {
 			ncap = capLimit
 		}
-		diff := Diff{Offset: offset, bytes: make([]byte, requireSize, ncap)}
+		diff := Diff{Offset: offset, bytes: make([]byte, MinInt(requireSize, ncap), ncap)}
 		var n int
 		var err error
 	LOAD_CAP:
