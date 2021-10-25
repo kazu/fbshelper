@@ -296,7 +296,8 @@ RESULT:
 	// b := cNode.Base
 	// _, _ = a, b
 
-	if !IsStructName[node.Name] && !node.VirtualTableIsZero(idx) && !node.IO.Impl().Equal(cNode.IO.Impl()) {
+	//FXIME: enable debug mode ?
+	if L2isEnable(L2_DEBUG_IO) && !IsStructName[node.Name] && !node.VirtualTableIsZero(idx) && !node.IO.Impl().Equal(cNode.IO.Impl()) {
 		Log(LOG_DEBUG, func() LogArgs {
 			return F("FieldAt: Invalid Node=%s idx=%d\n", node.Name, idx)
 		})

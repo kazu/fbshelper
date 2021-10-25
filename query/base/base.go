@@ -224,6 +224,32 @@ func (d Diff) Innerd(pos, size int) bool {
 	return false
 }
 
+// MergeStable ... keep nodata hole
+func (d *Diff) MergeStable(s *Diff) bool {
+
+	if d.Offset+len(d.bytes) < s.Offset {
+		return false
+	}
+
+	if s.Offset+len(s.bytes) < d.Offset {
+		return false
+	}
+
+	off := MinInt(d.Offset, s.Offset)
+	loff := MaxInt(d.Offset+len(d.bytes), s.Offset+len(s.bytes))
+
+	nDiff := Diff{Offset: off, bytes: make([]byte, loff-off)}
+
+	copy(nDiff.bytes[d.Offset-off:], d.bytes)
+	copy(nDiff.bytes[s.Offset-off:], s.bytes)
+
+	d.Offset = nDiff.Offset
+	d.bytes = nDiff.bytes
+
+	return true
+
+}
+
 func (d *Diff) Merge(s *Diff) {
 
 	var nbytes []byte
@@ -524,10 +550,11 @@ func (b *BaseImpl) writerR(off int, opts ...OptIO) []byte {
 	}
 
 	if len(b.bytes) < off {
-		Log(LOG_WARN, func() LogArgs {
-			return F("base.R(): remain offset=%d lenBuf()=%d \n",
+		Log2(L2_WARN_IO, L2F(func() {
+			FF("base.R(): remain offset=%d lenBuf()=%d \n",
 				off, b.LenBuf())
-		})
+		}))
+
 		return nil
 	}
 
@@ -648,10 +675,13 @@ func (b *BaseImpl) Copy(src IO, srcOff, size, dstOff, extend int) {
 		data := src.R(srcPtr, Size(size-(srcPtr-srcOff)))
 		if len(data) == 0 {
 			//FIXME: if raise this warning. code may have bugs.
-			Log(LOG_WARN, func() LogArgs {
-				return F("BaseImpl.Copy() dont have srcOff=%d in srcOff.LenBuf()=%d\n",
-					srcPtr, src.LenBuf())
-			})
+
+			Log2(L2_WARN_IO,
+				L2F(func() {
+					FF("BaseImpl.Copy() dont have srcOff=%d in srcOff.LenBuf()=%d\n",
+						srcPtr, src.LenBuf())
+				}),
+			)
 			break
 		}
 		if len(data) > size-(srcPtr-srcOff) {
@@ -856,6 +886,39 @@ func (b *BaseImpl) Merge() {
 	b.Flatten()
 }
 
+func (b *BaseImpl) MergeDiffs() {
+	b.mergeDiffs(false)
+}
+func (b *BaseImpl) mergeDiffs(enableRdiffs bool) {
+
+	// if enableRdiffs {
+	// 	for i := 0; i < len(b.RDiffs); i++ {
+	// 		b.Diffs[0].Merge(&b.RDiffs[i])
+	// 	}
+	// }
+	deleteIdxs := map[int]bool{}
+
+	o := b.R(8)
+
+	for i := 1; i < len(b.Diffs); i++ {
+		success := b.Diffs[0].MergeStable(&b.Diffs[i])
+		if success {
+			deleteIdxs[i] = true
+		}
+	}
+	if len(deleteIdxs) == 0 {
+		return
+	}
+	loncha.Delete(&b.Diffs, func(i int) bool {
+		return deleteIdxs[i]
+	})
+	a := b.R(8)
+	_, _ = a, o
+
+	return
+
+}
+
 // Flatten ... Diffs buffer join to bytes
 func (b *BaseImpl) Flatten() {
 	b.FlattenWithLen(-1)
@@ -971,7 +1034,7 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) IO {
 		if diff.Offset < pos && diff.Include(pos) {
 			newBase.Diffs = append(newBase.Diffs[:i],
 				append([]Diff{
-					Diff{Offset: diff.Offset, bytes: diff.bytes[:pos-diff.Offset]},
+					Diff{Offset: diff.Offset, bytes: diff.bytes[: pos-diff.Offset : pos-diff.Offset]},
 					Diff{Offset: pos, bytes: diff.bytes[pos-diff.Offset:]}},
 					b.Diffs[i+1:]...)...)
 		}
