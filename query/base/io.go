@@ -16,8 +16,10 @@ type ReaderWithAt interface {
 }
 
 type ReaderAt struct {
-	r   io.Reader
-	cur int
+	r           io.Reader
+	cur         int
+	orig        *BaseImpl
+	offFromOrig int
 }
 
 type ErrorMustRead struct {
@@ -35,11 +37,30 @@ func (e ErrorMustRead) ToParam() (int, int) {
 }
 
 func NewReaderAt(r io.Reader) ReaderAt {
-	return ReaderAt{r: r, cur: 0}
+	return ReaderAt{r: r, cur: 0, orig: nil, offFromOrig: 0}
+}
+
+func (r ReaderAt) origReadAt(buf []byte, off int64) (n int, err error) {
+
+	if r.orig == nil {
+		return -1, ERR_NO_SUPPORT
+	}
+
+	data := r.orig.R(int(off)+r.offFromOrig, Size(len(buf)))
+	if len(data) < len(buf) {
+		buf = buf[:len(data)]
+		copy(buf, data)
+	}
+	return len(data), nil
+
 }
 
 // ReadAt ... warpiing ReadAt with Read
 func (r ReaderAt) ReadAt(buf []byte, off int64) (n int, err error) {
+
+	if r.orig != nil {
+		return r.origReadAt(buf, off)
+	}
 
 	if nr, ok := r.r.(io.ReaderAt); ok {
 		return nr.ReadAt(buf, off)
@@ -62,7 +83,12 @@ func (r ReaderAt) ReadAt(buf []byte, off int64) (n int, err error) {
 
 func (r ReaderAt) Read(buf []byte) (n int, err error) {
 
-	n, err = r.r.Read(buf)
+	if r.orig != nil {
+		n, err = r.origReadAt(buf, int64(r.cur))
+	} else {
+		n, err = r.r.Read(buf)
+	}
+
 	if n > 0 {
 		r.cur += n
 	}

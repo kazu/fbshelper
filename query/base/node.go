@@ -324,6 +324,10 @@ func (node *Node) VirtualTable(idx int) int {
 	}
 
 	tOffset := flatbuffers.GetUint16(node.R(int(vPos)+4+idx*2, Size(2)))
+	if tOffset == 0 {
+		// for debug
+		flatbuffers.GetUint16(node.R(int(vPos)+4+idx*2, Size(2)))
+	}
 	return node.Pos + int(tOffset)
 }
 

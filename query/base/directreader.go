@@ -109,7 +109,7 @@ func (b NoLayer) R(off int, opts ...OptIO) []byte {
 		return b.Diffs[sn].bytes[off-b.Diffs[sn].Offset:]
 	}
 
-	if off+p.req < len(b.bytes) {
+	if off+MaxInt(1, p.req) <= len(b.bytes) {
 		return b.bytes[off:]
 	}
 
@@ -170,65 +170,7 @@ func (b NoLayer) U(off, size int) []byte {
 // Copy ... copy buffer from Base
 func (b NoLayer) Copy(osrc IO, srcOff, size, dstOff, extend int) {
 
-	if cap(b.bytes) > dstOff {
-		if len(b.bytes) > dstOff {
-			diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
-			b.Diffs = append(b.Diffs, diff)
-		}
-		b.bytes = b.bytes[:dstOff:dstOff]
-	}
-
-	for i, diff := range b.Diffs {
-		if diff.Offset >= dstOff {
-			diff.Offset += extend
-		}
-		b.Diffs[i] = diff
-	}
-	srcDiffs := append([]Diff{Diff{Offset: 0, bytes: osrc.R(0)}},
-		osrc.GetDiffs()...)
-
-	loncha.Delete(&srcDiffs, func(i int) bool {
-
-		diffComp := srcDiffs[i].Inner(srcOff, size) || srcDiffs[i].Include(srcOff) || srcDiffs[i].Included(srcOff, size) || srcDiffs[i].Innerd(srcOff, size)
-		diffComp = !diffComp
-
-		result := srcDiffs[i].Offset > srcOff+size || srcDiffs[i].Offset+len(srcDiffs[i].bytes) <= srcOff
-		_ = result
-		// if result != diffComp {
-		// 	panic("invalid")
-		// }
-
-		//return diffComp
-		return result
-	})
-
-	for _, diff := range srcDiffs {
-		diff.Offset -= srcOff
-		if diff.Offset < 0 && len(diff.bytes)+diff.Offset > 0 {
-			diff.bytes = diff.bytes[-diff.Offset:]
-			diff.Offset = 0
-			if len(diff.bytes) > size {
-				diff.bytes = diff.bytes[:size:size]
-			}
-		}
-		diff.Offset += dstOff
-		//diff.Offset = 0
-		// diff.Offset += srcOff - dstOff
-		// diff.Offset += dstOff
-		// diff.bytes = diff.bytes[srcOff:]
-		// if len(diff.bytes) > size {
-		// 	diff.bytes = diff.bytes[:size:size]
-		// }
-
-		loncha.Delete(&b.Diffs, func(i int) bool {
-			return diff.Offset <= b.Diffs[i].Offset &&
-				b.Diffs[i].Offset+len(b.Diffs[i].bytes) <= diff.Offset+len(diff.bytes)
-		})
-		if diff.Offset >= 0 {
-			b.Diffs = append(b.Diffs, diff)
-		}
-	}
-
+	b.Impl().Copy(osrc, srcOff, size, dstOff, extend)
 }
 
 // NewFromBytes ... return new NoLayer instance with byte buffer.

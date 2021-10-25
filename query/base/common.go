@@ -90,6 +90,17 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 
 	} else if IsFieldSlice(grp) {
 		info = node.ValueInfoPosList(idx)
+		if node.FieldAt(idx).NodeList.Node == nil {
+			// FIXME remove later
+			// node.ValueInfoPosList(idx)
+			// node.FieldAt(idx)
+			// Log(LOG_WARN, func() LogArgs {
+			// 	return F(
+			// 		"node not found: node=%s.FieldAt(%d)", node.Name, idx)
+			// })
+			return info
+		}
+
 		info.Size = (*List)(node.FieldAt(idx)).InfoSlice().Size
 
 	} else if IsFieldTable(grp) {
@@ -1324,6 +1335,8 @@ func (n1 *CommonNode) Equal(n2 *CommonNode) bool {
 		return true
 	}
 
+	n1cnt := n1.CountOfField()
+	_ = n1cnt
 	for i := 0; i < n1.CountOfField(); i++ {
 		if n1.IdxToTypeGroup[i] != n2.IdxToTypeGroup[i] {
 			return false
@@ -1345,6 +1358,12 @@ func (n1 *CommonNode) Equal(n2 *CommonNode) bool {
 
 		f1 := n1.FieldAt(i)
 		f2 := n2.FieldAt(i)
+
+		// for debug
+		if f1.Node == nil || f2.Node == nil {
+			n1.FieldAt(i)
+			n2.FieldAt(i)
+		}
 
 		if len(f1.R(f1.Node.Pos)) < size {
 			f1.R(f1.Node.Pos, Size(1))

@@ -348,6 +348,9 @@ func (node *List) First() (*CommonNode, error) {
 
 // Last ... Last Element in List
 func (node *List) Last() (*CommonNode, error) {
+	// if node.NodeList.Node == nil {
+	// 	fmt.Printf("hoge")
+	// }
 	return node.At(int(node.VLen()) - 1)
 }
 
@@ -404,16 +407,20 @@ func (node *List) InfoSlice() Info {
 		vInfo = FbsStringInfo(NewNode(node.IO, ptr+int(flatbuffers.GetUint32(node.R(ptr, Size(4))))))
 	} else {
 
-		// vInfos := make([]Info, 0, node.Count())
-
-		// node.Select(func(e *CommonNode) bool {
-		// 	vInfos = append(vInfos, e.Info())
-		// 	return true
-		// })
-
+		// MENTION: should not use node.Last() ?
 		if elm, err := node.Last(); err == nil {
 			vInfo = elm.Info()
 		}
+		maxIdx := node.indexOnMaxPos(true)
+		if elm, err := node.At(maxIdx); err == nil {
+			vInfo2 := elm.Info()
+			if vInfo2.Pos != vInfo.Pos || vInfo2.Size != vInfo.Size {
+				Log(LOG_WARN, func() LogArgs {
+					return F("list max size is not in last element")
+				})
+			}
+		}
+
 	}
 	info.VLen = flatbuffers.GetUint32(node.R(node.NodeList.ValueInfo.Pos-4, Size(4)))
 	if info.VLen == 0 {
