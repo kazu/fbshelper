@@ -103,14 +103,10 @@ func (b NoLayer) R(off int, opts ...OptIO) []byte {
 	p := NewParamOpt(opts...)
 
 	sn, e := loncha.LastIndexOf(b.Diffs, func(i int) bool {
-		return b.Diffs[i].Offset <= off && off+MaxInt(1, p.req) <= (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
+		return b.Diffs[i].Offset <= off && off+MinInt(1, p.req) <= (b.Diffs[i].Offset+len(b.Diffs[i].bytes))
 	})
 	if e == nil && sn >= 0 {
 		return b.Diffs[sn].bytes[off-b.Diffs[sn].Offset:]
-	}
-
-	if off+MaxInt(1, p.req) <= len(b.bytes) {
-		return b.bytes[off:]
 	}
 
 	return b.Impl().R(off, opts...)
@@ -234,11 +230,10 @@ func (b DoubleLayer) insertBuf(pos, size int) IO {
 func (b DoubleLayer) insertSpace(pos, size int, isCreate bool) IO {
 
 	b.mergeDiffs()
+	newBase := NewBaseImpl(b.bytes)
+	newBase.r = b.r
+	newBase.checkBoundary = b.checkBoundary
 
-	newBase := &BaseImpl{
-		r:     b.r,
-		bytes: b.bytes,
-	}
 	newBase.Diffs = make([]Diff, len(b.Diffs), cap(b.Diffs))
 	copy(newBase.Diffs, b.Diffs)
 

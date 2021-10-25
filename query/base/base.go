@@ -173,6 +173,8 @@ type BaseImpl struct {
 	Diffs   []Diff
 	dirties []Dirty
 
+	checkBoundary bool
+
 	// for io interface
 	seekCur int
 }
@@ -334,12 +336,11 @@ func (b *BaseImpl) Dump(pos int, opts ...DumpOptFn) (out string) {
 		return
 	}
 
-	d := &BaseImpl{
-		r:       b.r,
-		bytes:   append([]byte{}, b.bytes...),
-		Diffs:   append([]Diff{}, b.Diffs...),
-		seekCur: 0,
-	}
+	d := NewBaseImpl(append([]byte{}, b.bytes...))
+	d.r = b.r
+	d.Diffs = append([]Diff{}, b.Diffs...)
+	d.checkBoundary = b.checkBoundary
+
 	d.Flatten()
 	stdoutDumper.Write(d.R(pos))
 	return
@@ -382,20 +383,29 @@ func (b *BaseImpl) WriteAt(p []byte, oi int64) (n int, err error) {
 
 // NewBaseImpl ... initialize BaseImpl struct via buffer(buf)
 func NewBaseImpl(buf []byte) *BaseImpl {
-	return &BaseImpl{bytes: buf, seekCur: 0}
+	return &BaseImpl{bytes: buf,
+		checkBoundary: true,
+		seekCur:       0}
 }
 
 // NewBaseImplByIO ... return new BaseImpl instance with io.Reader
-func NewBaseImplByIO(rio io.Reader, cap int) *BaseImpl {
-	b := &BaseImpl{bytes: make([]byte, 0, cap), seekCur: 0}
+func NewBaseImplByIO(rio io.Reader, cap int, o *BaseImpl) *BaseImpl {
+	b := NewBaseImpl(make([]byte, 0, cap))
 	if origReader, ok := rio.(ReaderAt); ok {
 		newReader := NewReaderAt(rio)
 		newReader.orig = origReader.orig
+		if o != nil {
+			newReader.orig = o
+		}
 		newReader.offFromOrig = origReader.offFromOrig
 		b.r = newReader
 		return b
 	}
-	b.r = NewReaderAt(rio)
+	if rio != nil {
+		b.r = NewReaderAt(rio)
+	} else {
+		b.r = nil
+	}
 
 	return b
 }
@@ -403,9 +413,10 @@ func NewBaseImplByIO(rio io.Reader, cap int) *BaseImpl {
 // Dup ... return copied Base.
 func (b *BaseImpl) Dup() (dst IO) {
 
-	dst = NewBaseImplByIO(b.r, DEFAULT_BUF_CAP)
+	dst = NewBaseImplByIO(b.r, DEFAULT_BUF_CAP, b)
 	dbytes := make([]byte, len(b.bytes))
 	copy(dbytes, b.bytes)
+	dst.Impl().bytes = dbytes
 
 	diffs := make([]Diff, 0, cap(b.RDiffs)+cap(b.GetDiffs()))
 
@@ -440,7 +451,9 @@ func (dst *BaseImpl) overwrite(src *BaseImpl) {
 
 // NewFromBytes ... return new BaseImpl instance with byte buffer
 func (b *BaseImpl) NewFromBytes(bytes []byte) IO {
-	return NewBaseImpl(bytes)
+	nio := NewBaseImpl(bytes)
+	nio.checkBoundary = b.checkBoundary
+	return nio
 }
 
 // New ... return new Base Interface (instance is BaseImpl)
@@ -461,21 +474,24 @@ func (b *BaseImpl) Bytes() []byte {
 // Next ... provide next root flatbuffers
 // this is mainly for streaming data.
 func (b *BaseImpl) Next(skip int) IO {
-	newBase := &BaseImpl{
-		r:       b.r,
-		bytes:   b.bytes,
-		seekCur: 0,
+
+	newBase := NewBaseImplByIO(b.r, DEFAULT_BUF_CAP, b)
+	newReader, ok := newBase.r.(ReaderAt)
+	if ok {
+		newReader.offFromOrig += skip
+		newBase.r = newReader
+		newBase.checkBoundary = false
 	}
+	if len(b.bytes) > skip {
+		newBase.bytes = b.bytes[:0]
+		return newBase
+	}
+
+	newBase.bytes = b.bytes[:skip]
+
 	newBase.bytes = newBase.bytes[skip:]
 	if cap(b.bytes) > skip {
 		b.bytes = b.bytes[:skip]
-	}
-
-	if len(b.bytes) <= skip && len(b.RDiffs) > 0 {
-		//FIXME: impelement
-		Log(LOG_WARN, func() LogArgs {
-			return F("NextBase(): require RDiff. but not implemented\n")
-		})
 	}
 
 	return newBase
@@ -533,26 +549,29 @@ func (b *BaseImpl) writerR(off int, opts ...OptIO) []byte {
 	return b.bytes[off:len]
 }
 
-func (b *BaseImpl) parent() *BaseImpl {
+func (b *BaseImpl) parent() (p *BaseImpl, off int) {
+
+	off = 0
+	p = nil
 
 	if b.r == nil {
-		return nil
+		return
 	}
 	reader, ok := b.r.(ReaderAt)
 	if !ok {
-		return nil
+		return
 	}
 	if reader.orig == nil {
-		return nil
+		return
 	}
 
-	return reader.orig
+	return reader.orig, reader.offFromOrig
 }
 
 func (b *BaseImpl) readerR(off int, opts ...OptIO) []byte {
 
-	if parent := b.parent(); parent != nil {
-		return parent.R(off, opts...)
+	if parent, offFromOrig := b.parent(); parent != nil {
+		return parent.readerR(offFromOrig+off, opts...)
 	}
 
 	p := NewParamOpt(opts...)
@@ -628,7 +647,15 @@ func (b *BaseImpl) Copy(src IO, srcOff, size, dstOff, extend int) {
 	for srcPtr := srcOff; srcPtr < srcOff+size; {
 		data := src.R(srcPtr, Size(size-(srcPtr-srcOff)))
 		if len(data) == 0 {
-			panic("hoge")
+			//FIXME: if raise this warning. code may have bugs.
+			Log(LOG_WARN, func() LogArgs {
+				return F("BaseImpl.Copy() dont have srcOff=%d in srcOff.LenBuf()=%d\n",
+					srcPtr, src.LenBuf())
+			})
+			break
+		}
+		if len(data) > size-(srcPtr-srcOff) {
+			data = data[:size-(srcPtr-srcOff)]
 		}
 
 		b.Diffs = append(b.Diffs, Diff{Offset: (srcPtr - srcOff) + dstOff, bytes: data})
@@ -645,12 +672,6 @@ func (b *BaseImpl) D(off, size int) *Diff {
 	})
 
 	if e == nil && sn >= 0 {
-		// if b.Diffs[sn].Offset+len(b.Diffs[sn].bytes) < off+size {
-		// 	Log(LOG_ERROR, func() LogArgs {
-		// 		return F("D(%d,%d) Invalid diff=%d\n",
-		// 			off, size, )
-		// 	})
-		// }else
 		if b.Diffs[sn].Offset+len(b.Diffs[sn].bytes) <= off+size {
 			diff := Diff{Offset: off}
 			b.Diffs = append(b.Diffs, diff)
@@ -806,6 +827,9 @@ EXPAND_AND_READ_DIFF:
 func (b *BaseImpl) LenBuf() int {
 
 	if len(b.Diffs) < 1 && len(b.RDiffs) < 1 {
+		if parent, _ := b.parent(); parent != nil {
+			return parent.LenBuf()
+		}
 		return len(b.bytes)
 	}
 
@@ -934,11 +958,9 @@ func (b *BaseImpl) insertBuf(pos, size int) IO {
 }
 func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) IO {
 
-	newBase := &BaseImpl{
-		r:       b.r,
-		bytes:   b.bytes,
-		seekCur: 0,
-	}
+	newBase := NewBaseImpl(b.bytes)
+	newBase.r = b.r
+	newBase.checkBoundary = b.checkBoundary
 
 	newBase.Diffs = make([]Diff, len(b.Diffs), cap(b.Diffs))
 
@@ -975,7 +997,7 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) IO {
 
 // ShouldCheckBound .. which check bounding of buffer.
 func (b *BaseImpl) ShouldCheckBound() bool {
-	return true
+	return b.checkBoundary
 }
 
 func (b *BaseImpl) Equal(c *BaseImpl) bool {

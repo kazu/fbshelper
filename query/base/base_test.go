@@ -470,7 +470,7 @@ func Test_QueryNext(t *testing.T) {
 	// rBufInfo := root.BufInfo()
 	// r2BufInfo := root2.BufInfo()
 	// _, _ = rBufInfo, r2BufInfo
-	assert.Equal(t, len(buf), len1)
+	assert.Equal(t, len(buf2), len1)
 
 }
 

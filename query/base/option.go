@@ -7,7 +7,7 @@ type OptionState struct {
 }
 
 var DefaultOption OptionState = OptionState{
-	base: &BaseImpl{},
+	base: NewBaseImpl(nil),
 }
 
 type Option func(*OptionState)
@@ -23,7 +23,7 @@ func SetDefaultBase(name string) Option {
 			opt.base = &DoubleLayer{}
 			return
 		}
-		opt.base = &BaseImpl{}
+		opt.base = NewBaseImpl(nil)
 	}
 }
 
@@ -33,7 +33,7 @@ func NewBase(bytes []byte) IO {
 }
 
 func NewBaseByIO(rio io.Reader, cap int) IO {
-	bImpl := NewBaseImplByIO(rio, cap)
+	bImpl := NewBaseImplByIO(rio, cap, nil)
 	return DefaultOption.base.New(bImpl)
 }
 
