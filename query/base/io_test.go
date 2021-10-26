@@ -298,7 +298,7 @@ func Test_R(t *testing.T) {
 		off     func(*query2.Root) int
 	}{
 		{
-			name:    "Get root.Index().IndexNum().Size()",
+			name:    "Get root.Index().IndexNum().Size() 1",
 			expect:  &expect,
 			targets: []*query2.Root{&nolayer, &doubleLayer},
 			prepare: prepareFn,
@@ -307,7 +307,7 @@ func Test_R(t *testing.T) {
 			},
 		},
 		{
-			name:    "Get root.Index().IndexNum().Size()",
+			name:    "Get root.Index().IndexNum().Size() 2",
 			expect:  &expect,
 			targets: []*query2.Root{&nolayer, &doubleLayer},
 			prepare: prepareFn,
@@ -378,5 +378,10 @@ func Test_R(t *testing.T) {
 }
 
 func testR(expect base.IO, target base.IO, eoff, off int, t *testing.T) {
-	assert.Equal(t, expect.R(eoff), target.R(off)[:len(expect.R(eoff))])
+	er := expect.R(eoff)
+	tr := target.R(off)
+
+	l := base.MinInt(len(er), len(tr))
+
+	assert.Equal(t, er[:l], tr[:l])
 }
