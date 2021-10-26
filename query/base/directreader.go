@@ -142,7 +142,7 @@ func (b NoLayer) D(off, size int) *Diff {
 		return &Diff{Offset: off, bytes: b.bytes[off:]}
 	}
 
-	newDiff := Diff{Offset: off, bytes: make([]byte, 0, 512)}
+	newDiff := Diff{Offset: off, bytes: make([]byte, 0, MaxInt(DEFAULT_BUF_CAP, size))}
 	newDiff.bytes = newDiff.bytes[:size]
 	b.Diffs = append(b.Diffs, newDiff)
 
