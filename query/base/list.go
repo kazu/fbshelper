@@ -473,6 +473,11 @@ NO_NODE:
 
 func (list *List) Add(slist *List) error {
 
+	//FIXME: support InRoot()
+	if list.SelfAsCommonNode().InRoot() {
+		return ERR_NO_SUPPORT
+	}
+
 	elm, err := slist.First()
 	if err != nil {
 		//FIXME error

@@ -3,7 +3,6 @@ package base
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	log "github.com/kazu/fbshelper/query/log"
@@ -19,7 +18,6 @@ const (
 type LogState struct {
 	level  log.LogLevel
 	filter byte
-	writer io.Writer
 }
 
 var LogCurrentState LogState = LogState{level: log.LOG_ERROR, filter: FLT_NORMAL}
@@ -60,10 +58,6 @@ func SetL2Current(level log.LogLevel, filter byte) {
 
 	LogCurrentState.level = level
 	LogCurrentState.filter = filter
-	if LogCurrentState.level == LOG_DEBUG {
-		os.Exit(0)
-	}
-
 }
 
 func L2isEnable(param Log2Option) bool {
@@ -151,7 +145,7 @@ func L2F(fn func()) Log2Option {
 }
 
 func FF(s string, v ...interface{}) {
-	fmt.Fprintf(LogCurrentState.writer, s, v...)
+	fmt.Fprintf(LogW, s, v...)
 }
 
 func neoLog(l LogLevel, fn func()) {

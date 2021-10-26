@@ -257,6 +257,25 @@ func MakeRootWithRecord2(key uint64, fID uint64, offset int64, size int64) []byt
 	return root.R(0)
 }
 
+func checkFlistMergeDiff(flist *query2.FileList) (int, error) {
+
+	flist2 := query2.NewFile()
+	flist2.CommonNode = flist.List().New().SelfAsCommonNode()
+	flist2.IO = DupBase(flist.IO)
+	//flist2.Impl().MergeDiffs()
+	flist2.Flatten()
+	flist.Flatten()
+	buf := flist.R(0)
+	buf2 := flist2.R(0)
+
+	for i := 0; i < len(buf); i++ {
+		if buf[i] != buf2[i] {
+			return i, errors.New("BUG: MergeDIffs()")
+		}
+	}
+	return -1, nil
+}
+
 func MakeFileList(isNolayer bool, cntOfFile int, startID, incID uint64, offsetIndex int64, nameprefix string) *query2.FileList {
 
 	flist := query2.NewFileList()
@@ -275,7 +294,12 @@ func MakeFileList(isNolayer bool, cntOfFile int, startID, incID uint64, offsetIn
 			base.FromByteList(
 				[]byte(
 					fmt.Sprintf("%s%x", nameprefix, startID+uint64(i)))))
+		file.Flatten()
 		flist.SetAt(i, file)
+		// enable this if you check mergediffs bug.
+		//checkFlistMergeDiff(flist)
+		flist.Impl().MergeDiffs()
+
 	}
 	return flist
 }
@@ -2118,7 +2142,9 @@ func FileIsNotInvalid(f *query.File) (bool, error) {
 func Test_ListAdd(t *testing.T) {
 
 	o := log.CurrentLogLevel
-	base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
+	//base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
+	base.SetL2Current(log.LOG_ERROR, base.FLT_IS)
+
 	defer base.SetL2Current(o, base.FLT_NORMAL)
 
 	tests := []struct {
@@ -2213,8 +2239,8 @@ func Test_ListNewOptRange(t *testing.T) {
 		offsetIndex int64
 		nameprefix  string
 	}{
-		// {"10 filelist   ", true, true, false, 10, 2, 5, 10, 10, 2000, "10files"},
-		// {"10 recordlist ", false, true, false, 10, 3, 4, 10, 10, 2000, "10files"},
+		{"10 filelist   ", true, true, false, 10, 2, 5, 10, 10, 2000, "10files"},
+		{"10 recordlist ", false, true, false, 10, 3, 4, 10, 10, 2000, "10files"},
 		{"10 filelist   ", true, true, true, 10, 2, 5, 10, 10, 2000, "10files"},
 		{"10 recordlist ", false, true, true, 10, 3, 4, 10, 10, 2000, "10files"},
 	}
