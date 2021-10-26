@@ -147,6 +147,6 @@ func (node NodeName) Root() (RootType, error) {
 	if !node.InRoot() {
 		return RootType{}, log.ERR_NO_INCLUDE_ROOT
 	}
-	root := toRoot(node.Base)
+	root := toRoot(node.IO)
 	return root, nil
 }

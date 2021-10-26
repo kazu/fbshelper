@@ -90,6 +90,17 @@ func (node *CommonNode) ValueInfo(idx int) ValueInfo {
 
 	} else if IsFieldSlice(grp) {
 		info = node.ValueInfoPosList(idx)
+		if node.FieldAt(idx).NodeList.Node == nil {
+			// FIXME remove later
+			// node.ValueInfoPosList(idx)
+			// node.FieldAt(idx)
+			// Log(LOG_WARN, func() LogArgs {
+			// 	return F(
+			// 		"node not found: node=%s.FieldAt(%d)", node.Name, idx)
+			// })
+			return info
+		}
+
 		info.Size = (*List)(node.FieldAt(idx)).InfoSlice().Size
 
 	} else if IsFieldTable(grp) {
@@ -234,7 +245,7 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 				break
 			}
 		}
-		result.Node = NewNode2(node.Node.Base, pos, true)
+		result.Node = NewNode2(node.Node.IO, pos, true)
 
 		goto RESULT
 	}
@@ -254,7 +265,7 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 		valInfo := node.ValueInfoPosBytes(idx)
 		valInfo.VLen = uint32(valInfo.Size)
 
-		nNode := NewNode2(node.Base, valInfo.Pos, true)
+		nNode := NewNode2(node.IO, valInfo.Pos, true)
 		nNode.Size = valInfo.Size
 		result.Node = nNode
 		result.ValueInfo = valInfo
@@ -267,7 +278,7 @@ func (node *CommonNode) FieldAt(idx int) (cNode *CommonNode) {
 		result.Node = node.ValueTable(idx)
 
 	} else if IsFieldBasicType(grp) {
-		result.Node = NewNode2(node.Base, node.VirtualTable(idx), true)
+		result.Node = NewNode2(node.IO, node.VirtualTable(idx), true)
 		result.Node.Size = TypeToSize[node.IdxToType[idx]]
 
 	} else {
@@ -285,7 +296,8 @@ RESULT:
 	// b := cNode.Base
 	// _, _ = a, b
 
-	if !IsStructName[node.Name] && !node.VirtualTableIsZero(idx) && !node.Base.Impl().Equal(cNode.Base.Impl()) {
+	//FXIME: enable debug mode ?
+	if L2isEnable(L2_DEBUG_IO) && !IsStructName[node.Name] && !node.VirtualTableIsZero(idx) && !node.IO.Impl().Equal(cNode.IO.Impl()) {
 		Log(LOG_DEBUG, func() LogArgs {
 			return F("FieldAt: Invalid Node=%s idx=%d\n", node.Name, idx)
 		})
@@ -341,7 +353,7 @@ func Open(r io.Reader, cap int, opts ...Option) (node *CommonNode) {
 
 	node = &CommonNode{}
 	node.NodeList = &NodeList{}
-	node.Node = NewNode(b, int(flatbuffers.GetUOffsetT(b.R(0))))
+	node.Node = NewNode(b, int(flatbuffers.GetUOffsetT(b.R(0, Size(4)))))
 	return node
 }
 
@@ -390,7 +402,7 @@ func (node *CommonNode) Unmarshal(v interface{}) error {
 
 		} else if IsFieldBytes(grp) {
 			cNode := node.FieldAt(i)
-			rv.SetBytes(cNode.R(cNode.Node.Pos)[:cNode.Node.Size])
+			rv.SetBytes(cNode.R(cNode.Node.Pos, Size(cNode.Node.Size))[:cNode.Node.Size])
 		} else if IsFieldBasicType(grp) {
 			cNode := node.FieldAt(i)
 			rv.Set(reflect.ValueOf(cNode).MethodByName(cNode.Name).Call([]reflect.Value{})[0])
@@ -662,7 +674,7 @@ NO_NODE:
 
 	for i := 0; i < int(node.NodeList.ValueInfo.VLen); i++ {
 		ptr := int(node.NodeList.ValueInfo.Pos) + i*4
-		start := ptr + int(flatbuffers.GetUint32(node.R(ptr)))
+		start := ptr + int(flatbuffers.GetUint32(node.R(ptr, Size(4))))
 		// size := info.Size
 		// if i+1 < int(node.NodeList.ValueInfo.Pos) {
 		// 	size = ptr + 4 + int(flatbuffers.GetUint32(node.R(ptr+4))) - start
@@ -830,7 +842,7 @@ func (node *CommonNode) FindTree(cond TreeCond) <-chan *Tree {
 func (node *CommonNode) root() *CommonNode {
 	common := &CommonNode{}
 	common.NodeList = &NodeList{}
-	common.Node = NewNode(node.Base, int(flatbuffers.GetUOffsetT(node.R(0))))
+	common.Node = NewNode(node.IO, int(flatbuffers.GetUOffsetT(node.R(0, Size(4)))))
 	common.Name = RootName
 	common.FetchIndex()
 	return common
@@ -844,15 +856,15 @@ func (node *CommonNode) RootCommon() *CommonNode {
 // InRoot ... return true if buffer include Root Node.
 func (node *CommonNode) InRoot() bool {
 
-	pos := int(flatbuffers.GetVOffsetT(node.R(0)))
-	if len(node.R(pos)) < 4 {
+	pos := int(flatbuffers.GetVOffsetT(node.R(0, Size(2))))
+	if len(node.R(pos, Size(4))) < 4 {
 		return false
 	}
 	if node.Node.Pos < 8 {
 		return false
 	}
 
-	return pos != int(flatbuffers.GetUOffsetT(node.R(pos)))
+	return pos != int(flatbuffers.GetUOffsetT(node.R(pos, Size(4))))
 
 }
 
@@ -865,7 +877,7 @@ func (node *CommonNode) InsertBuf(pos, size int) {
 // InsertSpace ... insert buffer in pos position.
 func (node *CommonNode) InsertSpace(pos, size int, isInsert bool) {
 
-	newBase := node.Base.insertSpace(pos, size, isInsert)
+	newBase := node.IO.insertSpace(pos, size, isInsert)
 
 	defer func() {
 		if node.IsList() {
@@ -875,7 +887,7 @@ func (node *CommonNode) InsertSpace(pos, size int, isInsert bool) {
 		} else if node.Node.Pos > pos {
 			node.Node.Pos += size
 		}
-		node.Base = newBase
+		node.IO = newBase
 		//node.Base.Impl().overwrite(newBase.Impl())
 
 	}()
@@ -902,7 +914,7 @@ func (node *CommonNode) InsertSpace(pos, size int, isInsert bool) {
 		if tree.Node.Name == node.Name && tree.Node.Node.Pos == node.Node.Pos {
 			continue
 		}
-		tree.Node.Base = newBase
+		tree.Node.IO = newBase
 		//tree.Node.Base.Impl().overwrite(newBase.Impl())
 		idx, err := loncha.IndexOf(tree.Childs, func(i int) bool {
 			return tree.Childs[i] == cTree
@@ -950,12 +962,12 @@ func (node *CommonNode) movePosOnList(i, pos, size int) {
 		})
 		return
 	} else {
-		nextOff := flatbuffers.GetUint32(node.R(ptr))
+		nextOff := flatbuffers.GetUint32(node.R(ptr, Size(4)))
 		nextOff += uint32(size)
 		flatbuffers.WriteUint32(node.U(ptr, SizeOfuint32), nextOff)
 	}
 
-	node.Base.AddDirty(Dirty{Pos: node.NodeList.ValueInfo.Pos})
+	node.IO.AddDirty(Dirty{Pos: node.NodeList.ValueInfo.Pos})
 
 }
 
@@ -975,7 +987,7 @@ func (node *CommonNode) movePos(idx, pos, size int) {
 		// FIXME: VTable[idx] is 0 pattern
 		cPos := node.VirtualTable(idx)
 
-		nextOff := flatbuffers.GetUint32(node.R(cPos))
+		nextOff := flatbuffers.GetUint32(node.R(cPos, Size(4)))
 		if cPos+int(nextOff) < pos {
 			Log(LOG_WARN, func() LogArgs {
 				return F("%s.movePos(%d, %d, %d) skip tableption latger %d\n",
@@ -1047,11 +1059,11 @@ func (node *CommonNode) Init() error {
 
 	node.Node = NewNode2(NewBase(make([]byte, tLen+vLen, tLen+vLen+tLenExt)), vLen, true)
 
-	flatbuffers.WriteUint32(node.R(node.Node.Pos), uint32(vLen))
+	flatbuffers.WriteUint32(node.R(node.Node.Pos, Size(4)), uint32(vLen))
 
 	if vLen > 0 {
-		flatbuffers.WriteUint16(node.R(0), uint16(vLen))
-		flatbuffers.WriteUint16(node.R(2), uint16(tLen))
+		flatbuffers.WriteUint16(node.R(0, Size(2)), uint16(vLen))
+		flatbuffers.WriteUint16(node.R(2, Size(2)), uint16(tLen))
 	}
 	return nil
 }
@@ -1068,7 +1080,7 @@ func (node *CommonNode) insertVTable(idx, size int) int {
 	})
 
 	node.InsertBuf(node.Node.Pos+int(node.TLen), size)
-	vPos := node.Node.Pos - int(flatbuffers.GetUOffsetT(node.R(node.Node.Pos)))
+	vPos := node.Node.Pos - int(flatbuffers.GetUOffsetT(node.R(node.Node.Pos, Size(4))))
 
 	// write VTable[idx]
 	flatbuffers.WriteVOffsetT(node.U(vPos+4+idx*2, 2), flatbuffers.VOffsetT(node.TLen))
@@ -1136,7 +1148,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 				pos += TypeToSize[node.IdxToType[i]]
 			} else {
 				size := TypeToSize[node.IdxToType[i]]
-				node.Copy(fNode.Base, fNode.Node.Pos, size, pos, 0)
+				node.Copy(fNode.IO, fNode.Node.Pos, size, pos, 0)
 				return nil
 			}
 		}
@@ -1167,7 +1179,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 		}
 		extend := fNode.Node.Size - oFieldSize
 		dstPos := node.Table(idx)
-		node.Copy(fNode.Base,
+		node.Copy(fNode.IO,
 			fNode.NodeList.ValueInfo.Pos-4, fNode.NodeList.ValueInfo.Size+4,
 			dstPos, extend)
 
@@ -1186,14 +1198,14 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 
 		if !node.VirtualTableIsZero(idx) {
 			//if node.VTable[idx] > 0 {
-			node.Copy(fNode.Base,
+			node.Copy(fNode.IO,
 				fNode.Node.Pos, size,
 				node.VirtualTable(idx), 0)
 
 			return nil
 		}
 		wPos := node.insertVTable(idx, size)
-		node.Copy(fNode.Base, fNode.Node.Pos, size, wPos, 0)
+		node.Copy(fNode.IO, fNode.Node.Pos, size, wPos, 0)
 
 		node.preLoadVtable()
 		return nil
@@ -1215,7 +1227,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 			// write tlen in Vtable
 			node.InsertBuf(wPos+4, vSize+fNode.Node.Size)
 			flatbuffers.WriteUint32(node.U(wPos, 4), uint32(vSize)+4) // +2 require ?
-			node.Copy(fNode.Base, fNode.Node.Pos-vSize, fNode.Node.Size+vSize,
+			node.Copy(fNode.IO, fNode.Node.Pos-vSize, fNode.Node.Size+vSize,
 				wPos+4, fNode.Node.Size+vSize)
 			node.preLoadVtable()
 			return nil
@@ -1226,7 +1238,7 @@ func (node *CommonNode) SetFieldAt(idx int, fNode *CommonNode) error {
 			extend = 0
 		}
 		dstPos := node.Table(idx) - vSize
-		node.Copy(fNode.Base, fNode.Node.Pos-vSize, fNode.Node.Size+vSize, dstPos, extend)
+		node.Copy(fNode.IO, fNode.Node.Pos-vSize, fNode.Node.Size+vSize, dstPos, extend)
 
 		return nil
 	}
@@ -1262,7 +1274,7 @@ func (node *CommonNode) DumpTableWithVTable() string {
 
 	var b strings.Builder
 
-	vPos := node.Node.Pos - int(flatbuffers.GetUOffsetT(node.R(node.Node.Pos)))
+	vPos := node.Node.Pos - int(flatbuffers.GetUOffsetT(node.R(node.Node.Pos, Size(4))))
 	//vPos := node.Node.Pos - int(vOff)
 
 	fmt.Fprintf(&b, "Node=%s\n\tVTable{Pos:\t%d, VLen:\t\t%d, TLen:\t\t%d, \n\t\t",
@@ -1274,7 +1286,7 @@ func (node *CommonNode) DumpTableWithVTable() string {
 			continue
 		}
 		fmt.Fprintf(&b, "Off(%d):\t\t\t%d\t,  ",
-			i, flatbuffers.GetUint16(node.R(int(vPos)+4+i*2)))
+			i, flatbuffers.GetUint16(node.R(int(vPos)+4+i*2, Size(2))))
 	}
 	fmt.Fprintf(&b, "}\n\t")
 
@@ -1324,6 +1336,8 @@ func (n1 *CommonNode) Equal(n2 *CommonNode) bool {
 		return true
 	}
 
+	n1cnt := n1.CountOfField()
+	_ = n1cnt
 	for i := 0; i < n1.CountOfField(); i++ {
 		if n1.IdxToTypeGroup[i] != n2.IdxToTypeGroup[i] {
 			return false
@@ -1346,11 +1360,21 @@ func (n1 *CommonNode) Equal(n2 *CommonNode) bool {
 		f1 := n1.FieldAt(i)
 		f2 := n2.FieldAt(i)
 
-		if len(f1.R(f1.Node.Pos)) < size || len(f2.R(f2.Node.Pos)) < size {
+		// for debug
+		if f1.Node == nil || f2.Node == nil {
+			n1.FieldAt(i)
+			n2.FieldAt(i)
+		}
+
+		if len(f1.R(f1.Node.Pos)) < size {
+			f1.R(f1.Node.Pos, Size(1))
+			return false
+		}
+		if len(f2.R(f2.Node.Pos)) < size {
 			return false
 		}
 
-		if !bytes.Equal(f1.R(f1.Node.Pos)[:size], f2.R(f2.Node.Pos)[:size]) {
+		if !bytes.Equal(f1.R(f1.Node.Pos, Size(size))[:size], f2.R(f2.Node.Pos, Size(size))[:size]) {
 			return false
 		}
 	}

@@ -257,17 +257,36 @@ func MakeRootWithRecord2(key uint64, fID uint64, offset int64, size int64) []byt
 	return root.R(0)
 }
 
+func checkFlistMergeDiff(flist *query2.FileList) (int, error) {
+
+	flist2 := query2.NewFile()
+	flist2.CommonNode = flist.List().New().SelfAsCommonNode()
+	flist2.IO = DupBase(flist.IO)
+	//flist2.Impl().MergeDiffs()
+	flist2.Flatten()
+	flist.Flatten()
+	buf := flist.R(0)
+	buf2 := flist2.R(0)
+
+	for i := 0; i < len(buf); i++ {
+		if buf[i] != buf2[i] {
+			return i, errors.New("BUG: MergeDIffs()")
+		}
+	}
+	return -1, nil
+}
+
 func MakeFileList(isNolayer bool, cntOfFile int, startID, incID uint64, offsetIndex int64, nameprefix string) *query2.FileList {
 
 	flist := query2.NewFileList()
 	if isNolayer {
-		flist.Base = base.NewNoLayer(flist.Base)
+		flist.IO = base.NewNoLayer(flist.IO)
 	}
 
 	for i := 0; i < cntOfFile; i++ {
 		file := query2.NewFile()
 		if isNolayer {
-			file.Base = base.NewNoLayer(file.Base)
+			file.IO = base.NewNoLayer(file.IO)
 		}
 		file.SetId(query2.FromUint64(startID + incID*uint64(i)))
 		file.SetIndexAt(query2.FromInt64(int64(startID+incID*uint64(i)) + offsetIndex))
@@ -275,7 +294,12 @@ func MakeFileList(isNolayer bool, cntOfFile int, startID, incID uint64, offsetIn
 			base.FromByteList(
 				[]byte(
 					fmt.Sprintf("%s%x", nameprefix, startID+uint64(i)))))
+		file.Flatten()
 		flist.SetAt(i, file)
+		// enable this if you check mergediffs bug.
+		//checkFlistMergeDiff(flist)
+		flist.Impl().MergeDiffs()
+
 	}
 	return flist
 }
@@ -284,18 +308,18 @@ func MakeRecordList(isNolayer bool, cntOfFile int, startID, incID uint64, offset
 
 	list := query2.NewRecordList()
 	if isNolayer {
-		list.Base = base.NewNoLayer(list.Base)
+		list.IO = base.NewNoLayer(list.IO)
 	}
 
 	for i := 0; i < cntOfFile; i++ {
 		record := query2.NewRecord()
 
 		if isNolayer {
-			if record.Base.Impl() == nil {
+			if record.IO.Impl() == nil {
 				fmt.Printf("1 b nil  test %d \n", i)
 			}
-			record.Base = base.NewNoLayer(record.Base)
-			if record.Base.Impl() == nil {
+			record.IO = base.NewNoLayer(record.IO)
+			if record.IO.Impl() == nil {
 				fmt.Printf("2 b nil  test %d \n", i)
 			}
 		}
@@ -470,7 +494,7 @@ func Test_QueryNext(t *testing.T) {
 	// rBufInfo := root.BufInfo()
 	// r2BufInfo := root2.BufInfo()
 	// _, _ = rBufInfo, r2BufInfo
-	assert.Equal(t, len(buf), len1)
+	assert.Equal(t, len(buf2), len1)
 
 }
 
@@ -936,9 +960,9 @@ func Test_BaseCopy(t *testing.T) {
 			node := base.NewNode2(base.NewBase(buf1), 0, true)
 			node2 := base.NewNode2(base.NewBase(buf2), 0, true)
 			if tt.diffs != nil {
-				node2.Base.SetDiffs(tt.diffs)
+				node2.IO.SetDiffs(tt.diffs)
 			}
-			node.Copy(node2.Base, tt.SrcOff, tt.SrcSize, tt.DstOff, tt.Extend)
+			node.Copy(node2.IO, tt.SrcOff, tt.SrcSize, tt.DstOff, tt.Extend)
 
 			assert.Equal(t, node.R(tt.DstOff)[0], node2.R(tt.SrcOff)[0])
 			assert.Equal(t, node.R(tt.DstOff + 3)[0], node2.R(tt.SrcOff + 3)[0],
@@ -987,7 +1011,7 @@ func Test_SetFieldAt(t *testing.T) {
 
 	name := nFile.Name()
 	name.SetAt(0, query.FromByte([]byte("Z")[0]))
-	name.Base.Merge()
+	name.IO.Merge()
 	nFile.SetName(name)
 
 	assert.Equal(t, root.Index().File().Id().Uint64(), oRoot.Index().File().Id().Uint64())
@@ -1373,7 +1397,7 @@ func MakeDirectBufFileList(confs ...Config) (*base.CommonList, Defer) {
 	copy(bytes[pos:pos+headsize], cl.R(cl.NodeList.ValueInfo.Pos - 4)[:headsize])
 	bytes = bytes[: pos+headsize : pos+headsize]
 
-	root.Base = base.NewDirectReader(base.NewBase(bytes), w)
+	root.IO = base.NewDirectReader(base.NewBase(bytes), w)
 	w.Flush()
 
 	return &cl, func() {
@@ -1473,7 +1497,7 @@ func Test_CommonList(t *testing.T) {
 	copy(bytes[pos:pos+headsize], cl.R(cl.NodeList.ValueInfo.Pos - 4)[:headsize])
 	bytes = bytes[: pos+headsize : pos+headsize]
 
-	root.Base = base.NewDirectReader(base.NewBase(bytes), w)
+	root.IO = base.NewDirectReader(base.NewBase(bytes), w)
 
 	assert.True(t, uint32(6) < (*base.List)(root.Index().Hoges().Files().CommonNode).VLen())
 	// w.Flush()
@@ -1486,9 +1510,9 @@ func Test_CommonList(t *testing.T) {
 
 	flist.NodeList.ValueInfo = cl.NodeList.ValueInfo
 	lenbuf := cl.LenBuf()
-	newBytes := cl.Base.R(0)[:cl.LenBuf()]
+	newBytes := cl.IO.R(0)[:cl.LenBuf()]
 	newBytes = append(newBytes, w.Buf...)
-	flist.Base = base.NewBase(newBytes)
+	flist.IO = base.NewBase(newBytes)
 	flist.Node.Pos = cl.Node.Pos
 
 	// assert.Equal(t, 6, flist.Count())
@@ -1519,7 +1543,7 @@ func Test_Add_CommonList(t *testing.T) {
 	list, err := dst.Add(src)
 	w := list.DataWriter().(*BufWriterIO)
 	w.Flush()
-	list.Base = base.NewDirectReader(list.Base, w)
+	list.IO = base.NewDirectReader(list.IO, w)
 
 	assert.NoError(t, err)
 
@@ -1528,17 +1552,17 @@ func Test_Add_CommonList(t *testing.T) {
 
 	flist := query2.NewFileList()
 	flist.NodeList.ValueInfo = list.NodeList.ValueInfo
-	flist.Base = list.Base
+	flist.IO = list.IO
 	flist.Node.Pos = list.Node.Pos
 
 	dflist := query2.NewFileList()
 	dflist.NodeList.ValueInfo = list.NodeList.ValueInfo
-	dflist.Base = base.NewDirectReader(dst.Base, src.DataWriter().(*BufWriterIO))
+	dflist.IO = base.NewDirectReader(dst.IO, src.DataWriter().(*BufWriterIO))
 	dflist.Node.Pos = list.Node.Pos
 
 	sflist := query2.NewFileList()
 	sflist.NodeList.ValueInfo = src.NodeList.ValueInfo
-	sflist.Base = base.NewDirectReader(src.Base, src.DataWriter().(*BufWriterIO))
+	sflist.IO = base.NewDirectReader(src.IO, src.DataWriter().(*BufWriterIO))
 	sflist.Node.Pos = src.Node.Pos
 
 	file2, _ := sflist.At(10)
@@ -1551,7 +1575,7 @@ func Test_Add_CommonList(t *testing.T) {
 	assert.Equal(t, file2.Name().Bytes(), file3.Name().Bytes())
 }
 
-func DupBase(src base.Base) (dst base.Base) {
+func DupBase(src base.IO) (dst base.IO) {
 
 	dbytes := make([]byte, len(src.R(0)))
 	copy(dbytes, src.R(0))
@@ -1565,11 +1589,11 @@ func DupBase(src base.Base) (dst base.Base) {
 func Test_List_Swap(t *testing.T) {
 
 	flist := query2.NewFileList()
-	flist.Base = base.NewNoLayer(flist.Base)
+	flist.IO = base.NewNoLayer(flist.IO)
 
 	for i := 0; i < 5; i++ {
 		file := query2.NewFile()
-		file.Base = base.NewNoLayer(file.Base)
+		file.IO = base.NewNoLayer(file.IO)
 		file.SetId(query2.FromUint64(uint64(i)))
 		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
 		file.SetName(base.FromByteList([]byte("namedayo")))
@@ -1592,11 +1616,11 @@ func Test_List_Swap2(t *testing.T) {
 
 	basePrepareFileListFn := func(cnt int) interface{} {
 		flist := query2.NewFileList()
-		flist.Base = base.NewNoLayer(flist.Base)
+		flist.IO = base.NewNoLayer(flist.IO)
 
 		for i := 0; i < cnt; i++ {
 			file := query2.NewFile()
-			file.Base = base.NewNoLayer(file.Base)
+			file.IO = base.NewNoLayer(file.IO)
 			file.SetId(query2.FromUint64(uint64(i * 3)))
 			file.SetIndexAt(query2.FromInt64(2000 + int64(i*3)))
 			file.SetName(base.FromByteList([]byte("namedayo")))
@@ -1616,13 +1640,13 @@ func Test_List_Swap2(t *testing.T) {
 		if e != nil {
 			return fmt.Errorf("l.At(%d) is not found", i)
 		}
-		oi.Base = DupBase(oi.Base)
+		oi.IO = DupBase(oi.IO)
 
 		oj, e := l.At(j)
 		if e != nil {
 			return fmt.Errorf("l.At(%d) is not found", j)
 		}
-		oj.Base = DupBase(oj.Base)
+		oj.IO = DupBase(oj.IO)
 
 		l.SwapAt(i, j)
 		if !oi.CommonNode.Equal(l.AtWihoutError(j).CommonNode) {
@@ -1630,7 +1654,7 @@ func Test_List_Swap2(t *testing.T) {
 			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
 			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
 
-			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+			return fmt.Errorf("1: swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
 				i, j, i, j,
 				ob.String(), b.String(),
 			)
@@ -1641,7 +1665,7 @@ func Test_List_Swap2(t *testing.T) {
 			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
 			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
 
-			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+			return fmt.Errorf("2: swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
 				j, i, j, i,
 				b.String(),
 				ob.String(),
@@ -1664,7 +1688,7 @@ func Test_List_Swap2(t *testing.T) {
 
 	basePrepareRecordListFn := func(cnt int) interface{} {
 		list := query.NewRecordList()
-		list.Base = base.NewNoLayer(list.Base)
+		list.IO = base.NewNoLayer(list.IO)
 
 		for i := 0; i < cnt; i++ {
 
@@ -1686,21 +1710,22 @@ func Test_List_Swap2(t *testing.T) {
 		if e != nil {
 			return fmt.Errorf("l.At(%d) is not found", i)
 		}
-		oi.Base = DupBase(oi.Base)
+		oi.IO = DupBase(oi.IO)
 
 		oj, e := l.At(j)
 		if e != nil {
 			return fmt.Errorf("l.At(%d) is not found", j)
 		}
-		oj.Base = DupBase(oj.Base)
+		oj.IO = DupBase(oj.IO)
 
 		l.SwapAt(i, j)
 		if !oi.CommonNode.Equal(l.AtWihoutError(j).CommonNode) {
+			oi.CommonNode.Equal(l.AtWihoutError(j).CommonNode)
 			var ob, b strings.Builder
 			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
 			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
 
-			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+			return fmt.Errorf("1: swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
 				i, j, i, j,
 				ob.String(), b.String(),
 			)
@@ -1711,7 +1736,7 @@ func Test_List_Swap2(t *testing.T) {
 			oi.Dump(oi.Node.Pos, base.OptDumpOut(&ob))
 			l.AtWihoutError(j).Dump(l.AtWihoutError(j).Node.Pos, base.OptDumpOut(&b))
 
-			return fmt.Errorf("swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
+			return fmt.Errorf("2: swap %d %d origin(%d) != cur(%d) oriign=%s cur=%s",
 				j, i, j, i,
 				b.String(),
 				ob.String(),
@@ -1755,7 +1780,7 @@ func Test_List_Swap2(t *testing.T) {
 			prepare: func(cnt int) interface{} {
 				l := basePrepareFileListFn(cnt).(*query2.FileList)
 				file := query2.NewFile()
-				file.Base = base.NewNoLayer(file.Base)
+				file.IO = base.NewNoLayer(file.IO)
 				file.SetId(query2.FromUint64(uint64(8)))
 				file.SetIndexAt(query2.FromInt64(2000 + int64(8)))
 				file.SetName(base.FromByteList([]byte("namedayo")))
@@ -1812,11 +1837,11 @@ func Test_List_Swap2(t *testing.T) {
 func Test_List_SortBy(t *testing.T) {
 
 	flist := query2.NewFileList()
-	flist.Base = base.NewNoLayer(flist.Base)
+	flist.IO = base.NewNoLayer(flist.IO)
 
 	for i := 0; i < 5; i++ {
 		file := query2.NewFile()
-		file.Base = base.NewNoLayer(file.Base)
+		file.IO = base.NewNoLayer(file.IO)
 		file.SetId(query2.FromUint64(uint64(i)))
 		file.SetIndexAt(query2.FromInt64(2000 + int64(i)))
 		file.SetName(base.FromByteList([]byte("namedayo")))
@@ -1842,11 +1867,11 @@ func Test_List_SortBy(t *testing.T) {
 func Test_DirectList_Swap(t *testing.T) {
 
 	rlist := query2.NewRecordList()
-	rlist.Base = base.NewNoLayer(rlist.Base)
+	rlist.IO = base.NewNoLayer(rlist.IO)
 
 	for i := 0; i < 5; i++ {
 		rec := query2.NewRecord()
-		rec.Base = base.NewNoLayer(rec.Base)
+		rec.IO = base.NewNoLayer(rec.IO)
 		rec.SetFileId(query2.FromUint64(uint64(i)))
 		rec.SetOffset(query2.FromInt64(8))
 		rec.SetSize(query2.FromInt64(7))
@@ -1870,11 +1895,11 @@ func Test_DirectList_Swap(t *testing.T) {
 func Test_DirectList_Search(t *testing.T) {
 
 	rlist := query2.NewRecordList()
-	rlist.Base = base.NewNoLayer(rlist.Base)
+	rlist.IO = base.NewNoLayer(rlist.IO)
 
 	for i := 0; i < 5; i++ {
 		rec := query2.NewRecord()
-		rec.Base = base.NewNoLayer(rec.Base)
+		rec.IO = base.NewNoLayer(rec.IO)
 		rec.SetFileId(query2.FromUint64(uint64(i)))
 		rec.SetOffset(query2.FromInt64(8))
 		rec.SetSize(query2.FromInt64(7))
@@ -1906,11 +1931,11 @@ func Test_DirectList_Search(t *testing.T) {
 func Test_DirectList_SearchIndex(t *testing.T) {
 
 	rlist := query2.NewRecordList()
-	rlist.Base = base.NewNoLayer(rlist.Base)
+	rlist.IO = base.NewNoLayer(rlist.IO)
 
 	for i := 0; i < 5; i++ {
 		rec := query2.NewRecord()
-		rec.Base = base.NewNoLayer(rec.Base)
+		rec.IO = base.NewNoLayer(rec.IO)
 		rec.SetFileId(query2.FromUint64(uint64(i)))
 		rec.SetOffset(query2.FromInt64(8))
 		rec.SetSize(query2.FromInt64(7))
@@ -2071,7 +2096,7 @@ func Test_ListOfDoubleLayer(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		rec := query2.NewRecord()
-		rec.Base = base.NewDoubleLayer(rec.Base)
+		rec.IO = base.NewDoubleLayer(rec.IO)
 		rec.SetFileId(query2.FromUint64(uint64(i)))
 		rec.SetOffset(query2.FromInt64(8))
 		rec.SetSize(query2.FromInt64(7))
@@ -2117,7 +2142,9 @@ func FileIsNotInvalid(f *query.File) (bool, error) {
 func Test_ListAdd(t *testing.T) {
 
 	o := log.CurrentLogLevel
-	base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
+	//base.SetL2Current(log.LOG_DEBUG, base.FLT_IS)
+	base.SetL2Current(log.LOG_ERROR, base.FLT_IS)
+
 	defer base.SetL2Current(o, base.FLT_NORMAL)
 
 	tests := []struct {
@@ -2212,8 +2239,8 @@ func Test_ListNewOptRange(t *testing.T) {
 		offsetIndex int64
 		nameprefix  string
 	}{
-		// {"10 filelist   ", true, true, false, 10, 2, 5, 10, 10, 2000, "10files"},
-		// {"10 recordlist ", false, true, false, 10, 3, 4, 10, 10, 2000, "10files"},
+		{"10 filelist   ", true, true, false, 10, 2, 5, 10, 10, 2000, "10files"},
+		{"10 recordlist ", false, true, false, 10, 3, 4, 10, 10, 2000, "10files"},
 		{"10 filelist   ", true, true, true, 10, 2, 5, 10, 10, 2000, "10files"},
 		{"10 recordlist ", false, true, true, 10, 3, 4, 10, 10, 2000, "10files"},
 	}
