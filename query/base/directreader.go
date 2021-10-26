@@ -129,7 +129,6 @@ func (b NoLayer) D(off, size int) *Diff {
 		}
 		diff := b.Diffs[sn]
 		offDiff := off - diff.Offset
-		b.Diffs[sn].bytes = b.Diffs[sn].bytes[:offDiff+size]
 		return &Diff{Offset: off, bytes: b.Diffs[sn].bytes[offDiff : offDiff+size]}
 	}
 

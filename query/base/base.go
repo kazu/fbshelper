@@ -889,7 +889,18 @@ func (b *BaseImpl) Merge() {
 func (b *BaseImpl) MergeDiffs() {
 	b.mergeDiffs(false)
 }
+
 func (b *BaseImpl) mergeDiffs(enableRdiffs bool) {
+
+LOOP:
+	for i := 0; i < len(b.Diffs)-1; i++ {
+		if b.mergeDiffsOf(i, enableRdiffs) {
+			goto LOOP
+		}
+	}
+}
+
+func (b *BaseImpl) mergeDiffsOf(idx int, enableRdiffs bool) bool {
 
 	// if enableRdiffs {
 	// 	for i := 0; i < len(b.RDiffs); i++ {
@@ -898,24 +909,24 @@ func (b *BaseImpl) mergeDiffs(enableRdiffs bool) {
 	// }
 	deleteIdxs := map[int]bool{}
 
-	o := b.R(8)
+	//o := b.R(8)
 
-	for i := 1; i < len(b.Diffs); i++ {
-		success := b.Diffs[0].MergeStable(&b.Diffs[i])
+	for i := idx + 1; i < len(b.Diffs); i++ {
+		success := b.Diffs[idx].MergeStable(&b.Diffs[i])
 		if success {
 			deleteIdxs[i] = true
 		}
 	}
 	if len(deleteIdxs) == 0 {
-		return
+		return false
 	}
 	loncha.Delete(&b.Diffs, func(i int) bool {
 		return deleteIdxs[i]
 	})
-	a := b.R(8)
-	_, _ = a, o
+	//a := b.R(8)
+	//_, _ = a, o
 
-	return
+	return true
 
 }
 
@@ -1047,9 +1058,11 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) IO {
 	}
 
 	if len(newBase.bytes) > pos {
-		newBase.Diffs = append(newBase.Diffs,
-			Diff{Offset: pos + size, bytes: newBase.bytes[pos:]})
-		newBase.bytes = newBase.bytes[:pos]
+		newBase.Diffs = append(
+			append(make([]Diff, 0, len(newBase.Diffs)),
+				Diff{Offset: pos + size, bytes: newBase.bytes[pos:]}),
+			newBase.Diffs...)
+		newBase.bytes = newBase.bytes[:pos:pos]
 	}
 	if isCreate {
 		newBase.Diffs = append(newBase.Diffs,
