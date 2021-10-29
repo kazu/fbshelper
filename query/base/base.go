@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 	"sort"
 	"strings"
 
@@ -661,7 +660,7 @@ func (b *BaseImpl) Copy(src IO, srcOff, size, dstOff, extend int) {
 
 	if len(b.bytes) > dstOff {
 		diff := Diff{Offset: dstOff, bytes: b.bytes[dstOff:]}
-		b.Diffs = append([]Diff{diff}, b.Diffs...)
+		b.Diffs, _ = Diffs(b.Diffs).insert(0, diff)
 	}
 
 	for i, diff := range b.Diffs {
@@ -715,8 +714,7 @@ func (b *BaseImpl) D(off, size int) *Diff {
 		diffafter := Diff{Offset: off + size, bytes: diffbefore.bytes[off-diffbefore.Offset+size:]}
 		diffbefore.bytes = diffbefore.bytes[:off+size-diffbefore.Offset]
 		b.Diffs[sn] = diffbefore
-		b.Diffs = append(b.Diffs[:sn+1],
-			append([]Diff{diffafter}, b.Diffs[sn+1:]...)...)
+		b.Diffs, _ = Diffs(b.Diffs).insert(sn+1, diffafter)
 		b.Diffs = append(b.Diffs, diff)
 		return &b.Diffs[len(b.Diffs)-1]
 	}
@@ -1043,11 +1041,10 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) IO {
 	for i, diff := range newBase.Diffs {
 		//if diff.Offset < pos && diff.Offset+len(diff.bytes) > pos {
 		if diff.Offset < pos && diff.Include(pos) {
-			newBase.Diffs = append(newBase.Diffs[:i],
-				append([]Diff{
-					Diff{Offset: diff.Offset, bytes: diff.bytes[: pos-diff.Offset : pos-diff.Offset]},
-					Diff{Offset: pos, bytes: diff.bytes[pos-diff.Offset:]}},
-					b.Diffs[i+1:]...)...)
+			newBase.Diffs, _ = Diffs(newBase.Diffs).insert(i,
+				Diff{Offset: diff.Offset, bytes: diff.bytes[: pos-diff.Offset : pos-diff.Offset]},
+				Diff{Offset: pos, bytes: diff.bytes[pos-diff.Offset:]})
+
 		}
 	}
 
@@ -1058,10 +1055,9 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) IO {
 	}
 
 	if len(newBase.bytes) > pos {
-		newBase.Diffs = append(
-			append(make([]Diff, 0, len(newBase.Diffs)),
-				Diff{Offset: pos + size, bytes: newBase.bytes[pos:]}),
-			newBase.Diffs...)
+		newBase.Diffs, _ = Diffs(newBase.Diffs).insert(0,
+			Diff{Offset: pos + size, bytes: newBase.bytes[pos:]})
+
 		newBase.bytes = newBase.bytes[:pos:pos]
 	}
 	if isCreate {
@@ -1147,22 +1143,9 @@ SETUP_DIFF:
 	return nil
 }
 
-func (b *BaseImpl) moveLastInDiff(idx int) error {
-
-	if len(b.Diffs)-1 == idx {
-		return nil
-	}
-	if len(b.Diffs) <= idx {
-		return errors.New("moveDiff invalid idx")
-	}
-
-	swapFn := reflect.Swapper(b.Diffs)
-
-	for i := idx; i < len(b.Diffs)-1; i++ {
-		swapFn(i, i+1)
-	}
-
-	return nil
+func (b *BaseImpl) moveLastInDiff(idx int) (e error) {
+	b.Diffs, e = Diffs(b.Diffs).moveLast(idx)
+	return
 }
 
 func (b *BaseImpl) findByIndexResult(diffs []Diff, n int, err error) (diff *Diff) {
@@ -1222,6 +1205,53 @@ func (diffs Diffs) minOffset(fn func(i int) bool) (off int) {
 	}
 
 	return off
+}
+
+func (diffs Diffs) moveLast(idx int) (Diffs, error) {
+
+	if len(diffs)-1 == idx {
+		return diffs, nil
+	}
+	l := len(diffs)
+	if l <= idx {
+		return diffs, errors.New("moveDiff invalid idx")
+	}
+
+	// swapFn := reflect.Swapper(diffs)
+
+	// for i := idx; i < len(diffs)-1; i++ {
+	// 	swapFn(i, i+1)
+	// }
+
+	// return diffs, nil
+	diff := diffs[idx]
+
+	copy(diffs[idx:], diffs[idx+1:])
+	if len(diffs) < l {
+		diffs = diffs[:l]
+	}
+	diffs[l-1] = diff
+
+	return diffs, nil
+
+}
+
+func (diffs Diffs) insert(idx int, adiffs ...Diff) (Diffs, error) {
+
+	if idx < 0 || idx >= len(diffs) {
+		return diffs, errors.New("moveDiff invalid idx")
+	}
+
+	// return nDiffs, nil
+	var nDiffs []Diff
+	if cap(diffs) < len(diffs)+len(adiffs) {
+		nDiffs = make([]Diff, len(diffs)+len(adiffs), MaxInt(len(diffs)+len(adiffs), len(diffs)*2))
+		copy(nDiffs, diffs[:idx])
+	}
+	copy(nDiffs[idx+len(adiffs):], diffs[idx:])
+	copy(nDiffs[idx:], adiffs)
+
+	return nDiffs, nil
 }
 
 func (b *BaseImpl) AddRDiff(diff Diff) error {
