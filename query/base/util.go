@@ -363,7 +363,7 @@ func SetRootName(s string) {
 	}
 }
 
-// MaxInt ... return maxinum value from two values
+// MaxInt ... return maxinum value from values
 func MaxInt(vals ...int) (r int) {
 	r = vals[0]
 
@@ -375,6 +375,7 @@ func MaxInt(vals ...int) (r int) {
 	return
 }
 
+// MinInt ... return minimum value from values
 func MinInt(vals ...int) (r int) {
 	r = vals[0]
 
