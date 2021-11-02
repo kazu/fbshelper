@@ -1054,13 +1054,13 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) IO {
 
 	copy(newBase.Diffs, b.Diffs)
 
-	for i, diff := range newBase.Diffs {
+	for i, diff := range b.Diffs {
 		//if diff.Offset < pos && diff.Offset+len(diff.bytes) > pos {
 		if diff.Offset < pos && diff.Include(pos) {
-			newBase.Diffs, _ = Diffs(newBase.Diffs).insert(i,
+			// MENTION: remove old diff ?
+			newBase.Diffs, _ = Diffs(newBase.Diffs).insert(i+1,
 				Diff{Offset: diff.Offset, bytes: diff.bytes[: pos-diff.Offset : pos-diff.Offset]},
 				Diff{Offset: pos, bytes: diff.bytes[pos-diff.Offset:]})
-
 		}
 	}
 
