@@ -675,7 +675,11 @@ func (list *List) addTableList(alists ...*List) error {
 		return fmt.Errorf("addTableList(): cannot found first element m=%s", e)
 	}
 
-	aDataEnd := alastElm.Node.Pos + alist.NodeList.ValueInfo.Size
+	alastElm.Node.Size = alastElm.Info().Size
+	aDataEnd2 := alastElm.Node.Pos + alastElm.Node.Size
+	aDataEnd := alist.NodeList.ValueInfo.Pos + alist.NodeList.ValueInfo.Size
+	_ = aDataEnd2
+
 	aVlen := int(alist.NodeList.VLen)
 	aSizeOfHeader := alist.Count() * 4
 

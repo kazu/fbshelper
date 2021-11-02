@@ -195,6 +195,22 @@ func NewDiff(o int, data []byte) Diff {
 	return Diff{Offset: o, bytes: data}
 }
 
+func (d Diff) len() int {
+	return len(d.bytes)
+}
+
+func (d Diff) cap() int {
+	return cap(d.bytes)
+}
+
+func (d Diff) last() int {
+	return d.Offset + d.len() - 1
+}
+
+func (d Diff) start() int {
+	return d.Offset
+}
+
 // Include .. check pos with diff range.
 func (d Diff) Include(pos int) bool {
 	return d.Offset <= pos && pos <= d.Offset+len(d.bytes)-1
@@ -1055,9 +1071,8 @@ func (b *BaseImpl) insertSpace(pos, size int, isCreate bool) IO {
 	}
 
 	if len(newBase.bytes) > pos {
-		newBase.Diffs, _ = Diffs(newBase.Diffs).insert(0,
-			Diff{Offset: pos + size, bytes: newBase.bytes[pos:]})
-
+		nDiff := Diff{Offset: pos + size, bytes: newBase.bytes[pos:]}
+		newBase.Diffs, _ = Diffs(newBase.Diffs).insert(0, nDiff)
 		newBase.bytes = newBase.bytes[:pos:pos]
 	}
 	if isCreate {
@@ -1238,7 +1253,8 @@ func (diffs Diffs) moveLast(idx int) (Diffs, error) {
 
 func (diffs Diffs) insert(idx int, adiffs ...Diff) (Diffs, error) {
 
-	if idx < 0 || idx >= len(diffs) {
+	if idx < 0 || idx > len(diffs) {
+		//if idx < 0 || idx >= len(diffs) {
 		return diffs, errors.New("moveDiff invalid idx")
 	}
 
@@ -1247,6 +1263,8 @@ func (diffs Diffs) insert(idx int, adiffs ...Diff) (Diffs, error) {
 	if cap(diffs) < len(diffs)+len(adiffs) {
 		nDiffs = make([]Diff, len(diffs)+len(adiffs), MaxInt(len(diffs)+len(adiffs), len(diffs)*2))
 		copy(nDiffs, diffs[:idx])
+	} else {
+		nDiffs = diffs[:len(diffs)+len(adiffs)]
 	}
 	copy(nDiffs[idx+len(adiffs):], diffs[idx:])
 	copy(nDiffs[idx:], adiffs)
